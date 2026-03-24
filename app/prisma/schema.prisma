@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ClientType {
+  BUSINESS
+  RESIDENTIAL
+}
+
+enum AssetStatus {
+  ACTIVE
+  RETIRING
+  SUNSET
+}
+
+enum AssetCategory {
+  NETWORK_GEAR
+  WIRELESS
+  SERVER
+  NAS
+  COMPUTER
+  LAPTOP
+  TABLET
+  PRINTER
+  PHONE_SYSTEM
+  PHONE_ENDPOINT
+  WEBSITE
+  VPN
+  OTHER
+}
+
+enum LocationRelation {
+  PRIMARY
+  OCCASIONAL
+  REMOTE
+}
+
+enum AlarmSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlarmStatus {
+  ACTIVE
+  DISMISSED
+  RESOLVED
+}
+
+enum ActivityEventType {
+  ASSET_ADDED
+  ASSET_RETIRED
+  ASSET_UPDATED
+  CREDENTIAL_ROTATED
+  LICENSE_CHANGED
+  USER_ADDED
+  USER_REMOVED
+  ALARM_TRIGGERED
+  TECH_NOTE
+  SITE_VISIT
+  KNOWN_ISSUE
+  PLANNED_MAINTENANCE
+  API_SYNC
+}
+
+enum UserRole {
+  ADMIN
+  TECH
+  CLIENT
+}
+
+model StaffUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  role         UserRole  @default(TECH)
+  microsoftId  String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  activityEvents ActivityEvent[]
+}
+
+model Client {
+  id        String     @id @default(cuid())
+  name      String
+  type      ClientType @default(BUSINESS)
+  syncroId  String?    @unique
+  notes     String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  locations      Location[]
+  users          ClientUser[]
+  credentials    Credential[]
+  licenses       License[]
+  applications   Application[]
+  contacts       Contact[]
+  alarms         Alarm[]
+  activityEvents ActivityEvent[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  ispName   String?
+  wanIp     String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client        Client         @relation(fields: [clientId], references: [id])
+  assets        Asset[]
+  userLocations UserLocation[]
+}
+
+model ClientUser {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  email     String?
+  phone     String?
+  m365Upn   String?
+  jobTitle  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client        Client         @relation(fields: [clientId], references: [id])
+  userLocations UserLocation[]
+  assets        Asset[]        @relation("AssetPrimaryUser")
+}
+
+model UserLocation {
+  id         String           @id @default(cuid())
+  userId     String
+  locationId String
+  relation   LocationRelation @default(PRIMARY)
+
+  user     ClientUser @relation(fields: [userId], references: [id])
+  location Location   @relation(fields: [locationId], references: [id])
+
+  @@unique([userId, locationId])
+}
+
+model Asset {
+  id             String        @id @default(cuid())
+  locationId     String
+  primaryUserId  String?
+  category       AssetCategory
+  status         AssetStatus   @default(ACTIVE)
+  name           String
+  make           String?
+  model          String?
+  serial         String?
+  assetTag       String?
+  ipAddress      String?
+  macAddress     String?
+  vlan           String?
+  switchPort     String?
+  managementUrl  String?
+  purchaseDate   DateTime?
+  warrantyExpiry DateTime?
+  room           String?
+  syncroAssetId  String?       @unique
+  notes          String?
+  successorId    String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  location      Location      @relation(fields: [locationId], references: [id])
+  primaryUser   ClientUser?   @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
+  credentials   Credential[]
+  exitInterview ExitInterview?
+  successor     Asset?        @relation("AssetSuccessor", fields: [successorId], references: [id])
+  predecessor   Asset?        @relation("AssetSuccessor")
+}
+
+model ExitInterview {
+  id        String   @id @default(cuid())
+  assetId   String   @unique
+  reason    String
+  retiredBy String
+  retiredAt DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id])
+}
+
+model Credential {
+  id                String    @id @default(cuid())
+  clientId          String
+  assetId           String?
+  label             String
+  username          String?
+  encryptedPassword String
+  url               String?
+  notes             String?
+  isRetired         Boolean   @default(false)
+  lastRotated       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  client Client  @relation(fields: [clientId], references: [id])
+  asset  Asset?  @relation(fields: [assetId], references: [id])
+}
+
+model License {
+  id          String    @id @default(cuid())
+  clientId    String
+  name        String
+  vendor      String?
+  seats       Int?
+  expiryDate  DateTime?
+  renewalDate DateTime?
+  cost        Float?
+  pax8Id      String?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model Application {
+  id         String   @id @default(cuid())
+  clientId   String
+  name       String
+  vendor     String?
+  version    String?
+  supportUrl String?
+  notes      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model Contact {
+  id           String   @id @default(cuid())
+  clientId     String
+  name         String
+  role         String?
+  email        String?
+  phone        String?
+  isPrimary    Boolean  @default(false)
+  isBilling    Boolean  @default(false)
+  isEscalation Boolean  @default(false)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model Alarm {
+  id              String        @id @default(cuid())
+  clientId        String
+  severity        AlarmSeverity @default(INFO)
+  status          AlarmStatus   @default(ACTIVE)
+  type            String
+  message         String
+  details         String?
+  visibleToClient Boolean       @default(false)
+  dismissedAt     DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model ActivityEvent {
+  id              String            @id @default(cuid())
+  clientId        String
+  staffUserId     String?
+  eventType       ActivityEventType
+  title           String
+  body            String?
+  isPinned        Boolean           @default(false)
+  visibleToClient Boolean           @default(false)
+  dismissedAt     DateTime?
+  createdAt       DateTime          @default(now())
+
+  client    Client     @relation(fields: [clientId], references: [id])
+  staffUser StaffUser? @relation(fields: [staffUserId], references: [id])
+}
