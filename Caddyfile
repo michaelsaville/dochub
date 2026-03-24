@@ -1,0 +1,3 @@
+dochub.pcc2k.com {
+    reverse_proxy app:3000
+}

@@ -1,0 +1,18 @@
+# Dependencies
+app/node_modules/
+
+# Next.js build output
+app/.next/
+
+# Environment files - never commit these
+.env
+.env.local
+app/.env
+app/.env.local
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
