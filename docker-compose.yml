@@ -20,8 +20,6 @@ services:
       - db
 
   db:
-    ports:
-      - "5432:5432"
     image: postgres:16-alpine
     restart: unless-stopped
     env_file: .env
