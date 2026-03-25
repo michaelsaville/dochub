@@ -1,42 +1,41 @@
 "use client"
 
-import { useSession, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import AppShell from "@/components/AppShell"
+import { useSession } from "next-auth/react"
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/login")
-  }, [status, router])
-
-  if (status === "loading") return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-500">Loading...</p>
-    </div>
-  )
+  const { data: session } = useSession()
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">DocHub</h1>
-            <p className="text-gray-500 mt-1">Welcome, {session?.user?.name}</p>
-          </div>
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            Sign out
-          </button>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-gray-500">Dashboard coming soon.</p>
+    <AppShell>
+      <div style={{ padding: "32px" }}>
+        <h1 style={{ fontSize: "22px", fontWeight: 500, marginBottom: "4px" }}>
+          Dashboard
+        </h1>
+        <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "32px" }}>
+          Welcome back, {session?.user?.name}
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", maxWidth: "800px" }}>
+          {[
+            { label: "Clients", value: "—" },
+            { label: "Active assets", value: "—" },
+            { label: "Open alarms", value: "—" },
+            { label: "Licenses expiring", value: "—" },
+          ].map((card) => (
+            <div key={card.label} style={{
+              background: "var(--color-background-secondary)",
+              borderRadius: "10px",
+              padding: "16px",
+            }}>
+              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "6px" }}>
+                {card.label}
+              </div>
+              <div style={{ fontSize: "24px", fontWeight: 500 }}>{card.value}</div>
+            </div>
+          ))}
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }
