@@ -15,19 +15,23 @@ const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
     AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
     }),
   ],
   callbacks: {
     async signIn({ user }) {
       console.log("SIGNIN ATTEMPT:", user.email)
+      if (!user.email) return false
       try {
         const allowed = await prisma.staffUser.findUnique({
           where: { email: user.email },
         })
-        console.log("STAFFUSER LOOKUP:", JSON.stringify(allowed))
-        return https://github.com/michaelsaville/dochub/blob/master/app/app/api/auth/%5B...nextauth%5D/route.tsallowed
+        console.log("STAFFUSER RESULT:", JSON.stringify(allowed))
+        return !!allowed
       } catch (e) {
-        console.error("STAFFUSER ERROR:", e)
+        console.error("STAFFUSER ERROR:", String(e))
         return false
       }
     },
@@ -41,7 +45,7 @@ const handler = NextAuth({
             session.user.id = staffUser.id
           }
         } catch (e) {
-          console.error("SESSION ERROR:", e)
+          console.error("SESSION ERROR:", String(e))
         }
       }
       return session
