@@ -17,33 +17,90 @@ type Client = {
   contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null }[]
 }
 
+type Asset = {
+  id: string
+  name: string
+  category: string
+  make: string | null
+  model: string | null
+  serial: string | null
+  macAddress: string | null
+  status: string
+  managementUrl: string | null
+  warrantyExpiry: string | null
+  notes: string | null
+}
+
 const tabs = ["Overview", "Locations", "Users", "Assets", "Credentials", "Licenses", "Activity"]
+
+const categoryLabel: Record<string, string> = {
+  COMPUTER: "Desktop",
+  LAPTOP: "Laptop",
+  SERVER: "Server",
+  NAS: "NAS",
+  NETWORK_GEAR: "Network",
+  WIRELESS: "Wireless",
+  PRINTER: "Printer",
+  TABLET: "Tablet",
+  PHONE_SYSTEM: "Phone System",
+  PHONE_ENDPOINT: "Phone",
+  WEBSITE: "Website",
+  VPN: "VPN",
+  OTHER: "Other",
+}
+
+const statusColor: Record<string, string> = {
+  ACTIVE: "#22c55e",
+  RETIRING: "#f59e0b",
+  SUNSET: "#94a3b8",
+}
 
 export default function ClientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const [client, setClient] = useState<Client | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loadingClient, setLoadingClient] = useState(true)
+  const [loadingAssets, setLoadingAssets] = useState(false)
   const [activeTab, setActiveTab] = useState("Overview")
 
   useEffect(() => {
     if (id) fetchClient()
   }, [id])
 
+  useEffect(() => {
+    if (activeTab === "Assets" && assets.length === 0) fetchAssets()
+  }, [activeTab])
+
   async function fetchClient() {
     try {
       const res = await fetch("/api/clients/" + id)
       if (!res.ok) { router.push("/clients"); return }
-      const data = await res.json()
-      setClient(data)
-    } catch (e) {
-      router.push("/clients")
-    } finally {
-      setLoading(false)
-    }
+      setClient(await res.json())
+    } catch { router.push("/clients") }
+    finally { setLoadingClient(false) }
   }
 
-  if (loading) return (
+  async function fetchAssets() {
+    setLoadingAssets(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/assets`)
+      setAssets(await res.json())
+    } catch {}
+    finally { setLoadingAssets(false) }
+  }
+
+  // Group assets by category
+  const assetsByCategory = assets.reduce((acc, asset) => {
+    const cat = asset.category
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(asset)
+    return acc
+  }, {} as Record<string, Asset[]>)
+
+  const categoryOrder = ["NETWORK_GEAR", "WIRELESS", "SERVER", "NAS", "COMPUTER", "LAPTOP", "TABLET", "PRINTER", "PHONE_SYSTEM", "PHONE_ENDPOINT", "WEBSITE", "VPN", "OTHER"]
+
+  if (loadingClient) return (
     <AppShell>
       <div style={{ padding: "32px", color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
     </AppShell>
@@ -55,12 +112,7 @@ export default function ClientDetailPage() {
     <AppShell>
       <div style={{ padding: "32px" }}>
         <div style={{ marginBottom: "4px" }}>
-          <span
-            onClick={() => router.push("/clients")}
-            style={{ fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}
-          >
-            Clients
-          </span>
+          <span onClick={() => router.push("/clients")} style={{ fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}>Clients</span>
           <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}> / </span>
           <span style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{client.name}</span>
         </div>
@@ -79,19 +131,14 @@ export default function ClientDetailPage() {
 
         <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
           {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                fontSize: "14px", padding: "8px 14px",
-                background: "none", border: "none", cursor: "pointer",
-                color: activeTab === tab ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                fontWeight: activeTab === tab ? 500 : 400,
-                borderBottom: activeTab === tab ? "2px solid var(--color-text-primary)" : "2px solid transparent",
-                marginBottom: "-0.5px",
-              }}
-            >
-              {tab}
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              fontSize: "14px", padding: "8px 14px", background: "none", border: "none", cursor: "pointer",
+              color: activeTab === tab ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+              fontWeight: activeTab === tab ? 500 : 400,
+              borderBottom: activeTab === tab ? "2px solid var(--color-text-primary)" : "2px solid transparent",
+              marginBottom: "-0.5px",
+            }}>
+              {tab}{tab === "Assets" && assets.length > 0 ? ` (${assets.length})` : ""}
             </button>
           ))}
         </div>
@@ -103,9 +150,7 @@ export default function ClientDetailPage() {
               border: "0.5px solid var(--color-border-tertiary)",
               borderRadius: "10px", padding: "20px", marginBottom: "16px",
             }}>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>
-                Details
-              </div>
+              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>Details</div>
               {[
                 { label: "Type", value: client.type === "BUSINESS" ? "Business" : "Residential" },
                 { label: "Syncro ID", value: client.syncroId ?? "Not linked" },
@@ -115,11 +160,10 @@ export default function ClientDetailPage() {
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
                   <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{label}</span>
-                  <span style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{value}</span>
+                  <span style={{ fontSize: "13px" }}>{value}</span>
                 </div>
               ))}
             </div>
-
             {client.notes && (
               <div style={{
                 background: "var(--color-background-secondary)",
@@ -127,7 +171,7 @@ export default function ClientDetailPage() {
                 borderRadius: "10px", padding: "20px",
               }}>
                 <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px" }}>Notes</div>
-                <div style={{ fontSize: "14px", color: "var(--color-text-primary)", lineHeight: "1.6" }}>{client.notes}</div>
+                <div style={{ fontSize: "14px", lineHeight: "1.6" }}>{client.notes}</div>
               </div>
             )}
           </div>
@@ -175,10 +219,70 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {["Assets", "Credentials", "Licenses", "Activity"].includes(activeTab) && (
-          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
-            {activeTab} coming soon.
+        {activeTab === "Assets" && (
+          <div style={{ maxWidth: "900px" }}>
+            {loadingAssets ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading assets...</div>
+            ) : assets.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No assets found.</div>
+            ) : (
+              categoryOrder
+                .filter(cat => assetsByCategory[cat])
+                .map(cat => (
+                  <div key={cat} style={{ marginBottom: "24px" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {categoryLabel[cat] ?? cat} ({assetsByCategory[cat].length})
+                    </div>
+                    <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                      <div style={{
+                        display: "grid", gridTemplateColumns: "1fr 160px 120px 100px 80px",
+                        padding: "8px 16px", background: "var(--color-background-secondary)",
+                        borderBottom: "0.5px solid var(--color-border-tertiary)",
+                      }}>
+                        {["Name", "Make / Model", "Serial", "MAC", "Status"].map(h => (
+                          <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
+                        ))}
+                      </div>
+                      {assetsByCategory[cat].map((asset, i) => (
+                        <div key={asset.id} style={{
+                          display: "grid", gridTemplateColumns: "1fr 160px 120px 100px 80px",
+                          padding: "10px 16px", background: "var(--color-background-primary)",
+                          borderBottom: i < assetsByCategory[cat].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                          cursor: "pointer",
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
+                        >
+                          <div>
+                            <div style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</div>
+                            {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
+                          </div>
+                          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                            {[asset.make, asset.model].filter(Boolean).join(" ") || "—"}
+                          </div>
+                          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>
+                            {asset.serial || "—"}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>
+                            {asset.macAddress || "—"}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", flexShrink: 0 }} />
+                            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                              {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
+        )}
+
+        {["Credentials", "Licenses", "Activity"].includes(activeTab) && (
+          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>{activeTab} coming soon.</div>
         )}
       </div>
     </AppShell>
