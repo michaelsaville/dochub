@@ -31,7 +31,7 @@ type Asset = {
   notes: string | null
 }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Credentials", "Licenses", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
