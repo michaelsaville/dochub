@@ -16,6 +16,8 @@ services:
     image: ghcr.io/michaelsaville/dochub:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://dochub:changeme_before_production@db:5432/dochub
     depends_on:
       - db
 
@@ -31,7 +33,8 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /home/michael/.docker/config.json:/config.json
+    environment:
+      - DOCKER_API_VERSION=1.41
     command: --interval 30 --cleanup
 
 volumes:
