@@ -1,6 +1,5 @@
 import NextAuth from "next-auth"
 import AzureADProvider from "next-auth/providers/azure-ad"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import { PrismaClient } from "@prisma/client"
 
 const globalForPrisma = globalThis as unknown as {
@@ -12,7 +11,6 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient()
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
 
 const handler = NextAuth({
-  adapter: PrismaAdapter(prisma),
   providers: [
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
@@ -20,6 +18,9 @@ const handler = NextAuth({
       tenantId: process.env.AZURE_AD_TENANT_ID!,
     }),
   ],
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async signIn({ user }) {
       console.log("SIGNIN ATTEMPT:", user.email)
@@ -35,18 +36,26 @@ const handler = NextAuth({
         return false
       }
     },
-    async session({ session, user }) {
-      if (session.user) {
+    async jwt({ token, user }) {
+      if (user?.email) {
         try {
           const staffUser = await prisma.staffUser.findUnique({
-            where: { email: session.user.email! },
+            where: { email: user.email },
           })
           if (staffUser) {
-            session.user.id = staffUser.id
+            token.id = staffUser.id
+            token.role = staffUser.role
           }
         } catch (e) {
-          console.error("SESSION ERROR:", String(e))
+          console.error("JWT ERROR:", String(e))
         }
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.role = token.role as string
       }
       return session
     },
