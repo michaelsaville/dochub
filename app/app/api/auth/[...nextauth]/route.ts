@@ -23,16 +23,13 @@ const handler = NextAuth({
   },
   callbacks: {
     async signIn({ user }) {
-      console.log("SIGNIN ATTEMPT:", user.email)
       if (!user.email) return false
       try {
         const allowed = await prisma.staffUser.findUnique({
           where: { email: user.email },
         })
-        console.log("STAFFUSER RESULT:", JSON.stringify(allowed))
         return !!allowed
       } catch (e) {
-        console.error("STAFFUSER ERROR:", String(e))
         return false
       }
     },
