@@ -125,10 +125,48 @@ export async function POST() {
       }
     }
 
+    // Step 3 — sync contacts
+    const contacts = await fetchAllPages("/contacts")
+    let contactCount = 0
+    for (const c of contacts) {
+      try {
+        const client = await prisma.client.findUnique({
+          where: { syncroId: String(c.customer_id) },
+        })
+        if (!client) continue
+        await prisma.contact.upsert({
+          where: { syncroContactId: String(c.id) },
+          update: {
+            name: c.name || "Unknown",
+            role: c.properties?.title || null,
+            email: c.email || null,
+            phone: c.processed_phone || c.phone || null,
+            mobile: c.mobile || null,
+            notes: c.notes || null,
+            updatedAt: new Date(),
+          },
+          create: {
+            clientId: client.id,
+            syncroContactId: String(c.id),
+            name: c.name || "Unknown",
+            role: c.properties?.title || null,
+            email: c.email || null,
+            phone: c.processed_phone || c.phone || null,
+            mobile: c.mobile || null,
+            notes: c.notes || null,
+          },
+        })
+        contactCount++
+      } catch (e: any) {
+        results.errors.push(`Contact ${c.id}: ${e.message}`)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       clients: results.clients,
       assets: results.assets,
+      contacts: contactCount,
       errors: results.errors.slice(0, 20),
     })
   } catch (e: any) {

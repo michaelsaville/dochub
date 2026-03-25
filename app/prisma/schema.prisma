@@ -254,13 +254,15 @@ model Application {
 }
 
 model Contact {
-  id           String   @id @default(cuid())
-  clientId     String
-  name         String
-  role         String?
-  email        String?
-  phone        String?
-  isPrimary    Boolean  @default(false)
+  id              String   @id @default(cuid())
+  clientId        String
+  syncroContactId String?  @unique
+  name            String
+  role            String?
+  email           String?
+  phone           String?
+  mobile          String?
+  isPrimary       Boolean  @default(false)
   isBilling    Boolean  @default(false)
   isEscalation Boolean  @default(false)
   notes        String?

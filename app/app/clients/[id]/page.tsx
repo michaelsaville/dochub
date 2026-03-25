@@ -14,7 +14,7 @@ type Client = {
   createdAt: string
   locations: { id: string; name: string; address: string | null; city: string | null; state: string | null }[]
   users: { id: string; name: string; email: string | null; jobTitle: string | null }[]
-  contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null }[]
+  contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null; mobile: string | null; notes: string | null }[]
 }
 
 type Asset = {
@@ -279,6 +279,58 @@ export default function ClientDetailPage() {
                   </div>
                 ))
             )}
+          </div>
+        )}
+
+        {activeTab === "Contacts" && (
+          <div style={{ maxWidth: "700px" }}>
+            {client.contacts.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No contacts yet.</div>
+            ) : client.contacts.map((contact) => (
+              <div key={contact.id} style={{
+                background: "var(--color-background-secondary)",
+                border: "0.5px solid var(--color-border-tertiary)",
+                borderRadius: "10px", padding: "16px", marginBottom: "10px",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 500 }}>{contact.name}</div>
+                    {contact.role && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.role}</div>}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {contact.email && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{contact.email}</div>}
+                    {contact.phone && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.phone}</div>}
+                  </div>
+                </div>
+                {contact.notes && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{contact.notes}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "Contacts" && (
+          <div style={{ maxWidth: "700px" }}>
+            {client.contacts.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No contacts yet.</div>
+            ) : client.contacts.map((contact) => (
+              <div key={contact.id} style={{
+                background: "var(--color-background-secondary)",
+                border: "0.5px solid var(--color-border-tertiary)",
+                borderRadius: "10px", padding: "16px", marginBottom: "10px",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 500 }}>{contact.name}</div>
+                    {contact.role && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.role}</div>}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {contact.email && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{contact.email}</div>}
+                    {contact.phone && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.phone}</div>}
+                  </div>
+                </div>
+                {contact.notes && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{contact.notes}</div>}
+              </div>
+            ))}
           </div>
         )}
 
