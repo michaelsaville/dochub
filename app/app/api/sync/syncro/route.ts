@@ -87,6 +87,8 @@ export async function POST() {
         const warrantyRaw = p.warranty_end_date
         const warrantyExpiry = warrantyRaw && !warrantyRaw.includes("Team plan")
           ? new Date(warrantyRaw) : null
+        const splashtopUuid = p.syncro_splashtop_uuid || p["Splashtop UUID"] || null
+        const splashtopUrl = splashtopUuid ? `splashtop://launch?uuid=${splashtopUuid}` : null
 
         await prisma.asset.upsert({
           where: { syncroAssetId: String(a.id) },
@@ -97,6 +99,7 @@ export async function POST() {
             serial: a.asset_serial || null,
             macAddress: mac,
             managementUrl: a.external_rmm_link || null,
+            splashtopUrl,
             warrantyExpiry,
             notes: p.notes || null,
             updatedAt: new Date(),
@@ -111,6 +114,7 @@ export async function POST() {
             serial: a.asset_serial || null,
             macAddress: mac,
             managementUrl: a.external_rmm_link || null,
+            splashtopUrl,
             warrantyExpiry,
             notes: p.notes || null,
           },
