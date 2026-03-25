@@ -250,6 +250,7 @@ export default function ClientDetailPage() {
                           borderBottom: i < assetsByCategory[cat].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                           cursor: "pointer",
                         }}
+                          onClick={() => router.push("/assets/" + asset.id)}
                           onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
                         >

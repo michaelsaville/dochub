@@ -172,6 +172,7 @@ model Asset {
   vlan           String?
   switchPort     String?
   managementUrl  String?
+  splashtopUrl   String?
   purchaseDate   DateTime?
   warrantyExpiry DateTime?
   room           String?
