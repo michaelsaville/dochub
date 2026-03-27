@@ -69,6 +69,14 @@ export default function ClientDetailPage() {
   const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
+  const [editingClient, setEditingClient] = useState(false)
+  const [clientForm, setClientForm] = useState({ name: "", type: "BUSINESS", notes: "" })
+  const [savingClient, setSavingClient] = useState(false)
+  const [editingLocation, setEditingLocation] = useState<string | null>(null)
+  const [locationForm, setLocationForm] = useState({ name: "", address: "", city: "", state: "", zip: "", ispName: "", wanIp: "", notes: "" })
+  const [showAddLocation, setShowAddLocation] = useState(false)
+  const [addLocationForm, setAddLocationForm] = useState({ name: "", address: "", city: "", state: "", zip: "" })
+  const [savingLocation, setSavingLocation] = useState(false)
 
   useEffect(() => {
     if (id) fetchClient()
@@ -86,6 +94,58 @@ export default function ClientDetailPage() {
       setClient(await res.json())
     } catch { router.push("/clients") }
     finally { setLoadingClient(false) }
+  }
+
+  async function saveClient() {
+    setSavingClient(true)
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(clientForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setClient(c => c ? { ...c, name: updated.name, type: updated.type, notes: updated.notes } : c)
+        setEditingClient(false)
+      }
+    } catch {}
+    finally { setSavingClient(false) }
+  }
+
+  async function saveLocation(locationId: string) {
+    setSavingLocation(true)
+    try {
+      const res = await fetch(`/api/locations/${locationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(locationForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setClient(c => c ? { ...c, locations: c.locations.map(l => l.id === locationId ? { ...l, ...updated } : l) } : c)
+        setEditingLocation(null)
+      }
+    } catch {}
+    finally { setSavingLocation(false) }
+  }
+
+  async function addLocation() {
+    setSavingLocation(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/locations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addLocationForm),
+      })
+      if (res.ok) {
+        const newLoc = await res.json()
+        setClient(c => c ? { ...c, locations: [...c.locations, newLoc] } : c)
+        setAddLocationForm({ name: "", address: "", city: "", state: "", zip: "" })
+        setShowAddLocation(false)
+      }
+    } catch {}
+    finally { setSavingLocation(false) }
   }
 
   async function fetchCredentials() {
@@ -234,18 +294,78 @@ export default function ClientDetailPage() {
 
         {activeTab === "Locations" && (
           <div style={{ maxWidth: "700px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <button onClick={() => setShowAddLocation(true)} style={{
+                fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
+                border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer",
+              }}>Add location</button>
+            </div>
+
+            {showAddLocation && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New location</div>
+                {[
+                  { key: "name", label: "Name", placeholder: "e.g. Main Office" },
+                  { key: "address", label: "Address", placeholder: "" },
+                  { key: "city", label: "City", placeholder: "" },
+                  { key: "state", label: "State", placeholder: "" },
+                  { key: "zip", label: "ZIP", placeholder: "" },
+                ].map(({ key, label, placeholder }) => (
+                  <div key={key} style={{ marginBottom: "10px" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                    <input value={addLocationForm[key as keyof typeof addLocationForm]} onChange={e => setAddLocationForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                  <button onClick={addLocation} disabled={savingLocation} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    {savingLocation ? "Saving..." : "Add"}
+                  </button>
+                  <button onClick={() => setShowAddLocation(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
             {client.locations.length === 0 ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No locations yet.</div>
             ) : client.locations.map((loc) => (
-              <div key={loc.id} style={{
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "10px", padding: "16px", marginBottom: "10px",
-              }}>
-                <div style={{ fontSize: "14px", fontWeight: 500 }}>{loc.name}</div>
-                {(loc.address || loc.city) && (
-                  <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
-                    {[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}
+              <div key={loc.id} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "16px", marginBottom: "10px" }}>
+                {editingLocation === loc.id ? (
+                  <div>
+                    {[
+                      { key: "name", label: "Name" },
+                      { key: "address", label: "Address" },
+                      { key: "city", label: "City" },
+                      { key: "state", label: "State" },
+                      { key: "zip", label: "ZIP" },
+                      { key: "ispName", label: "ISP" },
+                      { key: "wanIp", label: "WAN IP" },
+                      { key: "notes", label: "Notes" },
+                    ].map(({ key, label }) => (
+                      <div key={key} style={{ marginBottom: "10px" }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                        <input value={locationForm[key as keyof typeof locationForm]} onChange={e => setLocationForm(f => ({ ...f, [key]: e.target.value }))}
+                          style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                      <button onClick={() => saveLocation(loc.id)} disabled={savingLocation} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                        {savingLocation ? "Saving..." : "Save"}
+                      </button>
+                      <button onClick={() => setEditingLocation(null)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{loc.name}</div>
+                      <button onClick={() => { setEditingLocation(loc.id); setLocationForm({ name: loc.name, address: loc.address ?? "", city: loc.city ?? "", state: loc.state ?? "", zip: (loc as any).zip ?? "", ispName: (loc as any).ispName ?? "", wanIp: (loc as any).wanIp ?? "", notes: (loc as any).notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                    </div>
+                    {(loc.address || loc.city) && (
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
+                        {[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -21,3 +21,26 @@ export async function GET(
     return NextResponse.json({ error: "Failed to fetch client" }, { status: 500 })
   }
 }
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await req.json()
+    const { name, type, notes } = body
+
+    const client = await prisma.client.update({
+      where: { id },
+      data: {
+        ...(name?.trim() && { name: name.trim() }),
+        ...(type && { type }),
+        ...(notes !== undefined && { notes: notes || null }),
+      },
+    })
+    return NextResponse.json(client)
+  } catch (e) {
+    return NextResponse.json({ error: "Failed to update client" }, { status: 500 })
+  }
+}
