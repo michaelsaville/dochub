@@ -91,6 +91,11 @@ export default function ClientDetailPage() {
   const [savingApp, setSavingApp] = useState(false)
   const [editingApp, setEditingApp] = useState<string | null>(null)
   const [appEditForm, setAppEditForm] = useState<any>({})
+  const [activityEvents, setActivityEvents] = useState<any[]>([])
+  const [loadingActivity, setLoadingActivity] = useState(false)
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const [eventForm, setEventForm] = useState({ eventType: "TECH_NOTE", title: "", bodyText: "" })
+  const [savingEvent, setSavingEvent] = useState(false)
 
   useEffect(() => {
     if (id) fetchClient()
@@ -101,6 +106,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) fetchLicenses()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
+    if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
 
   async function fetchClient() {
@@ -305,6 +311,46 @@ export default function ClientDetailPage() {
     try {
       await fetch(`/api/clients/${id}/applications/${appId}`, { method: "DELETE" })
       setApplications(a => a.filter(x => x.id !== appId))
+    } catch {}
+  }
+
+  async function fetchActivity() {
+    setLoadingActivity(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/activity`)
+      setActivityEvents(await res.json())
+    } catch {}
+    finally { setLoadingActivity(false) }
+  }
+
+  async function saveEvent() {
+    if (!eventForm.title.trim()) return
+    setSavingEvent(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/activity`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(eventForm),
+      })
+      if (res.ok) {
+        setActivityEvents(await res.json())
+        setEventForm({ eventType: "TECH_NOTE", title: "", bodyText: "" })
+        setShowAddEvent(false)
+      }
+    } catch {}
+    finally { setSavingEvent(false) }
+  }
+
+  async function togglePin(eventId: string, isPinned: boolean) {
+    try {
+      const res = await fetch(`/api/clients/${id}/activity/${eventId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPinned: !isPinned }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setActivityEvents(e => e.map(x => x.id === eventId ? updated : x)
+          .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+      }
     } catch {}
   }
 
@@ -892,7 +938,102 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "Activity" && (
-          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Activity coming soon.</div>
+          <div style={{ maxWidth: "680px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+              <button onClick={() => setShowAddEvent(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add note</button>
+            </div>
+
+            {showAddEvent && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "20px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New event</div>
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
+                  <select value={eventForm.eventType} onChange={e => setEventForm(f => ({ ...f, eventType: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
+                    <option value="TECH_NOTE">Tech note</option>
+                    <option value="SITE_VISIT">Site visit</option>
+                    <option value="KNOWN_ISSUE">Known issue</option>
+                    <option value="PLANNED_MAINTENANCE">Planned maintenance</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Title *</label>
+                  <input autoFocus value={eventForm.title} onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ marginBottom: "16px" }}>
+                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Details</label>
+                  <textarea value={eventForm.bodyText} onChange={e => setEventForm(f => ({ ...f, bodyText: e.target.value }))} rows={3}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={saveEvent} disabled={savingEvent} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingEvent ? "Saving..." : "Save"}</button>
+                  <button onClick={() => setShowAddEvent(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {loadingActivity ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : activityEvents.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No activity yet.</div>
+            ) : activityEvents.map((event) => {
+              const typeConfig: Record<string, { label: string; color: string }> = {
+                TECH_NOTE:           { label: "Tech note",    color: "#6366f1" },
+                SITE_VISIT:          { label: "Site visit",   color: "#0ea5e9" },
+                KNOWN_ISSUE:         { label: "Known issue",  color: "#f59e0b" },
+                PLANNED_MAINTENANCE: { label: "Maintenance",  color: "#8b5cf6" },
+                CREDENTIAL_ROTATED:  { label: "Credential",   color: "#10b981" },
+                LICENSE_CHANGED:     { label: "License",      color: "#10b981" },
+                ASSET_ADDED:         { label: "Asset added",  color: "#10b981" },
+                ASSET_RETIRED:       { label: "Asset retired",color: "#94a3b8" },
+                ASSET_UPDATED:       { label: "Asset update", color: "#94a3b8" },
+                API_SYNC:            { label: "Sync",         color: "#94a3b8" },
+                ALARM_TRIGGERED:     { label: "Alarm",        color: "#ef4444" },
+                USER_ADDED:          { label: "User added",   color: "#10b981" },
+                USER_REMOVED:        { label: "User removed", color: "#94a3b8" },
+              }
+              const cfg = typeConfig[event.eventType] ?? { label: event.eventType, color: "#94a3b8" }
+              return (
+                <div key={event.id} style={{
+                  display: "flex", gap: "14px", marginBottom: "12px",
+                  opacity: event.dismissedAt ? 0.5 : 1,
+                }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "4px" }}>
+                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: cfg.color, flexShrink: 0 }} />
+                    <div style={{ width: "1px", flex: 1, background: "var(--color-border-tertiary)", marginTop: "4px" }} />
+                  </div>
+                  <div style={{
+                    flex: 1, background: event.isPinned ? "var(--color-background-secondary)" : "transparent",
+                    border: event.isPinned ? "0.5px solid var(--color-border-secondary)" : "0.5px solid transparent",
+                    borderRadius: "10px", padding: event.isPinned ? "12px 14px" : "0 0 12px 0",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 500, color: cfg.color, textTransform: "uppercase", letterSpacing: "0.04em" }}>{cfg.label}</span>
+                        {event.isPinned && <span style={{ fontSize: "11px", color: "var(--color-text-secondary)" }}>pinned</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                          {new Date(event.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                        <button onClick={() => togglePin(event.id, event.isPinned)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                          {event.isPinned ? "Unpin" : "Pin"}
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", marginBottom: event.body ? "4px" : 0 }}>{event.title}</div>
+                    {event.body && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", lineHeight: "1.5", whiteSpace: "pre-wrap" }}>{event.body}</div>}
+                    {event.staffUser && (
+                      <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "6px" }}>
+                        {event.staffUser.name ?? event.staffUser.email}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </AppShell>

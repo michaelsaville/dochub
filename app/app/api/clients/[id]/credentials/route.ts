@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { encrypt, decrypt } from "@/lib/crypto"
 import { requireAuth } from "@/lib/auth"
+import { writeActivity } from "@/lib/activity"
 
 export async function GET(
   req: Request,
@@ -31,7 +32,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
@@ -50,6 +51,14 @@ export async function POST(
         notes: notes || null,
       },
     })
+
+    await writeActivity({
+      clientId: id,
+      staffUserId: session!.user.id,
+      eventType: "CREDENTIAL_ROTATED",
+      title: `Credential added: ${label.trim()}`,
+    })
+
     return NextResponse.json({ ...credential, encryptedPassword: undefined, hasPassword: true }, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: "Failed to create credential" }, { status: 500 })
