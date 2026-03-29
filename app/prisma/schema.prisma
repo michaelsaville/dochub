@@ -105,6 +105,8 @@ model Client {
   contacts       Contact[]
   alarms         Alarm[]
   activityEvents ActivityEvent[]
+  vendors        Vendor[]
+  websites       Website[]
 }
 
 model Location {
@@ -176,6 +178,7 @@ model Asset {
   locationId     String
   primaryUserId  String?
   assetTypeId    String?
+  contactId      String?
   category       AssetCategory @default(OTHER)
   status         AssetStatus   @default(ACTIVE)
   name           String
@@ -201,6 +204,7 @@ model Asset {
   location      Location      @relation(fields: [locationId], references: [id])
   primaryUser   ClientUser?   @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
   assetType     AssetType?    @relation(fields: [assetTypeId], references: [id])
+  contact       Contact?      @relation("AssetContact", fields: [contactId], references: [id])
   credentials   Credential[]
   exitInterview ExitInterview?
   successor     Asset?        @relation("AssetSuccessor", fields: [successorId], references: [id])
@@ -224,6 +228,7 @@ model Credential {
   clientId          String
   assetId           String?
   userId            String?
+  contactId         String?
   label             String
   username          String?
   encryptedPassword String
@@ -234,15 +239,17 @@ model Credential {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  client Client      @relation(fields: [clientId], references: [id])
-  asset  Asset?      @relation(fields: [assetId], references: [id])
-  user   ClientUser? @relation("CredentialUser", fields: [userId], references: [id])
+  client   Client      @relation(fields: [clientId], references: [id])
+  asset    Asset?      @relation(fields: [assetId], references: [id])
+  user     ClientUser? @relation("CredentialUser", fields: [userId], references: [id])
+  contact  Contact?    @relation("CredentialContact", fields: [contactId], references: [id])
 }
 
 model License {
   id             String    @id @default(cuid())
   clientId       String
   assignedUserId String?
+  contactId      String?
   name           String
   vendor         String?
   seats          Int?
@@ -257,12 +264,15 @@ model License {
 
   client       Client      @relation(fields: [clientId], references: [id])
   assignedUser ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
+  contact      Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
 }
 
 model Application {
   id             String   @id @default(cuid())
   clientId       String
   assignedUserId String?
+  contactId      String?
+  vendorId       String?
   name           String
   vendor         String?
   version        String?
@@ -274,6 +284,8 @@ model Application {
 
   client       Client      @relation(fields: [clientId], references: [id])
   assignedUser ClientUser? @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
+  contact      Contact?    @relation("ApplicationContact", fields: [contactId], references: [id])
+  vendorRef    Vendor?     @relation(fields: [vendorId], references: [id])
 }
 
 model Contact {
@@ -292,7 +304,12 @@ model Contact {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id])
+  client      Client        @relation(fields: [clientId], references: [id])
+  assets      Asset[]       @relation("AssetContact")
+  licenses    License[]     @relation("LicenseContact")
+  applications Application[] @relation("ApplicationContact")
+  credentials Credential[]  @relation("CredentialContact")
+  vendors     Vendor[]      @relation("VendorClientContact")
 }
 
 model Alarm {
@@ -378,6 +395,8 @@ model VerificationToken {
 
 model Vendor {
   id            String   @id @default(cuid())
+  clientId      String?
+  contactId     String?
   name          String
   website       String?
   supportUrl    String?
@@ -389,7 +408,30 @@ model Vendor {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  contacts VendorContact[]
+  client       Client?       @relation(fields: [clientId], references: [id])
+  contact      Contact?      @relation("VendorClientContact", fields: [contactId], references: [id])
+  contacts     VendorContact[]
+  applications Application[]
+}
+
+model Website {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  label       String?
+  domain      String
+  registrar   String?
+  expiresAt   DateTime?
+  lastChecked DateTime?
+  dnsRecords  Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @default(now())
 }
 
 model VendorContact {

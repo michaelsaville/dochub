@@ -2,6 +2,7 @@
 
 import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
+import { useTheme, themes } from "@/components/ThemeProvider"
 
 type AssetType = { id: string; name: string; description: string | null; sortOrder: number }
 
@@ -33,6 +34,10 @@ const DEFAULT_TYPES = [
 ]
 
 export default function SettingsPage() {
+  const { theme, setTheme } = useTheme()
+  const [domainThreshold, setDomainThresholdState] = useState(30)
+  const [savingThreshold, setSavingThreshold] = useState(false)
+  const [thresholdInput, setThresholdInput] = useState("30")
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<any>(null)
 
@@ -45,7 +50,30 @@ export default function SettingsPage() {
   const [typeEditForm, setTypeEditForm] = useState<any>({})
   const [seedingDefaults, setSeedingDefaults] = useState(false)
 
-  useEffect(() => { fetchAssetTypes() }, [])
+  useEffect(() => {
+    fetchAssetTypes()
+    fetch("/api/settings/domain-threshold")
+      .then(r => r.json())
+      .then(d => { setDomainThresholdState(d.days); setThresholdInput(String(d.days)) })
+      .catch(() => {})
+  }, [])
+
+  async function saveThreshold() {
+    setSavingThreshold(true)
+    try {
+      const res = await fetch("/api/settings/domain-threshold", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: thresholdInput }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setDomainThresholdState(data.days)
+        setThresholdInput(String(data.days))
+      }
+    } catch {}
+    finally { setSavingThreshold(false) }
+  }
 
   async function fetchAssetTypes() {
     setLoadingTypes(true)
@@ -143,6 +171,48 @@ export default function SettingsPage() {
         </p>
 
         <div style={{ maxWidth: "680px" }}>
+          {/* Appearance */}
+          <div style={{
+            background: "var(--color-background-secondary)",
+            border: "0.5px solid var(--color-border-tertiary)",
+            borderRadius: "10px", padding: "20px", marginBottom: "16px",
+          }}>
+            <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "4px" }}>Appearance</div>
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+              Choose a colour theme. Your preference is saved in this browser.
+            </div>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              {themes.map((t) => {
+                const active = theme === t.id
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
+                      padding: "10px 14px", borderRadius: "10px", cursor: "pointer",
+                      border: active ? "1.5px solid var(--color-accent)" : "0.5px solid var(--color-border-secondary)",
+                      background: active ? "var(--color-accent-muted)" : "var(--color-background-primary)",
+                      outline: "none",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "3px" }}>
+                      <div style={{ width: "18px", height: "28px", borderRadius: "4px 0 0 4px", background: t.secondary }} />
+                      <div style={{ width: "28px", height: "28px", borderRadius: "0 4px 4px 0", background: t.primary }} />
+                    </div>
+                    <span style={{
+                      fontSize: "12px",
+                      fontWeight: active ? 500 : 400,
+                      color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                    }}>
+                      {t.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Asset Types */}
           <div style={{
             background: "var(--color-background-secondary)",
@@ -244,6 +314,42 @@ export default function SettingsPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Domain Monitoring */}
+          <div style={{
+            background: "var(--color-background-secondary)",
+            border: "0.5px solid var(--color-border-tertiary)",
+            borderRadius: "10px", padding: "20px", marginBottom: "16px",
+          }}>
+            <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "4px" }}>Domain Monitoring</div>
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+              Raise an alarm when a client domain expires within the threshold period.
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "12px" }}>
+              <div style={{ width: "120px" }}>
+                <label style={labelStyle}>Alert threshold (days)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={thresholdInput}
+                  onChange={e => setThresholdInput(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <button
+                onClick={saveThreshold}
+                disabled={savingThreshold}
+                style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingThreshold ? 0.6 : 1, marginBottom: "0" }}
+              >
+                {savingThreshold ? "Saving..." : "Save"}
+              </button>
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "10px" }}>
+              Currently: alert when a domain expires within <strong style={{ color: "var(--color-text-secondary)" }}>{domainThreshold} days</strong>.
+              Cron endpoint: <code style={{ fontFamily: "monospace" }}>GET /api/cron/domains</code>
+            </div>
           </div>
 
           {/* SyncroMSP */}

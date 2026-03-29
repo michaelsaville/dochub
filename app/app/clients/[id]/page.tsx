@@ -21,6 +21,13 @@ type UserSummary = {
   applications: { id: string; name: string; vendor: string | null }[]
 }
 
+type ContactSummary = {
+  assets: { id: string; name: string; status: string; make: string | null; model: string | null; assetType: { name: string } | null }[]
+  credentials: { id: string; label: string; username: string | null; url: string | null }[]
+  licenses: { id: string; name: string; vendor: string | null }[]
+  applications: { id: string; name: string; vendor: string | null }[]
+}
+
 type Client = {
   id: string
   name: string
@@ -31,7 +38,7 @@ type Client = {
   createdAt: string
   locations: { id: string; name: string; address: string | null; city: string | null; state: string | null }[]
   users: ClientUser[]
-  contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null; mobile: string | null; notes: string | null }[]
+  contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null; mobile: string | null; notes: string | null; isPrimary: boolean; isBilling: boolean; isEscalation: boolean }[]
 }
 
 type Asset = {
@@ -42,9 +49,12 @@ type Asset = {
   assetType: { id: string; name: string } | null
   primaryUserId: string | null
   primaryUser: { id: string; name: string } | null
+  contactId: string | null
+  contact: { id: string; name: string } | null
   make: string | null
   model: string | null
   serial: string | null
+  ipAddress: string | null
   macAddress: string | null
   status: string
   managementUrl: string | null
@@ -54,7 +64,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Websites", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -89,7 +99,7 @@ export default function ClientDetailPage() {
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
-  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "", userId: "" })
+  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [editingClient, setEditingClient] = useState(false)
@@ -103,14 +113,14 @@ export default function ClientDetailPage() {
   const [licenses, setLicenses] = useState<any[]>([])
   const [loadingLicenses, setLoadingLicenses] = useState(false)
   const [showAddLicense, setShowAddLicense] = useState(false)
-  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "" })
+  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
   const [savingLicense, setSavingLicense] = useState(false)
   const [editingLicense, setEditingLicense] = useState<string | null>(null)
   const [licenseEditForm, setLicenseEditForm] = useState<any>({})
   const [applications, setApplications] = useState<any[]>([])
   const [loadingApps, setLoadingApps] = useState(false)
   const [showAddApp, setShowAddApp] = useState(false)
-  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "" })
+  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "", contactId: "", vendorId: "" })
   const [savingApp, setSavingApp] = useState(false)
   const [editingApp, setEditingApp] = useState<string | null>(null)
   const [appEditForm, setAppEditForm] = useState<any>({})
@@ -124,8 +134,28 @@ export default function ClientDetailPage() {
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
   const [showAddAsset, setShowAddAsset] = useState(false)
-  const [assetForm, setAssetForm] = useState({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", notes: "" })
+  const [assetForm, setAssetForm] = useState({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", contactId: "", notes: "" })
   const [savingAsset, setSavingAsset] = useState(false)
+  const [editingAsset, setEditingAsset] = useState<string | null>(null)
+  const [assetEditForm, setAssetEditForm] = useState<any>({})
+  const [savingAssetEdit, setSavingAssetEdit] = useState(false)
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  const [contactSummary, setContactSummary] = useState<ContactSummary | null>(null)
+  const [loadingContactSummary, setLoadingContactSummary] = useState(false)
+  const [showAddContact, setShowAddContact] = useState(false)
+  const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "", mobile: "", notes: "", isPrimary: false, isBilling: false, isEscalation: false })
+  const [savingNewContact, setSavingNewContact] = useState(false)
+  const [editingContactId, setEditingContactId] = useState<string | null>(null)
+  const [contactEditForm, setContactEditForm] = useState<any>({})
+  const [savingContact, setSavingContact] = useState(false)
+  const [websites, setWebsites] = useState<any[]>([])
+  const [loadingWebsites, setLoadingWebsites] = useState(false)
+  const [showAddWebsite, setShowAddWebsite] = useState(false)
+  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "" })
+  const [savingWebsite, setSavingWebsite] = useState(false)
+  const [checkingWebsite, setCheckingWebsite] = useState<string | null>(null)
+  const [expandedDns, setExpandedDns] = useState<Record<string, boolean>>({})
+  const [domainThreshold, setDomainThreshold] = useState(30)
 
   useEffect(() => {
     if (id) fetchClient()
@@ -136,6 +166,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) fetchLicenses()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
+    if (activeTab === "Websites" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
 
@@ -233,7 +264,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newCred = await res.json()
         setCredentials(c => [...c, newCred])
-        setCredForm({ label: "", username: "", password: "", url: "", notes: "", userId: "" })
+        setCredForm({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "" })
         setShowAddCred(false)
       }
     } catch {}
@@ -277,7 +308,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newLicense = await res.json()
         setLicenses(l => [...l, newLicense])
-        setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "" })
+        setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
         setShowAddLicense(false)
       }
     } catch {}
@@ -317,7 +348,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newApp = await res.json()
         setApplications(a => [...a, newApp])
-        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "" })
+        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "", contactId: "", vendorId: "" })
         setShowAddApp(false)
       }
     } catch {}
@@ -426,11 +457,76 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newAsset = await res.json()
         setAssets(a => [...a, newAsset])
-        setAssetForm({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", notes: "" })
+        setAssetForm({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", contactId: "", notes: "" })
         setShowAddAsset(false)
       }
     } catch {}
     finally { setSavingAsset(false) }
+  }
+
+  async function updateAsset(assetId: string) {
+    setSavingAssetEdit(true)
+    try {
+      const res = await fetch(`/api/assets/${assetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assetEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setAssets(a => a.map(x => x.id === assetId ? { ...x, ...updated } : x))
+        setEditingAsset(null)
+      }
+    } catch {}
+    finally { setSavingAssetEdit(false) }
+  }
+
+  async function selectContact(contactId: string) {
+    if (selectedContactId === contactId) { setSelectedContactId(null); setContactSummary(null); return }
+    setSelectedContactId(contactId)
+    setContactSummary(null)
+    setLoadingContactSummary(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/contacts/${contactId}/summary`)
+      setContactSummary(await res.json())
+    } catch {}
+    finally { setLoadingContactSummary(false) }
+  }
+
+  async function createContact() {
+    if (!contactForm.name.trim()) return
+    setSavingNewContact(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactForm),
+      })
+      if (res.ok) {
+        const newContact = await res.json()
+        setClient(c => c ? { ...c, contacts: [...c.contacts, newContact] } : c)
+        setContactForm({ name: "", role: "", email: "", phone: "", mobile: "", notes: "", isPrimary: false, isBilling: false, isEscalation: false })
+        setShowAddContact(false)
+      }
+    } catch {}
+    finally { setSavingNewContact(false) }
+  }
+
+  async function updateContact(contactId: string) {
+    setSavingContact(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/contacts/${contactId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setClient(c => c ? { ...c, contacts: c.contacts.map(x => x.id === contactId ? { ...x, ...updated } : x) } : c)
+        setEditingContactId(null)
+      }
+    } catch {}
+    finally { setSavingContact(false) }
   }
 
   // Group assets by type (custom AssetType takes precedence over legacy category enum)
@@ -455,6 +551,71 @@ export default function ClientDetailPage() {
       <div style={{ padding: "32px", color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
     </AppShell>
   )
+
+  async function fetchWebsites() {
+    setLoadingWebsites(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/websites`)
+      setWebsites(await res.json())
+    } catch {}
+    finally { setLoadingWebsites(false) }
+  }
+
+  async function fetchDomainThreshold() {
+    try {
+      const res = await fetch("/api/settings/domain-threshold")
+      const data = await res.json()
+      setDomainThreshold(data.days)
+    } catch {}
+  }
+
+  async function addWebsite() {
+    if (!websiteForm.domain.trim()) return
+    setSavingWebsite(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/websites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(websiteForm),
+      })
+      if (res.ok) {
+        const site = await res.json()
+        setWebsites(w => [...w, site])
+        setWebsiteForm({ domain: "", label: "" })
+        setShowAddWebsite(false)
+      }
+    } catch {}
+    finally { setSavingWebsite(false) }
+  }
+
+  async function deleteWebsite(websiteId: string) {
+    if (!confirm("Remove this website?")) return
+    try {
+      await fetch(`/api/clients/${id}/websites/${websiteId}`, { method: "DELETE" })
+      setWebsites(w => w.filter(s => s.id !== websiteId))
+    } catch {}
+  }
+
+  async function checkWebsite(websiteId: string) {
+    setCheckingWebsite(websiteId)
+    try {
+      const res = await fetch(`/api/clients/${id}/websites/${websiteId}/check`, { method: "POST" })
+      if (res.ok) {
+        const updated = await res.json()
+        setWebsites(w => w.map(s => s.id === websiteId ? updated : s))
+      }
+    } catch {}
+    finally { setCheckingWebsite(null) }
+  }
+
+  function expiryBadge(expiresAt: string | null) {
+    if (!expiresAt) return { label: "Not checked", color: "var(--color-text-muted)", bg: "var(--color-background-hover)" }
+    const days = Math.floor((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+    if (days < 0) return { label: "Expired", color: "var(--color-text-danger)", bg: "var(--color-background-danger)" }
+    if (days <= 7) return { label: `${days}d left`, color: "var(--color-text-danger)", bg: "var(--color-background-danger)" }
+    if (days <= domainThreshold) return { label: `${days}d left`, color: "var(--color-text-warning)", bg: "var(--color-background-warning)" }
+    return { label: `${days}d left`, color: "var(--color-text-success)", bg: "var(--color-background-success)" }
+  }
 
   if (!client) return null
 
@@ -782,6 +943,13 @@ export default function ClientDetailPage() {
                       {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
+                    <select value={assetForm.contactId} onChange={e => setAssetForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">None</option>
+                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
                   <div style={{ gridColumn: "1 / -1" }}>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
                     <textarea rows={2} value={assetForm.notes} onChange={e => setAssetForm(f => ({ ...f, notes: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" as const }} />
@@ -808,25 +976,71 @@ export default function ClientDetailPage() {
                   </div>
                   <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
                     <div style={{
-                      display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px",
+                      display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px 60px",
                       padding: "8px 16px", background: "var(--color-background-secondary)",
                       borderBottom: "0.5px solid var(--color-border-tertiary)",
                     }}>
-                      {["Name", "Make / Model", "Serial", "User", "Status"].map(h => (
+                      {["Name", "Make / Model", "Serial", "User", "Status", ""].map(h => (
                         <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                       ))}
                     </div>
-                    {assetsByType[key].map((asset, i) => (
+                    {assetsByType[key].map((asset, i) => editingAsset === asset.id ? (
+                      <div key={asset.id} style={{ padding: "14px 16px", borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                          {[
+                            { key: "name", label: "Name" }, { key: "make", label: "Make" },
+                            { key: "model", label: "Model" }, { key: "serial", label: "Serial" },
+                            { key: "ipAddress", label: "IP Address" }, { key: "macAddress", label: "MAC Address" },
+                            { key: "managementUrl", label: "Management URL" }, { key: "notes", label: "Notes" },
+                          ].map(({ key, label }) => (
+                            <div key={key} style={key === "notes" || key === "managementUrl" ? { gridColumn: "1 / -1" } : {}}>
+                              <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                              <input value={assetEditForm[key] ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                                style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                            </div>
+                          ))}
+                          <div>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
+                            <select value={assetEditForm.assetTypeId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, assetTypeId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                              <option value="">No type</option>
+                              {assetTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Status</label>
+                            <select value={assetEditForm.status ?? "ACTIVE"} onChange={e => setAssetEditForm((f: any) => ({ ...f, status: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                              <option value="ACTIVE">Active</option>
+                              <option value="RETIRING">Retiring</option>
+                              <option value="SUNSET">Sunset</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Primary User</label>
+                            <select value={assetEditForm.primaryUserId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, primaryUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                              <option value="">Unassigned</option>
+                              {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
+                            <select value={assetEditForm.contactId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                              <option value="">None</option>
+                              {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button onClick={() => updateAsset(asset.id)} disabled={savingAssetEdit} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingAssetEdit ? "Saving..." : "Save"}</button>
+                          <button onClick={() => setEditingAsset(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
                       <div key={asset.id} style={{
-                        display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px",
+                        display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px 60px",
                         padding: "10px 16px", background: "var(--color-background-primary)",
                         borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
-                        cursor: "pointer",
-                      }}
-                        onClick={() => router.push("/assets/" + asset.id)}
-                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
-                      >
+                        alignItems: "center",
+                      }}>
                         <div>
                           <div style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</div>
                           {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
@@ -840,7 +1054,7 @@ export default function ClientDetailPage() {
                         <div>
                           {asset.primaryUser ? (
                             <span
-                              onClick={e => { e.stopPropagation(); setActiveTab("Users"); selectUser(asset.primaryUser!.id) }}
+                              onClick={() => { setActiveTab("Users"); selectUser(asset.primaryUser!.id) }}
                               style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer", display: "inline-block" }}
                             >
                               {asset.primaryUser.name}
@@ -853,6 +1067,9 @@ export default function ClientDetailPage() {
                             {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
                           </span>
                         </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, primaryUserId: asset.primaryUserId ?? "", contactId: asset.contactId ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -863,54 +1080,190 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "Contacts" && (
-          <div style={{ maxWidth: "700px" }}>
-            {client.contacts.length === 0 ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No contacts yet.</div>
-            ) : client.contacts.map((contact) => (
-              <div key={contact.id} style={{
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "10px", padding: "16px", marginBottom: "10px",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontSize: "14px", fontWeight: 500 }}>{contact.name}</div>
-                    {contact.role && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.role}</div>}
+          <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
+            {/* Contact list */}
+            <div style={{ width: "260px", flexShrink: 0 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
+                <button onClick={() => setShowAddContact(v => !v)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 12px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+                  {showAddContact ? "Cancel" : "Add contact"}
+                </button>
+              </div>
+              {showAddContact && (
+                <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "16px", marginBottom: "12px" }}>
+                  <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>New contact</div>
+                  {[
+                    { key: "name", label: "Name *", placeholder: "" },
+                    { key: "role", label: "Role", placeholder: "e.g. IT Manager" },
+                    { key: "email", label: "Email", placeholder: "" },
+                    { key: "phone", label: "Phone", placeholder: "" },
+                    { key: "mobile", label: "Mobile", placeholder: "" },
+                    { key: "notes", label: "Notes", placeholder: "" },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} style={{ marginBottom: "8px" }}>
+                      <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
+                      <input value={(contactForm as any)[key]} onChange={e => setContactForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                        style={{ width: "100%", padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: "12px", marginBottom: "10px", marginTop: "4px" }}>
+                    {[["isPrimary", "Primary"], ["isBilling", "Billing"], ["isEscalation", "Escalation"]].map(([key, label]) => (
+                      <label key={key} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", cursor: "pointer" }}>
+                        <input type="checkbox" checked={(contactForm as any)[key]} onChange={e => setContactForm(f => ({ ...f, [key]: e.target.checked }))} />
+                        {label}
+                      </label>
+                    ))}
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {contact.email && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{contact.email}</div>}
-                    {contact.phone && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.phone}</div>}
+                  <button onClick={createContact} disabled={savingNewContact} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    {savingNewContact ? "Saving..." : "Create"}
+                  </button>
+                </div>
+              )}
+              {client.contacts.length === 0 && !showAddContact ? (
+                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No contacts yet.</div>
+              ) : client.contacts.map((contact) => (
+                <div key={contact.id} onClick={() => { setEditingContactId(null); selectContact(contact.id) }} style={{
+                  background: selectedContactId === contact.id ? "var(--color-background-secondary)" : "transparent",
+                  border: selectedContactId === contact.id ? "0.5px solid var(--color-border-secondary)" : "0.5px solid transparent",
+                  borderLeft: selectedContactId === contact.id ? "2px solid var(--color-text-primary)" : "2px solid transparent",
+                  borderRadius: "8px", padding: "10px 12px", marginBottom: "6px", cursor: "pointer",
+                }}
+                  onMouseEnter={e => { if (selectedContactId !== contact.id) e.currentTarget.style.background = "var(--color-background-secondary)" }}
+                  onMouseLeave={e => { if (selectedContactId !== contact.id) e.currentTarget.style.background = "transparent" }}
+                >
+                  <div style={{ fontSize: "14px", fontWeight: selectedContactId === contact.id ? 500 : 400 }}>{contact.name}</div>
+                  {contact.role && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{contact.role}</div>}
+                  <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+                    {contact.isPrimary && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Primary</span>}
+                    {contact.isBilling && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Billing</span>}
+                    {contact.isEscalation && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Escalation</span>}
                   </div>
                 </div>
-                {contact.notes && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{contact.notes}</div>}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
 
-        {activeTab === "Contacts" && (
-          <div style={{ maxWidth: "700px" }}>
-            {client.contacts.length === 0 ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No contacts yet.</div>
-            ) : client.contacts.map((contact) => (
-              <div key={contact.id} style={{
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "10px", padding: "16px", marginBottom: "10px",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontSize: "14px", fontWeight: 500 }}>{contact.name}</div>
-                    {contact.role && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.role}</div>}
+            {/* Contact context panel */}
+            {selectedContactId && (() => {
+              const contact = client.contacts.find(c => c.id === selectedContactId)!
+              return (
+                <div style={{ flex: 1, minWidth: 0, position: "sticky", top: "32px" }}>
+                  <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: "16px", fontWeight: 500 }}>{contact.name}</div>
+                        {contact.role && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.role}</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                        <button onClick={() => { setEditingContactId(contact.id); setContactEditForm({ name: contact.name, role: contact.role ?? "", email: contact.email ?? "", phone: contact.phone ?? "", mobile: contact.mobile ?? "", notes: contact.notes ?? "", isPrimary: contact.isPrimary, isBilling: contact.isBilling, isEscalation: contact.isEscalation }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                        <button onClick={() => { setSelectedContactId(null); setContactSummary(null) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>✕</button>
+                      </div>
+                    </div>
+                    {(contact.email || contact.phone || contact.mobile) && (
+                      <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                        {contact.email && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{contact.email}</span>}
+                        {contact.phone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{contact.phone}</span>}
+                        {contact.mobile && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{contact.mobile}</span>}
+                      </div>
+                    )}
+                    {contact.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{contact.notes}</div>}
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {contact.email && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{contact.email}</div>}
-                    {contact.phone && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.phone}</div>}
-                  </div>
+
+                  {editingContactId === contact.id && (
+                    <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>Edit contact</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                        {[
+                          { key: "name", label: "Name" }, { key: "role", label: "Role" },
+                          { key: "email", label: "Email" }, { key: "phone", label: "Phone" },
+                          { key: "mobile", label: "Mobile" }, { key: "notes", label: "Notes" },
+                        ].map(({ key, label }) => (
+                          <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                            <input value={contactEditForm[key] ?? ""} onChange={e => setContactEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                          </div>
+                        ))}
+                        <div style={{ gridColumn: "1 / -1", display: "flex", gap: "16px" }}>
+                          {[["isPrimary", "Primary"], ["isBilling", "Billing"], ["isEscalation", "Escalation"]].map(([key, label]) => (
+                            <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
+                              <input type="checkbox" checked={!!contactEditForm[key]} onChange={e => setContactEditForm((f: any) => ({ ...f, [key]: e.target.checked }))} />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={() => updateContact(contact.id)} disabled={savingContact} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingContact ? "Saving..." : "Save"}</button>
+                        <button onClick={() => setEditingContactId(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {loadingContactSummary ? (
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "12px 0" }}>Loading...</div>
+                  ) : contactSummary && (() => {
+                    const sections = [
+                      {
+                        label: "Devices", count: contactSummary.assets.length,
+                        items: contactSummary.assets.map(a => ({
+                          primary: a.name,
+                          secondary: [a.assetType?.name, [a.make, a.model].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
+                          onClick: () => { setActiveTab("Assets"); if (assets.length === 0) fetchAssets() },
+                        })),
+                      },
+                      {
+                        label: "Credentials", count: contactSummary.credentials.length,
+                        items: contactSummary.credentials.map(c => ({
+                          primary: c.label,
+                          secondary: c.username ?? null,
+                          onClick: () => setActiveTab("Credentials"),
+                        })),
+                      },
+                      {
+                        label: "Licenses", count: contactSummary.licenses.length,
+                        items: contactSummary.licenses.map(l => ({
+                          primary: l.name,
+                          secondary: l.vendor ?? null,
+                          onClick: () => setActiveTab("Licenses"),
+                        })),
+                      },
+                      {
+                        label: "Applications", count: contactSummary.applications.length,
+                        items: contactSummary.applications.map(a => ({
+                          primary: a.name,
+                          secondary: a.vendor ?? null,
+                          onClick: () => setActiveTab("Applications"),
+                        })),
+                      },
+                    ]
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        {sections.map(section => (
+                          <div key={section.label} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                            <div style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{section.label}</span>
+                              <span style={{ fontSize: "12px", fontWeight: 500, color: section.count > 0 ? "var(--color-text-primary)" : "var(--color-text-secondary)", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "1px 7px" }}>{section.count}</span>
+                            </div>
+                            {section.items.length === 0 ? (
+                              <div style={{ padding: "10px 14px", fontSize: "12px", color: "var(--color-text-secondary)" }}>None</div>
+                            ) : section.items.map((item, i) => (
+                              <div key={i} onClick={item.onClick} style={{ padding: "8px 14px", borderBottom: i < section.items.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", cursor: "pointer", display: "flex", alignItems: "center" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                              >
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.primary}</div>
+                                  {item.secondary && <div style={{ fontSize: "11px", color: "var(--color-text-secondary)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.secondary}</div>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
-                {contact.notes && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{contact.notes}</div>}
-              </div>
-            ))}
+              )
+            })()}
           </div>
         )}
 
@@ -959,6 +1312,15 @@ export default function ClientDetailPage() {
                     <select value={credForm.userId} onChange={e => setCredForm(f => ({ ...f, userId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
                       <option value="">None</option>
                       {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                )}
+                {client.contacts.length > 0 && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Link to contact</label>
+                    <select value={credForm.contactId} onChange={e => setCredForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
+                      <option value="">None</option>
+                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                 )}
@@ -1056,11 +1418,18 @@ export default function ClientDetailPage() {
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
                     </div>
                   ))}
-                  <div style={{ gridColumn: "1 / -1" }}>
+                  <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
                     <select value={licenseForm.assignedUserId} onChange={e => setLicenseForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                       <option value="">Unassigned</option>
                       {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
+                    <select value={licenseForm.contactId} onChange={e => setLicenseForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">None</option>
+                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1096,11 +1465,18 @@ export default function ClientDetailPage() {
                             style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                         </div>
                       ))}
-                      <div style={{ gridColumn: "1 / -1" }}>
+                      <div>
                         <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
                         <select value={licenseEditForm.assignedUserId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                           <option value="">Unassigned</option>
                           {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
+                        <select value={licenseEditForm.contactId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">None</option>
+                          {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                       </div>
                     </div>
@@ -1123,7 +1499,7 @@ export default function ClientDetailPage() {
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.renewalDate ? new Date(lic.renewalDate).toLocaleDateString() : "—"}</div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.assignedUser?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", assignedUserId: lic.assignedUser?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", assignedUserId: lic.assignedUser?.id ?? "", contactId: lic.contact?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>
@@ -1155,11 +1531,18 @@ export default function ClientDetailPage() {
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
                     </div>
                   ))}
-                  <div style={{ gridColumn: "1 / -1" }}>
+                  <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
                     <select value={appForm.assignedUserId} onChange={e => setAppForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                       <option value="">Unassigned</option>
                       {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
+                    <select value={appForm.contactId} onChange={e => setAppForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">None</option>
+                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1194,11 +1577,18 @@ export default function ClientDetailPage() {
                             style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                         </div>
                       ))}
-                      <div style={{ gridColumn: "1 / -1" }}>
+                      <div>
                         <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
                         <select value={appEditForm.assignedUserId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                           <option value="">Unassigned</option>
                           {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
+                        <select value={appEditForm.contactId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">None</option>
+                          {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                       </div>
                     </div>
@@ -1217,11 +1607,113 @@ export default function ClientDetailPage() {
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{app.version ?? "—"}</div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.assignedUser?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, assignedUserId: app.assignedUser?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, assignedUserId: app.assignedUser?.id ?? "", contactId: app.contact?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteApp(app.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Websites" && (
+          <div style={{ maxWidth: "860px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <button onClick={() => setShowAddWebsite(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}>
+                Add website
+              </button>
+            </div>
+
+            {showAddWebsite && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New website</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Domain *</label>
+                    <input value={websiteForm.domain} onChange={e => setWebsiteForm(f => ({ ...f, domain: e.target.value }))} placeholder="example.com" autoFocus
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Label</label>
+                    <input value={websiteForm.label} onChange={e => setWebsiteForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Main site"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={addWebsite} disabled={savingWebsite} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    {savingWebsite ? "Saving..." : "Add"}
+                  </button>
+                  <button onClick={() => setShowAddWebsite(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {loadingWebsites ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : websites.length === 0 && !showAddWebsite ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No websites yet. Add a domain to start monitoring expiry and DNS.</div>
+            ) : (
+              <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 130px 130px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Domain", "Expiry", "Registrar", "Last checked", ""].map(h => (
+                    <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
+                  ))}
+                </div>
+                {websites.map((site, i) => {
+                  const badge = expiryBadge(site.expiresAt)
+                  const dns = site.dnsRecords as Record<string, any> | null
+                  const dnsOpen = expandedDns[site.id]
+                  const isChecking = checkingWebsite === site.id
+                  const borderBottom = i < websites.length - 1 || dnsOpen ? "0.5px solid var(--color-border-tertiary)" : "none"
+                  return (
+                    <div key={site.id}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 130px 130px", padding: "12px 16px", borderBottom, background: "var(--color-background-primary)", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{site.domain}</div>
+                          {site.label && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{site.label}</div>}
+                        </div>
+                        <div>
+                          <span style={{ fontSize: "12px", padding: "3px 8px", borderRadius: "6px", background: badge.bg, color: badge.color, fontWeight: 500 }}>
+                            {badge.label}
+                          </span>
+                          {site.expiresAt && (
+                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                              {new Date(site.expiresAt).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{site.registrar ?? "—"}</div>
+                        <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+                          {site.lastChecked ? new Date(site.lastChecked).toLocaleDateString() : "Never"}
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button onClick={() => checkWebsite(site.id)} disabled={isChecking} style={{ fontSize: "12px", color: "var(--color-accent)", background: "none", border: "none", cursor: isChecking ? "not-allowed" : "pointer", padding: 0, opacity: isChecking ? 0.5 : 1 }}>
+                            {isChecking ? "Checking..." : "Check"}
+                          </button>
+                          {dns && (
+                            <button onClick={() => setExpandedDns(d => ({ ...d, [site.id]: !d[site.id] }))} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                              DNS {dnsOpen ? "▲" : "▼"}
+                            </button>
+                          )}
+                          <button onClick={() => deleteWebsite(site.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                        </div>
+                      </div>
+                      {dnsOpen && dns && (
+                        <div style={{ padding: "12px 16px", background: "var(--color-background-secondary)", borderBottom: i < websites.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: "13px" }}>
+                            {dns.A && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>A</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.A.join(", ")}</div></>}
+                            {dns.AAAA && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>AAAA</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.AAAA.join(", ")}</div></>}
+                            {dns.MX && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>MX</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.MX.map((r: any) => `${r.exchange} (${r.priority})`).join(", ")}</div></>}
+                            {dns.NS && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>NS</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.NS.join(", ")}</div></>}
+                            {dns.TXT && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>TXT</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace", wordBreak: "break-all" }}>{dns.TXT.join(" · ")}</div></>}
+                            {Object.keys(dns).length === 0 && <div style={{ gridColumn: "1 / -1", color: "var(--color-text-muted)" }}>No DNS records found</div>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

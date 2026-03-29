@@ -6,11 +6,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const results: Record<string, any> = {}
+
   try {
     const res = await fetch("http://localhost:3000/api/sync/syncro", { method: "POST" })
-    const data = await res.json()
-    return NextResponse.json({ success: true, ...data })
+    results.syncro = await res.json()
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    results.syncro = { success: false, error: e.message }
   }
+
+  try {
+    const res = await fetch("http://localhost:3000/api/cron/domains", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.domains = await res.json()
+  } catch (e: any) {
+    results.domains = { success: false, error: e.message }
+  }
+
+  const success = results.syncro?.success !== false
+  return NextResponse.json({ success, ...results })
 }
