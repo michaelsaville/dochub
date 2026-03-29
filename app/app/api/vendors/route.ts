@@ -1,0 +1,38 @@
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+
+export async function GET() {
+  try {
+    const vendors = await prisma.vendor.findMany({
+      orderBy: { name: "asc" },
+      include: { _count: { select: { contacts: true } } },
+    })
+    return NextResponse.json(vendors)
+  } catch (e) {
+    return NextResponse.json({ error: "Failed to fetch vendors" }, { status: 500 })
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json()
+    const { name, website, supportUrl, supportPhone, supportEmail, accountNumber, notes } = body
+    if (!name?.trim()) {
+      return NextResponse.json({ error: "Vendor name is required" }, { status: 400 })
+    }
+    const vendor = await prisma.vendor.create({
+      data: {
+        name: name.trim(),
+        website: website?.trim() || null,
+        supportUrl: supportUrl?.trim() || null,
+        supportPhone: supportPhone?.trim() || null,
+        supportEmail: supportEmail?.trim() || null,
+        accountNumber: accountNumber?.trim() || null,
+        notes: notes?.trim() || null,
+      },
+    })
+    return NextResponse.json(vendor, { status: 201 })
+  } catch (e) {
+    return NextResponse.json({ error: "Failed to create vendor" }, { status: 500 })
+  }
+}

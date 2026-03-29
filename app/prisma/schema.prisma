@@ -352,3 +352,34 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model Vendor {
+  id            String   @id @default(cuid())
+  name          String
+  website       String?
+  supportUrl    String?
+  supportPhone  String?
+  supportEmail  String?
+  accountNumber String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contacts VendorContact[]
+}
+
+model VendorContact {
+  id        String   @id @default(cuid())
+  vendorId  String
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  mobile    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}

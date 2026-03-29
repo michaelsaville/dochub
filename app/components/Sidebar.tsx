@@ -7,6 +7,7 @@ import Link from "next/link"
 const nav = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Clients", href: "/clients" },
+  { label: "Vendors", href: "/vendors" },
   { label: "Runbooks", href: "/runbooks" },
   { label: "Alarms", href: "/alarms" },
   { label: "Settings", href: "/settings" },
