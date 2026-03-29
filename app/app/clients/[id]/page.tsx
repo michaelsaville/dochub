@@ -245,7 +245,8 @@ export default function ClientDetailPage() {
         body: JSON.stringify(licenseForm),
       })
       if (res.ok) {
-        setLicenses(l => [...l, await res.json()])
+        const newLicense = await res.json()
+        setLicenses(l => [...l, newLicense])
         setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "" })
         setShowAddLicense(false)
       }
@@ -284,7 +285,8 @@ export default function ClientDetailPage() {
         body: JSON.stringify(appForm),
       })
       if (res.ok) {
-        setApplications(a => [...a, await res.json()])
+        const newApp = await res.json()
+        setApplications(a => [...a, newApp])
         setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "" })
         setShowAddApp(false)
       }
