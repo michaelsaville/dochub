@@ -13,6 +13,7 @@ export async function GET(
     const applications = await prisma.application.findMany({
       where: { clientId: id, isActive: true },
       orderBy: { name: "asc" },
+      include: { assignedUser: { select: { id: true, name: true } } },
     })
     return NextResponse.json(applications)
   } catch (e) {
@@ -29,7 +30,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, vendor, version, supportUrl, notes } = body
+    const { name, vendor, version, supportUrl, notes, assignedUserId } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
@@ -41,7 +42,9 @@ export async function POST(
         version: version?.trim() || null,
         supportUrl: supportUrl?.trim() || null,
         notes: notes?.trim() || null,
+        assignedUserId: assignedUserId || null,
       },
+      include: { assignedUser: { select: { id: true, name: true } } },
     })
     return NextResponse.json(application, { status: 201 })
   } catch (e) {

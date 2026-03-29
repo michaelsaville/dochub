@@ -14,6 +14,7 @@ export async function GET(
     const licenses = await prisma.license.findMany({
       where: { clientId: id, isActive: true },
       orderBy: { name: "asc" },
+      include: { assignedUser: { select: { id: true, name: true } } },
     })
     return NextResponse.json(licenses)
   } catch (e) {
@@ -30,7 +31,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, vendor, seats, expiryDate, renewalDate, cost, pax8Id, notes } = body
+    const { name, vendor, seats, expiryDate, renewalDate, cost, pax8Id, notes, assignedUserId } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
@@ -45,7 +46,9 @@ export async function POST(
         cost: cost ? Number(cost) : null,
         pax8Id: pax8Id?.trim() || null,
         notes: notes?.trim() || null,
+        assignedUserId: assignedUserId || null,
       },
+      include: { assignedUser: { select: { id: true, name: true } } },
     })
     await writeActivity({
       clientId: id,

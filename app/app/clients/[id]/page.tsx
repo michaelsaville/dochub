@@ -21,6 +21,10 @@ type Asset = {
   id: string
   name: string
   category: string
+  assetTypeId: string | null
+  assetType: { id: string; name: string } | null
+  primaryUserId: string | null
+  primaryUser: { id: string; name: string } | null
   make: string | null
   model: string | null
   serial: string | null
@@ -30,6 +34,8 @@ type Asset = {
   warrantyExpiry: string | null
   notes: string | null
 }
+
+type AssetType = { id: string; name: string }
 
 const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Activity"]
 
@@ -80,14 +86,14 @@ export default function ClientDetailPage() {
   const [licenses, setLicenses] = useState<any[]>([])
   const [loadingLicenses, setLoadingLicenses] = useState(false)
   const [showAddLicense, setShowAddLicense] = useState(false)
-  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "" })
+  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "" })
   const [savingLicense, setSavingLicense] = useState(false)
   const [editingLicense, setEditingLicense] = useState<string | null>(null)
   const [licenseEditForm, setLicenseEditForm] = useState<any>({})
   const [applications, setApplications] = useState<any[]>([])
   const [loadingApps, setLoadingApps] = useState(false)
   const [showAddApp, setShowAddApp] = useState(false)
-  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "" })
+  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "" })
   const [savingApp, setSavingApp] = useState(false)
   const [editingApp, setEditingApp] = useState<string | null>(null)
   const [appEditForm, setAppEditForm] = useState<any>({})
@@ -96,13 +102,17 @@ export default function ClientDetailPage() {
   const [showAddEvent, setShowAddEvent] = useState(false)
   const [eventForm, setEventForm] = useState({ eventType: "TECH_NOTE", title: "", bodyText: "" })
   const [savingEvent, setSavingEvent] = useState(false)
+  const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
+  const [showAddAsset, setShowAddAsset] = useState(false)
+  const [assetForm, setAssetForm] = useState({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", notes: "" })
+  const [savingAsset, setSavingAsset] = useState(false)
 
   useEffect(() => {
     if (id) fetchClient()
   }, [id])
 
   useEffect(() => {
-    if (activeTab === "Assets" && assets.length === 0) fetchAssets()
+    if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) fetchLicenses()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
@@ -247,7 +257,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newLicense = await res.json()
         setLicenses(l => [...l, newLicense])
-        setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "" })
+        setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "" })
         setShowAddLicense(false)
       }
     } catch {}
@@ -287,7 +297,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newApp = await res.json()
         setApplications(a => [...a, newApp])
-        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "" })
+        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "" })
         setShowAddApp(false)
       }
     } catch {}
@@ -365,15 +375,48 @@ export default function ClientDetailPage() {
     finally { setLoadingAssets(false) }
   }
 
-  // Group assets by category
-  const assetsByCategory = assets.reduce((acc, asset) => {
-    const cat = asset.category
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(asset)
+  async function fetchAssetTypes() {
+    try {
+      const res = await fetch("/api/asset-types")
+      setAssetTypes(await res.json())
+    } catch {}
+  }
+
+  async function saveAsset() {
+    if (!assetForm.locationId || !assetForm.name.trim()) return
+    setSavingAsset(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assetForm),
+      })
+      if (res.ok) {
+        const newAsset = await res.json()
+        setAssets(a => [...a, newAsset])
+        setAssetForm({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", notes: "" })
+        setShowAddAsset(false)
+      }
+    } catch {}
+    finally { setSavingAsset(false) }
+  }
+
+  // Group assets by type (custom AssetType takes precedence over legacy category enum)
+  const getTypeLabel = (asset: Asset) => asset.assetType?.name ?? categoryLabel[asset.category] ?? asset.category
+  const getTypeKey = (asset: Asset) => asset.assetTypeId ?? asset.category
+
+  const assetsByType = assets.reduce((acc, asset) => {
+    const key = getTypeKey(asset)
+    if (!acc[key]) acc[key] = []
+    acc[key].push(asset)
     return acc
   }, {} as Record<string, Asset[]>)
 
-  const categoryOrder = ["NETWORK_GEAR", "WIRELESS", "SERVER", "NAS", "COMPUTER", "LAPTOP", "TABLET", "PRINTER", "PHONE_SYSTEM", "PHONE_ENDPOINT", "WEBSITE", "VPN", "OTHER"]
+  const typeKeys = Object.keys(assetsByType).sort((a, b) => {
+    const labelA = assetsByType[a][0] ? getTypeLabel(assetsByType[a][0]) : a
+    const labelB = assetsByType[b][0] ? getTypeLabel(assetsByType[b][0]) : b
+    return labelA.localeCompare(labelB)
+  })
 
   if (loadingClient) return (
     <AppShell>
@@ -555,64 +598,127 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "Assets" && (
-          <div style={{ maxWidth: "900px" }}>
+          <div style={{ maxWidth: "960px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes() }} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+                New asset
+              </button>
+            </div>
+
+            {showAddAsset && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "20px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New asset</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Location *</label>
+                    <select value={assetForm.locationId} onChange={e => setAssetForm(f => ({ ...f, locationId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">Select location...</option>
+                      {client.locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
+                    <select value={assetForm.assetTypeId} onChange={e => setAssetForm(f => ({ ...f, assetTypeId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">Select type...</option>
+                      {assetTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name *</label>
+                    <input value={assetForm.name} onChange={e => setAssetForm(f => ({ ...f, name: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} placeholder="e.g. HP LaserJet Pro M404dn" />
+                  </div>
+                  {[
+                    { key: "make", label: "Make", placeholder: "e.g. HP" },
+                    { key: "model", label: "Model", placeholder: "e.g. LaserJet Pro M404dn" },
+                    { key: "serial", label: "Serial", placeholder: "" },
+                    { key: "ipAddress", label: "IP Address", placeholder: "" },
+                    { key: "macAddress", label: "MAC Address", placeholder: "" },
+                    { key: "managementUrl", label: "Management URL", placeholder: "https://" },
+                    { key: "purchaseDate", label: "Purchase Date", type: "date", placeholder: "" },
+                    { key: "warrantyExpiry", label: "Warranty Expiry", type: "date", placeholder: "" },
+                  ].map(({ key, label, placeholder, type }) => (
+                    <div key={key}>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                      <input type={type ?? "text"} value={assetForm[key as keyof typeof assetForm]} onChange={e => setAssetForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  ))}
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Primary User</label>
+                    <select value={assetForm.primaryUserId} onChange={e => setAssetForm(f => ({ ...f, primaryUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">Unassigned</option>
+                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
+                    <textarea rows={2} value={assetForm.notes} onChange={e => setAssetForm(f => ({ ...f, notes: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" as const }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={saveAsset} disabled={savingAsset} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    {savingAsset ? "Saving..." : "Create asset"}
+                  </button>
+                  <button onClick={() => setShowAddAsset(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
             {loadingAssets ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading assets...</div>
-            ) : assets.length === 0 ? (
+            ) : assets.length === 0 && !showAddAsset ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No assets found.</div>
             ) : (
-              categoryOrder
-                .filter(cat => assetsByCategory[cat])
-                .map(cat => (
-                  <div key={cat} style={{ marginBottom: "24px" }}>
-                    <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {categoryLabel[cat] ?? cat} ({assetsByCategory[cat].length})
-                    </div>
-                    <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                      <div style={{
-                        display: "grid", gridTemplateColumns: "1fr 160px 120px 100px 80px",
-                        padding: "8px 16px", background: "var(--color-background-secondary)",
-                        borderBottom: "0.5px solid var(--color-border-tertiary)",
-                      }}>
-                        {["Name", "Make / Model", "Serial", "MAC", "Status"].map(h => (
-                          <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
-                        ))}
-                      </div>
-                      {assetsByCategory[cat].map((asset, i) => (
-                        <div key={asset.id} style={{
-                          display: "grid", gridTemplateColumns: "1fr 160px 120px 100px 80px",
-                          padding: "10px 16px", background: "var(--color-background-primary)",
-                          borderBottom: i < assetsByCategory[cat].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
-                          cursor: "pointer",
-                        }}
-                          onClick={() => router.push("/assets/" + asset.id)}
-                          onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                          onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
-                        >
-                          <div>
-                            <div style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</div>
-                            {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
-                          </div>
-                          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                            {[asset.make, asset.model].filter(Boolean).join(" ") || "—"}
-                          </div>
-                          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>
-                            {asset.serial || "—"}
-                          </div>
-                          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>
-                            {asset.macAddress || "—"}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", flexShrink: 0 }} />
-                            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
-                              {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
-                            </span>
-                          </div>
-                        </div>
+              typeKeys.map(key => (
+                <div key={key} style={{ marginBottom: "24px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    {getTypeLabel(assetsByType[key][0])} ({assetsByType[key].length})
+                  </div>
+                  <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                    <div style={{
+                      display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px",
+                      padding: "8px 16px", background: "var(--color-background-secondary)",
+                      borderBottom: "0.5px solid var(--color-border-tertiary)",
+                    }}>
+                      {["Name", "Make / Model", "Serial", "User", "Status"].map(h => (
+                        <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                       ))}
                     </div>
+                    {assetsByType[key].map((asset, i) => (
+                      <div key={asset.id} style={{
+                        display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px",
+                        padding: "10px 16px", background: "var(--color-background-primary)",
+                        borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                        cursor: "pointer",
+                      }}
+                        onClick={() => router.push("/assets/" + asset.id)}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
+                      >
+                        <div>
+                          <div style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</div>
+                          {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
+                        </div>
+                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                          {[asset.make, asset.model].filter(Boolean).join(" ") || "—"}
+                        </div>
+                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>
+                          {asset.serial || "—"}
+                        </div>
+                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                          {asset.primaryUser?.name ?? "—"}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", flexShrink: 0 }} />
+                          <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                            {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))
+                </div>
+              ))
             )}
           </div>
         )}
@@ -795,6 +901,13 @@ export default function ClientDetailPage() {
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
                     </div>
                   ))}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
+                    <select value={licenseForm.assignedUserId} onChange={e => setLicenseForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">Unassigned</option>
+                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveLicense} disabled={savingLicense} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingLicense ? "Saving..." : "Save"}</button>
@@ -808,8 +921,8 @@ export default function ClientDetailPage() {
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No licenses yet.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 60px 120px 120px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                  {["Name", "Vendor", "Seats", "Expiry", "Renewal", ""].map(h => (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 60px 120px 120px 120px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Name", "Vendor", "Seats", "Expiry", "Renewal", "User", ""].map(h => (
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
@@ -828,6 +941,13 @@ export default function ClientDetailPage() {
                             style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                         </div>
                       ))}
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
+                        <select value={licenseEditForm.assignedUserId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">Unassigned</option>
+                          {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={() => updateLicense(lic.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
@@ -835,7 +955,7 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={lic.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 60px 120px 120px 80px", padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                  <div key={lic.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 60px 120px 120px 120px 80px", padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</div>
                       {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
@@ -846,8 +966,9 @@ export default function ClientDetailPage() {
                       {lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : "—"}
                     </div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.renewalDate ? new Date(lic.renewalDate).toLocaleDateString() : "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.assignedUser?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", assignedUserId: lic.assignedUser?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>
@@ -879,6 +1000,13 @@ export default function ClientDetailPage() {
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
                     </div>
                   ))}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
+                    <select value={appForm.assignedUserId} onChange={e => setAppForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">Unassigned</option>
+                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveApp} disabled={savingApp} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingApp ? "Saving..." : "Save"}</button>
@@ -892,8 +1020,8 @@ export default function ClientDetailPage() {
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No applications yet.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 1fr 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                  {["Name", "Vendor", "Version", "Support", ""].map(h => (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 140px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Name", "Vendor", "Version", "User", ""].map(h => (
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
@@ -911,6 +1039,13 @@ export default function ClientDetailPage() {
                             style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                         </div>
                       ))}
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
+                        <select value={appEditForm.assignedUserId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">Unassigned</option>
+                          {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={() => updateApp(app.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
@@ -918,18 +1053,16 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={app.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 1fr 80px", padding: "12px 16px", borderBottom: i < applications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                  <div key={app.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 140px 80px", padding: "12px 16px", borderBottom: i < applications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{app.name}</div>
                       {app.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{app.notes}</div>}
                     </div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.vendor ?? "—"}</div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{app.version ?? "—"}</div>
-                    <div style={{ fontSize: "13px" }}>
-                      {app.supportUrl ? <a href={app.supportUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-secondary)" }}>{app.supportUrl}</a> : "—"}
-                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.assignedUser?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, assignedUserId: app.assignedUser?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteApp(app.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>

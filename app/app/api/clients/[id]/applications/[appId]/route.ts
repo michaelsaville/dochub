@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     const { appId } = await params
     const body = await req.json()
-    const { name, vendor, version, supportUrl, notes } = body
+    const { name, vendor, version, supportUrl, notes, assignedUserId } = body
     const application = await prisma.application.update({
       where: { id: appId },
       data: {
@@ -20,7 +20,9 @@ export async function PATCH(
         ...(version !== undefined && { version: version?.trim() || null }),
         ...(supportUrl !== undefined && { supportUrl: supportUrl?.trim() || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
+        ...(assignedUserId !== undefined && { assignedUserId: assignedUserId || null }),
       },
+      include: { assignedUser: { select: { id: true, name: true } } },
     })
     return NextResponse.json(application)
   } catch (e) {

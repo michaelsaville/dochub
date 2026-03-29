@@ -142,6 +142,8 @@ model ClientUser {
   client        Client         @relation(fields: [clientId], references: [id])
   userLocations UserLocation[]
   assets        Asset[]        @relation("AssetPrimaryUser")
+  licenses      License[]      @relation("LicenseAssignedUser")
+  applications  Application[]  @relation("ApplicationAssignedUser")
 }
 
 model UserLocation {
@@ -156,11 +158,24 @@ model UserLocation {
   @@unique([userId, locationId])
 }
 
+model AssetType {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assets Asset[]
+}
+
 model Asset {
   id             String        @id @default(cuid())
   locationId     String
   primaryUserId  String?
-  category       AssetCategory
+  assetTypeId    String?
+  category       AssetCategory @default(OTHER)
   status         AssetStatus   @default(ACTIVE)
   name           String
   make           String?
@@ -184,6 +199,7 @@ model Asset {
 
   location      Location      @relation(fields: [locationId], references: [id])
   primaryUser   ClientUser?   @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
+  assetType     AssetType?    @relation(fields: [assetTypeId], references: [id])
   credentials   Credential[]
   exitInterview ExitInterview?
   successor     Asset?        @relation("AssetSuccessor", fields: [successorId], references: [id])
@@ -221,36 +237,40 @@ model Credential {
 }
 
 model License {
-  id          String    @id @default(cuid())
-  clientId    String
-  name        String
-  vendor      String?
-  seats       Int?
-  expiryDate  DateTime?
-  renewalDate DateTime?
-  cost        Float?
-  pax8Id      String?
-  notes       String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  clientId       String
+  assignedUserId String?
+  name           String
+  vendor         String?
+  seats          Int?
+  expiryDate     DateTime?
+  renewalDate    DateTime?
+  cost           Float?
+  pax8Id         String?
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id])
+  client       Client      @relation(fields: [clientId], references: [id])
+  assignedUser ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
 }
 
 model Application {
-  id         String   @id @default(cuid())
-  clientId   String
-  name       String
-  vendor     String?
-  version    String?
-  supportUrl String?
-  notes      String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(cuid())
+  clientId       String
+  assignedUserId String?
+  name           String
+  vendor         String?
+  version        String?
+  supportUrl     String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id])
+  client       Client      @relation(fields: [clientId], references: [id])
+  assignedUser ClientUser? @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
 }
 
 model Contact {

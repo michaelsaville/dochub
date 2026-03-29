@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     const { licenseId } = await params
     const body = await req.json()
-    const { name, vendor, seats, expiryDate, renewalDate, cost, pax8Id, notes } = body
+    const { name, vendor, seats, expiryDate, renewalDate, cost, pax8Id, notes, assignedUserId } = body
     const license = await prisma.license.update({
       where: { id: licenseId },
       data: {
@@ -23,7 +23,9 @@ export async function PATCH(
         ...(cost !== undefined && { cost: cost ? Number(cost) : null }),
         ...(pax8Id !== undefined && { pax8Id: pax8Id?.trim() || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
+        ...(assignedUserId !== undefined && { assignedUserId: assignedUserId || null }),
       },
+      include: { assignedUser: { select: { id: true, name: true } } },
     })
     return NextResponse.json(license)
   } catch (e) {
