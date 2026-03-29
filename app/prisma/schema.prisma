@@ -144,6 +144,7 @@ model ClientUser {
   assets        Asset[]        @relation("AssetPrimaryUser")
   licenses      License[]      @relation("LicenseAssignedUser")
   applications  Application[]  @relation("ApplicationAssignedUser")
+  credentials   Credential[]   @relation("CredentialUser")
 }
 
 model UserLocation {
@@ -222,6 +223,7 @@ model Credential {
   id                String    @id @default(cuid())
   clientId          String
   assetId           String?
+  userId            String?
   label             String
   username          String?
   encryptedPassword String
@@ -232,8 +234,9 @@ model Credential {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  client Client  @relation(fields: [clientId], references: [id])
-  asset  Asset?  @relation(fields: [assetId], references: [id])
+  client Client      @relation(fields: [clientId], references: [id])
+  asset  Asset?      @relation(fields: [assetId], references: [id])
+  user   ClientUser? @relation("CredentialUser", fields: [userId], references: [id])
 }
 
 model License {

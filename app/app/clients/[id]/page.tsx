@@ -4,6 +4,23 @@ import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
+type ClientUser = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  m365Upn: string | null
+  jobTitle: string | null
+  isActive: boolean
+}
+
+type UserSummary = {
+  assets: { id: string; name: string; status: string; make: string | null; model: string | null; assetType: { name: string } | null }[]
+  credentials: { id: string; label: string; username: string | null; url: string | null }[]
+  licenses: { id: string; name: string; vendor: string | null }[]
+  applications: { id: string; name: string; vendor: string | null }[]
+}
+
 type Client = {
   id: string
   name: string
@@ -13,7 +30,7 @@ type Client = {
   syncroId: string | null
   createdAt: string
   locations: { id: string; name: string; address: string | null; city: string | null; state: string | null }[]
-  users: { id: string; name: string; email: string | null; jobTitle: string | null }[]
+  users: ClientUser[]
   contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null; mobile: string | null; notes: string | null }[]
 }
 
@@ -72,7 +89,7 @@ export default function ClientDetailPage() {
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
-  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "" })
+  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "", userId: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [editingClient, setEditingClient] = useState(false)
@@ -102,6 +119,9 @@ export default function ClientDetailPage() {
   const [showAddEvent, setShowAddEvent] = useState(false)
   const [eventForm, setEventForm] = useState({ eventType: "TECH_NOTE", title: "", bodyText: "" })
   const [savingEvent, setSavingEvent] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [userSummary, setUserSummary] = useState<UserSummary | null>(null)
+  const [loadingSummary, setLoadingSummary] = useState(false)
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
   const [showAddAsset, setShowAddAsset] = useState(false)
   const [assetForm, setAssetForm] = useState({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", notes: "" })
@@ -213,7 +233,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newCred = await res.json()
         setCredentials(c => [...c, newCred])
-        setCredForm({ label: "", username: "", password: "", url: "", notes: "" })
+        setCredForm({ label: "", username: "", password: "", url: "", notes: "", userId: "" })
         setShowAddCred(false)
       }
     } catch {}
@@ -373,6 +393,18 @@ export default function ClientDetailPage() {
       setAssets(await res.json())
     } catch {}
     finally { setLoadingAssets(false) }
+  }
+
+  async function selectUser(userId: string) {
+    if (selectedUserId === userId) { setSelectedUserId(null); setUserSummary(null); return }
+    setSelectedUserId(userId)
+    setUserSummary(null)
+    setLoadingSummary(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/users/${userId}/summary`)
+      setUserSummary(await res.json())
+    } catch {}
+    finally { setLoadingSummary(false) }
   }
 
   async function fetchAssetTypes() {
@@ -577,23 +609,123 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "Users" && (
-          <div style={{ maxWidth: "700px" }}>
-            {client.users.length === 0 ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No users yet.</div>
-            ) : client.users.map((user) => (
-              <div key={user.id} style={{
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "10px", padding: "16px", marginBottom: "10px",
-                display: "flex", justifyContent: "space-between",
-              }}>
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{user.name}</div>
-                  {user.jobTitle && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{user.jobTitle}</div>}
+          <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
+            {/* User list */}
+            <div style={{ width: "240px", flexShrink: 0 }}>
+              {client.users.length === 0 ? (
+                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No users yet.</div>
+              ) : client.users.map((user) => (
+                <div key={user.id} onClick={() => selectUser(user.id)} style={{
+                  background: selectedUserId === user.id ? "var(--color-background-secondary)" : "transparent",
+                  border: selectedUserId === user.id ? "0.5px solid var(--color-border-secondary)" : "0.5px solid transparent",
+                  borderLeft: selectedUserId === user.id ? "2px solid var(--color-text-primary)" : "2px solid transparent",
+                  borderRadius: "8px", padding: "10px 12px", marginBottom: "6px",
+                  cursor: "pointer",
+                }}
+                  onMouseEnter={e => { if (selectedUserId !== user.id) e.currentTarget.style.background = "var(--color-background-secondary)" }}
+                  onMouseLeave={e => { if (selectedUserId !== user.id) e.currentTarget.style.background = "transparent" }}
+                >
+                  <div style={{ fontSize: "14px", fontWeight: selectedUserId === user.id ? 500 : 400 }}>{user.name}</div>
+                  {user.jobTitle && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{user.jobTitle}</div>}
+                  {user.email && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>}
                 </div>
-                {user.email && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{user.email}</div>}
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* Context panel */}
+            {selectedUserId && (() => {
+              const user = client.users.find(u => u.id === selectedUserId)!
+              return (
+                <div style={{ flex: 1, minWidth: 0, position: "sticky", top: "32px" }}>
+                  {/* User header */}
+                  <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: "16px", fontWeight: 500 }}>{user.name}</div>
+                        {user.jobTitle && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{user.jobTitle}</div>}
+                      </div>
+                      <button onClick={() => { setSelectedUserId(null); setUserSummary(null) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: "2px" }}>✕</button>
+                    </div>
+                    {(user.email || user.phone || user.m365Upn) && (
+                      <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                        {user.email && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{user.email}</span>}
+                        {user.phone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{user.phone}</span>}
+                        {user.m365Upn && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{user.m365Upn}</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  {loadingSummary ? (
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "12px 0" }}>Loading...</div>
+                  ) : userSummary && (() => {
+                    const sections = [
+                      {
+                        label: "Devices", count: userSummary.assets.length,
+                        items: userSummary.assets.map(a => ({
+                          primary: a.name,
+                          secondary: [a.assetType?.name, [a.make, a.model].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
+                          badge: a.status !== "ACTIVE" ? a.status.charAt(0) + a.status.slice(1).toLowerCase() : null,
+                          onClick: () => { setActiveTab("Assets"); if (assets.length === 0) fetchAssets() },
+                        })),
+                      },
+                      {
+                        label: "Credentials", count: userSummary.credentials.length,
+                        items: userSummary.credentials.map(c => ({
+                          primary: c.label,
+                          secondary: c.username ?? null,
+                          badge: null,
+                          onClick: () => setActiveTab("Credentials"),
+                        })),
+                      },
+                      {
+                        label: "Licenses", count: userSummary.licenses.length,
+                        items: userSummary.licenses.map(l => ({
+                          primary: l.name,
+                          secondary: l.vendor ?? null,
+                          badge: null,
+                          onClick: () => setActiveTab("Licenses"),
+                        })),
+                      },
+                      {
+                        label: "Applications", count: userSummary.applications.length,
+                        items: userSummary.applications.map(a => ({
+                          primary: a.name,
+                          secondary: a.vendor ?? null,
+                          badge: null,
+                          onClick: () => setActiveTab("Applications"),
+                        })),
+                      },
+                    ]
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        {sections.map(section => (
+                          <div key={section.label} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                            <div style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{section.label}</span>
+                              <span style={{ fontSize: "12px", fontWeight: 500, color: section.count > 0 ? "var(--color-text-primary)" : "var(--color-text-secondary)", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "1px 7px" }}>{section.count}</span>
+                            </div>
+                            {section.items.length === 0 ? (
+                              <div style={{ padding: "10px 14px", fontSize: "12px", color: "var(--color-text-secondary)" }}>None</div>
+                            ) : section.items.map((item, i) => (
+                              <div key={i} onClick={item.onClick} style={{ padding: "8px 14px", borderBottom: i < section.items.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                              >
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.primary}</div>
+                                  {item.secondary && <div style={{ fontSize: "11px", color: "var(--color-text-secondary)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.secondary}</div>}
+                                </div>
+                                {item.badge && <span style={{ fontSize: "10px", color: "var(--color-text-secondary)", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 5px", marginLeft: "8px", flexShrink: 0 }}>{item.badge}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -705,8 +837,15 @@ export default function ClientDetailPage() {
                         <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>
                           {asset.serial || "—"}
                         </div>
-                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                          {asset.primaryUser?.name ?? "—"}
+                        <div>
+                          {asset.primaryUser ? (
+                            <span
+                              onClick={e => { e.stopPropagation(); setActiveTab("Users"); selectUser(asset.primaryUser!.id) }}
+                              style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer", display: "inline-block" }}
+                            >
+                              {asset.primaryUser.name}
+                            </span>
+                          ) : <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", flexShrink: 0 }} />
@@ -814,6 +953,15 @@ export default function ClientDetailPage() {
                     />
                   </div>
                 ))}
+                {client.users.length > 0 && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Link to user</label>
+                    <select value={credForm.userId} onChange={e => setCredForm(f => ({ ...f, userId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
+                      <option value="">None</option>
+                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
                   <button onClick={saveCred} disabled={savingCred} style={{
                     fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
@@ -839,7 +987,14 @@ export default function ClientDetailPage() {
                 borderRadius: "10px", padding: "16px", marginBottom: "10px",
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
+                    {cred.user && (
+                      <span onClick={() => { setActiveTab("Users"); selectUser(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
+                        {cred.user.name}
+                      </span>
+                    )}
+                  </div>
                   <button onClick={() => deleteCred(cred.id)} style={{
                     fontSize: "12px", color: "var(--color-text-secondary)", background: "none",
                     border: "none", cursor: "pointer", padding: 0,
