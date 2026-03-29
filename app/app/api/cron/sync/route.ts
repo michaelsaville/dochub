@@ -7,8 +7,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const base = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
-    const res = await fetch(`${base}/api/sync/syncro`, { method: "POST" })
+    const res = await fetch("http://localhost:3000/api/sync/syncro", { method: "POST" })
     const data = await res.json()
     return NextResponse.json({ success: true, ...data })
   } catch (e: any) {
