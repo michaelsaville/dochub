@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAuth } from "@/lib/auth"
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; contactId: string }> }
 ) {
+  const { error } = await requireAuth()
+  if (error) return error
   try {
     const { contactId } = await params
     const body = await req.json()
@@ -30,6 +33,8 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string; contactId: string }> }
 ) {
+  const { error } = await requireAuth()
+  if (error) return error
   try {
     const { contactId } = await params
     await prisma.vendorContact.delete({ where: { id: contactId } })

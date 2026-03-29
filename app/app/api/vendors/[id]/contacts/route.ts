@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireAuth } from "@/lib/auth"
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { error } = await requireAuth()
+  if (error) return error
   try {
     const { id: vendorId } = await params
     const body = await req.json()
