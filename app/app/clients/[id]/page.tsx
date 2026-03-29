@@ -31,7 +31,7 @@ type Asset = {
   notes: string | null
 }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -77,6 +77,20 @@ export default function ClientDetailPage() {
   const [showAddLocation, setShowAddLocation] = useState(false)
   const [addLocationForm, setAddLocationForm] = useState({ name: "", address: "", city: "", state: "", zip: "" })
   const [savingLocation, setSavingLocation] = useState(false)
+  const [licenses, setLicenses] = useState<any[]>([])
+  const [loadingLicenses, setLoadingLicenses] = useState(false)
+  const [showAddLicense, setShowAddLicense] = useState(false)
+  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "" })
+  const [savingLicense, setSavingLicense] = useState(false)
+  const [editingLicense, setEditingLicense] = useState<string | null>(null)
+  const [licenseEditForm, setLicenseEditForm] = useState<any>({})
+  const [applications, setApplications] = useState<any[]>([])
+  const [loadingApps, setLoadingApps] = useState(false)
+  const [showAddApp, setShowAddApp] = useState(false)
+  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "" })
+  const [savingApp, setSavingApp] = useState(false)
+  const [editingApp, setEditingApp] = useState<string | null>(null)
+  const [appEditForm, setAppEditForm] = useState<any>({})
 
   useEffect(() => {
     if (id) fetchClient()
@@ -85,6 +99,8 @@ export default function ClientDetailPage() {
   useEffect(() => {
     if (activeTab === "Assets" && assets.length === 0) fetchAssets()
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
+    if (activeTab === "Licenses" && licenses.length === 0) fetchLicenses()
+    if (activeTab === "Applications" && applications.length === 0) fetchApplications()
   }, [activeTab])
 
   async function fetchClient() {
@@ -193,6 +209,102 @@ export default function ClientDetailPage() {
     try {
       await fetch(`/api/credentials/${credId}`, { method: "DELETE" })
       setCredentials(c => c.filter(x => x.id !== credId))
+    } catch {}
+  }
+
+  async function fetchLicenses() {
+    setLoadingLicenses(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/licenses`)
+      setLicenses(await res.json())
+    } catch {}
+    finally { setLoadingLicenses(false) }
+  }
+
+  async function fetchApplications() {
+    setLoadingApps(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/applications`)
+      setApplications(await res.json())
+    } catch {}
+    finally { setLoadingApps(false) }
+  }
+
+  async function saveLicense() {
+    if (!licenseForm.name.trim()) return
+    setSavingLicense(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/licenses`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(licenseForm),
+      })
+      if (res.ok) {
+        setLicenses(l => [...l, await res.json()])
+        setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "" })
+        setShowAddLicense(false)
+      }
+    } catch {}
+    finally { setSavingLicense(false) }
+  }
+
+  async function updateLicense(licenseId: string) {
+    try {
+      const res = await fetch(`/api/clients/${id}/licenses/${licenseId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(licenseEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setLicenses(l => l.map(x => x.id === licenseId ? updated : x))
+        setEditingLicense(null)
+      }
+    } catch {}
+  }
+
+  async function deleteLicense(licenseId: string) {
+    if (!confirm("Remove this license?")) return
+    try {
+      await fetch(`/api/clients/${id}/licenses/${licenseId}`, { method: "DELETE" })
+      setLicenses(l => l.filter(x => x.id !== licenseId))
+    } catch {}
+  }
+
+  async function saveApp() {
+    if (!appForm.name.trim()) return
+    setSavingApp(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/applications`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(appForm),
+      })
+      if (res.ok) {
+        setApplications(a => [...a, await res.json()])
+        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "" })
+        setShowAddApp(false)
+      }
+    } catch {}
+    finally { setSavingApp(false) }
+  }
+
+  async function updateApp(appId: string) {
+    try {
+      const res = await fetch(`/api/clients/${id}/applications/${appId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(appEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setApplications(a => a.map(x => x.id === appId ? updated : x))
+        setEditingApp(null)
+      }
+    } catch {}
+  }
+
+  async function deleteApp(appId: string) {
+    if (!confirm("Remove this application?")) return
+    try {
+      await fetch(`/api/clients/${id}/applications/${appId}`, { method: "DELETE" })
+      setApplications(a => a.filter(x => x.id !== appId))
     } catch {}
   }
 
@@ -611,8 +723,176 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {["Licenses", "Activity"].includes(activeTab) && (
-          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>{activeTab} coming soon.</div>
+        {activeTab === "Licenses" && (
+          <div style={{ maxWidth: "800px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <button onClick={() => setShowAddLicense(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add license</button>
+            </div>
+            {showAddLicense && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New license</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  {[
+                    { key: "name", label: "Name *", placeholder: "e.g. Microsoft 365 Business" },
+                    { key: "vendor", label: "Vendor", placeholder: "e.g. Microsoft" },
+                    { key: "seats", label: "Seats", placeholder: "Number of seats" },
+                    { key: "cost", label: "Cost ($/mo)", placeholder: "" },
+                    { key: "expiryDate", label: "Expiry date", placeholder: "", type: "date" },
+                    { key: "renewalDate", label: "Renewal date", placeholder: "", type: "date" },
+                    { key: "notes", label: "Notes", placeholder: "" },
+                  ].map(({ key, label, placeholder, type }) => (
+                    <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                      <input type={type ?? "text"} value={licenseForm[key as keyof typeof licenseForm]} onChange={e => setLicenseForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={saveLicense} disabled={savingLicense} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingLicense ? "Saving..." : "Save"}</button>
+                  <button onClick={() => setShowAddLicense(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+            {loadingLicenses ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : licenses.length === 0 && !showAddLicense ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No licenses yet.</div>
+            ) : (
+              <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 60px 120px 120px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Name", "Vendor", "Seats", "Expiry", "Renewal", ""].map(h => (
+                    <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
+                  ))}
+                </div>
+                {licenses.map((lic, i) => editingLicense === lic.id ? (
+                  <div key={lic.id} style={{ padding: "14px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                      {[
+                        { key: "name", label: "Name" }, { key: "vendor", label: "Vendor" },
+                        { key: "seats", label: "Seats" }, { key: "cost", label: "Cost ($/mo)" },
+                        { key: "expiryDate", label: "Expiry", type: "date" }, { key: "renewalDate", label: "Renewal", type: "date" },
+                        { key: "notes", label: "Notes" },
+                      ].map(({ key, label, type }) => (
+                        <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                          <input type={type ?? "text"} value={licenseEditForm[key] ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                            style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => updateLicense(lic.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                      <button onClick={() => setEditingLicense(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={lic.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 60px 120px 120px 80px", padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</div>
+                      {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.vendor ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.seats ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: lic.expiryDate && new Date(lic.expiryDate) < new Date() ? "var(--color-text-danger)" : "var(--color-text-secondary)" }}>
+                      {lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : "—"}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.renewalDate ? new Date(lic.renewalDate).toLocaleDateString() : "—"}</div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Applications" && (
+          <div style={{ maxWidth: "800px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <button onClick={() => setShowAddApp(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add application</button>
+            </div>
+            {showAddApp && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New application</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  {[
+                    { key: "name", label: "Name *", placeholder: "e.g. AutoCAD" },
+                    { key: "vendor", label: "Vendor", placeholder: "e.g. Autodesk" },
+                    { key: "version", label: "Version", placeholder: "" },
+                    { key: "supportUrl", label: "Support URL", placeholder: "https://" },
+                    { key: "notes", label: "Notes", placeholder: "" },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} style={key === "notes" || key === "supportUrl" ? { gridColumn: "1 / -1" } : {}}>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                      <input value={appForm[key as keyof typeof appForm]} onChange={e => setAppForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={saveApp} disabled={savingApp} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingApp ? "Saving..." : "Save"}</button>
+                  <button onClick={() => setShowAddApp(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+            {loadingApps ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : applications.length === 0 && !showAddApp ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No applications yet.</div>
+            ) : (
+              <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 1fr 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Name", "Vendor", "Version", "Support", ""].map(h => (
+                    <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
+                  ))}
+                </div>
+                {applications.map((app, i) => editingApp === app.id ? (
+                  <div key={app.id} style={{ padding: "14px 16px", borderBottom: i < applications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                      {[
+                        { key: "name", label: "Name" }, { key: "vendor", label: "Vendor" },
+                        { key: "version", label: "Version" }, { key: "supportUrl", label: "Support URL" },
+                        { key: "notes", label: "Notes" },
+                      ].map(({ key, label }) => (
+                        <div key={key} style={key === "notes" || key === "supportUrl" ? { gridColumn: "1 / -1" } : {}}>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                          <input value={appEditForm[key] ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                            style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => updateApp(app.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                      <button onClick={() => setEditingApp(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={app.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 1fr 80px", padding: "12px 16px", borderBottom: i < applications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{app.name}</div>
+                      {app.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{app.notes}</div>}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.vendor ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{app.version ?? "—"}</div>
+                    <div style={{ fontSize: "13px" }}>
+                      {app.supportUrl ? <a href={app.supportUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-secondary)" }}>{app.supportUrl}</a> : "—"}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => deleteApp(app.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Activity" && (
+          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Activity coming soon.</div>
         )}
       </div>
     </AppShell>
