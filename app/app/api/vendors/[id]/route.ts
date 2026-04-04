@@ -12,7 +12,11 @@ export async function GET(
     const { id } = await params
     const vendor = await prisma.vendor.findUnique({
       where: { id },
-      include: { contacts: { orderBy: { name: "asc" } } },
+      include: {
+        contacts: { orderBy: { name: "asc" } },
+        clients: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+        _count: { select: { licenses: true } },
+      },
     })
     if (!vendor) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json(vendor)
@@ -30,18 +34,25 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, website, supportUrl, supportPhone, supportEmail, accountNumber, notes, isActive } = body
+    const { name, category, website, supportUrl, supportPhone, supportEmail, accountNumber, portalUrl, notes, isActive } = body
     const vendor = await prisma.vendor.update({
       where: { id },
       data: {
         ...(name?.trim() && { name: name.trim() }),
+        ...(category !== undefined && { category }),
         ...(website !== undefined && { website: website?.trim() || null }),
         ...(supportUrl !== undefined && { supportUrl: supportUrl?.trim() || null }),
         ...(supportPhone !== undefined && { supportPhone: supportPhone?.trim() || null }),
         ...(supportEmail !== undefined && { supportEmail: supportEmail?.trim() || null }),
         ...(accountNumber !== undefined && { accountNumber: accountNumber?.trim() || null }),
+        ...(portalUrl !== undefined && { portalUrl: portalUrl?.trim() || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
         ...(isActive !== undefined && { isActive }),
+      },
+      include: {
+        contacts: { orderBy: { name: "asc" } },
+        clients: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+        _count: { select: { licenses: true } },
       },
     })
     return NextResponse.json(vendor)

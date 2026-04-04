@@ -75,6 +75,28 @@ enum UserRole {
   CLIENT
 }
 
+enum VendorCategory {
+  ISP
+  SOFTWARE
+  HARDWARE
+  TELECOM
+  CLOUD
+  SECURITY
+  SERVICES
+  OTHER
+}
+
+enum NetworkDeviceType {
+  SWITCH
+  FIREWALL
+  ROUTER
+  ACCESS_POINT
+  NAS
+  UPS
+  MODEM
+  OTHER
+}
+
 model StaffUser {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -105,8 +127,9 @@ model Client {
   contacts       Contact[]
   alarms         Alarm[]
   activityEvents ActivityEvent[]
-  vendors        Vendor[]
+  vendors        Vendor[]        @relation("ClientVendors")
   websites       Website[]
+  networkDevices NetworkDevice[]
 }
 
 model Location {
@@ -127,6 +150,7 @@ model Location {
   client        Client         @relation(fields: [clientId], references: [id])
   assets        Asset[]
   userLocations UserLocation[]
+  networkDevices NetworkDevice[]
 }
 
 model ClientUser {
@@ -236,6 +260,7 @@ model Credential {
   notes             String?
   isRetired         Boolean   @default(false)
   lastRotated       DateTime?
+  expiryDate        DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -250,9 +275,13 @@ model License {
   clientId       String
   assignedUserId String?
   contactId      String?
+  vendorId       String?
   name           String
   vendor         String?
+  licenseKey     String?
   seats          Int?
+  assignedSeats  Int?
+  purchaseDate   DateTime?
   expiryDate     DateTime?
   renewalDate    DateTime?
   cost           Float?
@@ -265,6 +294,7 @@ model License {
   client       Client      @relation(fields: [clientId], references: [id])
   assignedUser ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
   contact      Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
+  vendorRef    Vendor?     @relation(fields: [vendorId], references: [id])
 }
 
 model Application {
@@ -309,7 +339,6 @@ model Contact {
   licenses    License[]     @relation("LicenseContact")
   applications Application[] @relation("ApplicationContact")
   credentials Credential[]  @relation("CredentialContact")
-  vendors     Vendor[]      @relation("VendorClientContact")
 }
 
 model Alarm {
@@ -394,38 +423,44 @@ model VerificationToken {
 }
 
 model Vendor {
-  id            String   @id @default(cuid())
-  clientId      String?
-  contactId     String?
+  id            String         @id @default(cuid())
   name          String
+  category      VendorCategory @default(OTHER)
   website       String?
   supportUrl    String?
   supportPhone  String?
   supportEmail  String?
   accountNumber String?
+  portalUrl     String?
   notes         String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  client       Client?       @relation(fields: [clientId], references: [id])
-  contact      Contact?      @relation("VendorClientContact", fields: [contactId], references: [id])
+  clients      Client[]        @relation("ClientVendors")
   contacts     VendorContact[]
   applications Application[]
+  licenses     License[]
 }
 
 model Website {
-  id          String    @id @default(cuid())
-  clientId    String
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  label       String?
-  domain      String
-  registrar   String?
-  expiresAt   DateTime?
-  lastChecked DateTime?
-  dnsRecords  Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  label         String?
+  domain        String
+  registrar     String?
+  registrarUrl  String?
+  accountNumber String?
+  autoRenew     Boolean   @default(false)
+  expiresAt     DateTime?
+  sslExpiresAt  DateTime?
+  sslIssuer     String?
+  lastChecked   DateTime?
+  dnsRecords    Json?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model AppSetting {
@@ -447,4 +482,26 @@ model VendorContact {
   updatedAt DateTime @updatedAt
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model NetworkDevice {
+  id              String            @id @default(cuid())
+  clientId        String
+  locationId      String?
+  name            String
+  type            NetworkDeviceType @default(OTHER)
+  make            String?
+  model           String?
+  ipAddress       String?
+  macAddress      String?
+  serial          String?
+  firmwareVersion String?
+  managementUrl   String?
+  notes           String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  client   Client    @relation(fields: [clientId], references: [id])
+  location Location? @relation(fields: [locationId], references: [id])
 }

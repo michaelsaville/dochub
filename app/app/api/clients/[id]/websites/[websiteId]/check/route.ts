@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-options"
+import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { resolve4, resolve6, resolveMx, resolveNs, resolveTxt } from "dns/promises"
+import tls from "tls"
 
 async function rdapLookup(domain: string): Promise<{ expiresAt: Date | null; registrar: string | null }> {
   try {
@@ -40,28 +40,55 @@ async function dnsLookup(domain: string): Promise<Record<string, any>> {
   return records
 }
 
+async function sslCheck(domain: string): Promise<{ sslExpiresAt: Date | null; sslIssuer: string | null }> {
+  return new Promise((resolve) => {
+    try {
+      const socket = tls.connect(443, domain, { servername: domain, rejectUnauthorized: false }, () => {
+        const cert = socket.getPeerCertificate()
+        socket.destroy()
+        resolve({
+          sslExpiresAt: cert?.valid_to ? new Date(cert.valid_to) : null,
+          sslIssuer: (cert?.issuer as any)?.O ?? null,
+        })
+      })
+      socket.setTimeout(8000, () => { socket.destroy(); resolve({ sslExpiresAt: null, sslIssuer: null }) })
+      socket.on("error", () => resolve({ sslExpiresAt: null, sslIssuer: null }))
+    } catch {
+      resolve({ sslExpiresAt: null, sslIssuer: null })
+    }
+  })
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string; websiteId: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { error } = await requireAuth()
+  if (error) return error
   const { id, websiteId } = await params
 
   const website = await prisma.website.findFirst({ where: { id: websiteId, clientId: id } })
   if (!website) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const [{ expiresAt, registrar }, dnsRecords] = await Promise.all([
+  const [{ expiresAt, registrar }, dnsRecords, { sslExpiresAt, sslIssuer }] = await Promise.all([
     rdapLookup(website.domain),
     dnsLookup(website.domain),
+    sslCheck(website.domain),
   ])
 
   const updated = await prisma.website.update({
     where: { id: websiteId },
-    data: { expiresAt, registrar, dnsRecords, lastChecked: new Date() },
+    data: {
+      expiresAt,
+      registrar: registrar ?? website.registrar,
+      dnsRecords,
+      sslExpiresAt,
+      sslIssuer,
+      lastChecked: new Date(),
+    },
   })
 
-  // Alarm logic
+  // Domain expiry alarm
   if (expiresAt) {
     const thresholdSetting = await prisma.appSetting.findUnique({
       where: { key: "domain_expiry_threshold_days" },
@@ -99,6 +126,44 @@ export async function POST(
             type: "DOMAIN_EXPIRY",
             message,
             details: `Registrar: ${registrar ?? "unknown"} · Expires: ${expiresAt.toDateString()}`,
+          },
+        })
+      }
+    }
+  }
+
+  // SSL expiry alarm
+  if (sslExpiresAt) {
+    const daysLeft = Math.floor((sslExpiresAt.getTime() - Date.now()) / 86400000)
+    if (daysLeft <= 30) {
+      const severity = daysLeft <= 0 ? "CRITICAL" : daysLeft <= 7 ? "CRITICAL" : "WARNING"
+      const message =
+        daysLeft <= 0
+          ? `SSL cert for ${website.domain} has expired`
+          : `SSL cert for ${website.domain} expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+
+      const existing = await prisma.alarm.findFirst({
+        where: {
+          clientId: id,
+          type: "SSL_EXPIRY",
+          status: { not: "RESOLVED" },
+          message: { contains: website.domain },
+        },
+      })
+
+      if (existing) {
+        await prisma.alarm.update({
+          where: { id: existing.id },
+          data: { severity: severity as any, message, status: "ACTIVE" },
+        })
+      } else {
+        await prisma.alarm.create({
+          data: {
+            clientId: id,
+            severity: severity as any,
+            type: "SSL_EXPIRY",
+            message,
+            details: `Issuer: ${sslIssuer ?? "unknown"} · Expires: ${sslExpiresAt.toDateString()}`,
           },
         })
       }

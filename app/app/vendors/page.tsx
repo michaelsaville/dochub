@@ -4,19 +4,23 @@ import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
+const CATEGORIES = ["ISP", "SOFTWARE", "HARDWARE", "TELECOM", "CLOUD", "SECURITY", "SERVICES", "OTHER"]
+
 type Vendor = {
   id: string
   name: string
+  category: string
   supportPhone: string | null
   supportEmail: string | null
   website: string | null
   isActive: boolean
-  _count: { contacts: number }
+  _count: { contacts: number; clients: number; licenses: number }
 }
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [search, setSearch] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("")
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -24,8 +28,8 @@ export default function VendorsPage() {
   const router = useRouter()
 
   const [form, setForm] = useState({
-    name: "", website: "", supportUrl: "", supportPhone: "",
-    supportEmail: "", accountNumber: "", notes: "",
+    name: "", category: "OTHER", website: "", supportUrl: "", supportPhone: "",
+    supportEmail: "", accountNumber: "", portalUrl: "", notes: "",
   })
 
   useEffect(() => { fetchVendors() }, [])
@@ -55,7 +59,7 @@ export default function VendorsPage() {
       if (!res.ok) { setError("Failed to create vendor"); return }
       const vendor = await res.json()
       setShowAdd(false)
-      setForm({ name: "", website: "", supportUrl: "", supportPhone: "", supportEmail: "", accountNumber: "", notes: "" })
+      setForm({ name: "", category: "OTHER", website: "", supportUrl: "", supportPhone: "", supportEmail: "", accountNumber: "", portalUrl: "", notes: "" })
       router.push("/vendors/" + vendor.id)
     } catch (e) {
       setError("Failed to create vendor")
@@ -64,9 +68,11 @@ export default function VendorsPage() {
     }
   }
 
-  const filtered = vendors.filter((v) =>
-    v.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = vendors.filter((v) => {
+    const matchSearch = v.name.toLowerCase().includes(search.toLowerCase())
+    const matchCat = !categoryFilter || v.category === categoryFilter
+    return matchSearch && matchCat
+  })
 
   const inputStyle = {
     width: "100%", padding: "8px 12px", fontSize: "14px",
@@ -118,6 +124,13 @@ export default function VendorsPage() {
                   placeholder="e.g. Microsoft" />
               </div>
               <div>
+                <label style={labelStyle}>Category</label>
+                <select style={inputStyle} value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={labelStyle}>Website</label>
                 <input style={inputStyle} value={form.website}
                   onChange={(e) => setForm({ ...form, website: e.target.value })}
@@ -128,6 +141,12 @@ export default function VendorsPage() {
                 <input style={inputStyle} value={form.supportUrl}
                   onChange={(e) => setForm({ ...form, supportUrl: e.target.value })}
                   placeholder="https://support..." />
+              </div>
+              <div>
+                <label style={labelStyle}>Portal URL</label>
+                <input style={inputStyle} value={form.portalUrl}
+                  onChange={(e) => setForm({ ...form, portalUrl: e.target.value })}
+                  placeholder="https://portal..." />
               </div>
               <div>
                 <label style={labelStyle}>Support phone</label>
@@ -179,21 +198,28 @@ export default function VendorsPage() {
           </div>
         )}
 
-        <div style={{ marginBottom: "16px", maxWidth: "400px" }}>
+        <div style={{ display: "flex", gap: "12px", marginBottom: "16px", maxWidth: "600px" }}>
           <input
             type="text" placeholder="Search vendors..."
             value={search} onChange={(e) => setSearch(e.target.value)}
-            style={inputStyle}
+            style={{ ...inputStyle, flex: 1 }}
           />
+          <select
+            value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{ ...inputStyle, width: "160px", flex: "none" }}
+          >
+            <option value="">All categories</option>
+            {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
+          </select>
         </div>
 
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 180px 180px 60px",
+            display: "grid", gridTemplateColumns: "1fr 120px 160px 160px 80px",
             padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Vendor", "Support phone", "Support email", "Contacts"].map((h) => (
+            {["Vendor", "Category", "Support phone", "Support email", "Linked"].map((h) => (
               <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
             ))}
           </div>
@@ -204,7 +230,7 @@ export default function VendorsPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: "48px 16px", textAlign: "center", color: "var(--color-text-secondary)", fontSize: "14px" }}>
-              {search ? "No vendors match your search." : "No vendors yet."}
+              {search || categoryFilter ? "No vendors match your filter." : "No vendors yet."}
             </div>
           ) : (
             filtered.map((vendor, i) => (
@@ -212,7 +238,7 @@ export default function VendorsPage() {
                 key={vendor.id}
                 onClick={() => router.push("/vendors/" + vendor.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 180px 180px 60px",
+                  display: "grid", gridTemplateColumns: "1fr 120px 160px 160px 80px",
                   padding: "12px 16px", cursor: "pointer",
                   borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                   background: "var(--color-background-primary)",
@@ -227,13 +253,22 @@ export default function VendorsPage() {
                   )}
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", alignSelf: "center" }}>
+                  <span style={{
+                    fontSize: "11px", padding: "2px 8px", borderRadius: "20px",
+                    background: "var(--color-background-hover)",
+                    color: "var(--color-text-secondary)",
+                  }}>
+                    {vendor.category.charAt(0) + vendor.category.slice(1).toLowerCase()}
+                  </span>
+                </div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", alignSelf: "center" }}>
                   {vendor.supportPhone ?? "—"}
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", alignSelf: "center" }}>
                   {vendor.supportEmail ?? "—"}
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", alignSelf: "center" }}>
-                  {vendor._count.contacts}
+                  {vendor._count.clients}c / {vendor._count.licenses}lic
                 </div>
               </div>
             ))

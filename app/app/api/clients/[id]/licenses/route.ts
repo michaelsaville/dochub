@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { writeActivity } from "@/lib/activity"
+import { encrypt } from "@/lib/crypto"
 
 export async function GET(
   req: Request,
@@ -14,7 +15,11 @@ export async function GET(
     const licenses = await prisma.license.findMany({
       where: { clientId: id, isActive: true },
       orderBy: { name: "asc" },
-      include: { assignedUser: { select: { id: true, name: true } } },
+      include: {
+        assignedUser: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true } },
+        vendorRef: { select: { id: true, name: true } },
+      },
     })
     return NextResponse.json(licenses)
   } catch (e) {
@@ -31,7 +36,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, vendor, seats, expiryDate, renewalDate, cost, pax8Id, notes, assignedUserId } = body
+    const { name, vendor, vendorId, licenseKey, seats, assignedSeats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, assignedUserId, contactId } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
@@ -40,15 +45,24 @@ export async function POST(
         clientId: id,
         name: name.trim(),
         vendor: vendor?.trim() || null,
+        vendorId: vendorId || null,
+        licenseKey: licenseKey?.trim() ? encrypt(licenseKey.trim()) : null,
         seats: seats ? Number(seats) : null,
+        assignedSeats: assignedSeats ? Number(assignedSeats) : null,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         renewalDate: renewalDate ? new Date(renewalDate) : null,
         cost: cost ? Number(cost) : null,
         pax8Id: pax8Id?.trim() || null,
         notes: notes?.trim() || null,
         assignedUserId: assignedUserId || null,
+        contactId: contactId || null,
       },
-      include: { assignedUser: { select: { id: true, name: true } } },
+      include: {
+        assignedUser: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true } },
+        vendorRef: { select: { id: true, name: true } },
+      },
     })
     await writeActivity({
       clientId: id,

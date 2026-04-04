@@ -8,7 +8,9 @@ export async function GET() {
   try {
     const vendors = await prisma.vendor.findMany({
       orderBy: { name: "asc" },
-      include: { _count: { select: { contacts: true } } },
+      include: {
+        _count: { select: { contacts: true, clients: true, licenses: true } },
+      },
     })
     return NextResponse.json(vendors)
   } catch (e) {
@@ -21,18 +23,20 @@ export async function POST(req: Request) {
   if (error) return error
   try {
     const body = await req.json()
-    const { name, website, supportUrl, supportPhone, supportEmail, accountNumber, notes } = body
+    const { name, category, website, supportUrl, supportPhone, supportEmail, accountNumber, portalUrl, notes } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Vendor name is required" }, { status: 400 })
     }
     const vendor = await prisma.vendor.create({
       data: {
         name: name.trim(),
+        category: category || "OTHER",
         website: website?.trim() || null,
         supportUrl: supportUrl?.trim() || null,
         supportPhone: supportPhone?.trim() || null,
         supportEmail: supportEmail?.trim() || null,
         accountNumber: accountNumber?.trim() || null,
+        portalUrl: portalUrl?.trim() || null,
         notes: notes?.trim() || null,
       },
     })

@@ -4,6 +4,8 @@ import AppShell from "@/components/AppShell"
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 
+const CATEGORIES = ["ISP", "SOFTWARE", "HARDWARE", "TELECOM", "CLOUD", "SECURITY", "SERVICES", "OTHER"]
+
 type VendorContact = {
   id: string
   name: string
@@ -14,17 +16,23 @@ type VendorContact = {
   notes: string | null
 }
 
+type LinkedClient = { id: string; name: string }
+
 type Vendor = {
   id: string
   name: string
+  category: string
   website: string | null
   supportUrl: string | null
   supportPhone: string | null
   supportEmail: string | null
   accountNumber: string | null
+  portalUrl: string | null
   notes: string | null
   isActive: boolean
   contacts: VendorContact[]
+  clients: LinkedClient[]
+  _count: { licenses: number }
 }
 
 const inputStyle = {
@@ -51,8 +59,19 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
   const [savingContact, setSavingContact] = useState(false)
   const [editingContact, setEditingContact] = useState<string | null>(null)
   const [contactEditForm, setContactEditForm] = useState<Partial<VendorContact>>({})
+  const [allClients, setAllClients] = useState<LinkedClient[]>([])
+  const [linkClientId, setLinkClientId] = useState("")
+  const [linkingClient, setLinkingClient] = useState(false)
 
-  useEffect(() => { fetchVendor() }, [id])
+  useEffect(() => { fetchVendor(); fetchAllClients() }, [id])
+
+  async function fetchAllClients() {
+    try {
+      const res = await fetch("/api/clients")
+      const data = await res.json()
+      setAllClients(data.map((c: any) => ({ id: c.id, name: c.name })))
+    } catch {}
+  }
 
   async function fetchVendor() {
     setLoading(true)
@@ -88,6 +107,31 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
     if (!confirm(`Delete ${vendor?.name}? This cannot be undone.`)) return
     await fetch(`/api/vendors/${id}`, { method: "DELETE" })
     router.push("/vendors")
+  }
+
+  async function linkClient() {
+    if (!linkClientId) return
+    setLinkingClient(true)
+    try {
+      await fetch(`/api/vendors/${id}/clients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: linkClientId }),
+      })
+      setLinkClientId("")
+      await fetchVendor()
+    } finally {
+      setLinkingClient(false)
+    }
+  }
+
+  async function unlinkClient(clientId: string) {
+    await fetch(`/api/vendors/${id}/clients`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId }),
+    })
+    await fetchVendor()
   }
 
   async function addContact() {
@@ -135,6 +179,9 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
 
   if (!vendor) return null
 
+  const linkedClientIds = new Set(vendor.clients.map(c => c.id))
+  const unlinkableClients = allClients.filter(c => !linkedClientIds.has(c.id))
+
   return (
     <AppShell>
       <div style={{ padding: "32px", maxWidth: "800px" }}>
@@ -149,7 +196,15 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
           </button>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <h1 style={{ fontSize: "22px", fontWeight: 500, marginBottom: "4px" }}>{vendor.name}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+                <h1 style={{ fontSize: "22px", fontWeight: 500, margin: 0 }}>{vendor.name}</h1>
+                <span style={{
+                  fontSize: "11px", padding: "2px 8px", borderRadius: "20px",
+                  background: "var(--color-background-hover)", color: "var(--color-text-secondary)",
+                }}>
+                  {vendor.category.charAt(0) + vendor.category.slice(1).toLowerCase()}
+                </span>
+              </div>
               {vendor.website && (
                 <a href={vendor.website} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
@@ -196,6 +251,13 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
               </div>
               <div>
+                <label style={labelStyle}>Category</label>
+                <select style={inputStyle} value={(editForm as any).category ?? "OTHER"}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value } as any)}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={labelStyle}>Website</label>
                 <input style={inputStyle} value={editForm.website ?? ""}
                   onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} />
@@ -204,6 +266,11 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
                 <label style={labelStyle}>Support URL</label>
                 <input style={inputStyle} value={editForm.supportUrl ?? ""}
                   onChange={(e) => setEditForm({ ...editForm, supportUrl: e.target.value })} />
+              </div>
+              <div>
+                <label style={labelStyle}>Portal URL</label>
+                <input style={inputStyle} value={editForm.portalUrl ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, portalUrl: e.target.value })} />
               </div>
               <div>
                 <label style={labelStyle}>Support phone</label>
@@ -256,13 +323,14 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               { label: "Support phone", value: vendor.supportPhone },
               { label: "Support email", value: vendor.supportEmail },
               { label: "Support URL", value: vendor.supportUrl },
+              { label: "Portal URL", value: vendor.portalUrl },
               { label: "Account number", value: vendor.accountNumber },
               { label: "Notes", value: vendor.notes },
             ].map(({ label, value }) => value ? (
               <div key={label}>
                 <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "2px" }}>{label}</div>
                 <div style={{ fontSize: "14px", color: "var(--color-text-primary)" }}>
-                  {label === "Support URL" || label === "Website" ? (
+                  {label.includes("URL") ? (
                     <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-primary)" }}>{value}</a>
                   ) : value}
                 </div>
@@ -270,6 +338,48 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
             ) : null)}
           </div>
         )}
+
+        {/* Linked clients */}
+        <div style={{ marginBottom: "32px" }}>
+          <div style={{ fontSize: "16px", fontWeight: 500, marginBottom: "14px" }}>Linked clients</div>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+            <select style={{ ...inputStyle, flex: 1, maxWidth: "280px" }}
+              value={linkClientId} onChange={(e) => setLinkClientId(e.target.value)}>
+              <option value="">Select a client to link...</option>
+              {unlinkableClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button onClick={linkClient} disabled={!linkClientId || linkingClient} style={{
+              fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
+              border: "0.5px solid var(--color-border-secondary)",
+              background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)",
+            }}>
+              {linkingClient ? "Linking..." : "Link"}
+            </button>
+          </div>
+          {vendor.clients.length === 0 ? (
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>No clients linked yet.</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {vendor.clients.map(c => (
+                <div key={c.id} style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  padding: "4px 10px", borderRadius: "20px",
+                  border: "0.5px solid var(--color-border-secondary)",
+                  fontSize: "13px", background: "var(--color-background-secondary)",
+                }}>
+                  <span style={{ cursor: "pointer", color: "var(--color-text-primary)" }}
+                    onClick={() => router.push(`/clients/${c.id}`)}>
+                    {c.name}
+                  </span>
+                  <button onClick={() => unlinkClient(c.id)} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--color-text-secondary)", fontSize: "12px", padding: 0,
+                  }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Contacts */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>

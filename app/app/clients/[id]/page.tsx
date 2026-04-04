@@ -64,7 +64,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Websites", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -95,11 +95,17 @@ export default function ClientDetailPage() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loadingClient, setLoadingClient] = useState(true)
   const [loadingAssets, setLoadingAssets] = useState(false)
-  const [activeTab, setActiveTab] = useState("Overview")
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab")
+      if (tab) return tab
+    }
+    return "Overview"
+  })
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
-  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "" })
+  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [editingClient, setEditingClient] = useState(false)
@@ -113,10 +119,13 @@ export default function ClientDetailPage() {
   const [licenses, setLicenses] = useState<any[]>([])
   const [loadingLicenses, setLoadingLicenses] = useState(false)
   const [showAddLicense, setShowAddLicense] = useState(false)
-  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
+  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
   const [savingLicense, setSavingLicense] = useState(false)
   const [editingLicense, setEditingLicense] = useState<string | null>(null)
   const [licenseEditForm, setLicenseEditForm] = useState<any>({})
+  const [revealedLicenseKeys, setRevealedLicenseKeys] = useState<Record<string, string>>({})
+  const [revealingKey, setRevealingKey] = useState<string | null>(null)
+  const [vendorsList, setVendorsList] = useState<{ id: string; name: string }[]>([])
   const [applications, setApplications] = useState<any[]>([])
   const [loadingApps, setLoadingApps] = useState(false)
   const [showAddApp, setShowAddApp] = useState(false)
@@ -151,11 +160,20 @@ export default function ClientDetailPage() {
   const [websites, setWebsites] = useState<any[]>([])
   const [loadingWebsites, setLoadingWebsites] = useState(false)
   const [showAddWebsite, setShowAddWebsite] = useState(false)
-  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "" })
+  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "", registrar: "", registrarUrl: "", accountNumber: "", autoRenew: false, notes: "" })
+  const [editingWebsite, setEditingWebsite] = useState<string | null>(null)
+  const [websiteEditForm, setWebsiteEditForm] = useState<any>({})
   const [savingWebsite, setSavingWebsite] = useState(false)
   const [checkingWebsite, setCheckingWebsite] = useState<string | null>(null)
   const [expandedDns, setExpandedDns] = useState<Record<string, boolean>>({})
   const [domainThreshold, setDomainThreshold] = useState(30)
+  const [networkDevices, setNetworkDevices] = useState<any[]>([])
+  const [loadingNetwork, setLoadingNetwork] = useState(false)
+  const [showAddDevice, setShowAddDevice] = useState(false)
+  const [deviceForm, setDeviceForm] = useState({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "" })
+  const [savingDevice, setSavingDevice] = useState(false)
+  const [editingDevice, setEditingDevice] = useState<string | null>(null)
+  const [deviceEditForm, setDeviceEditForm] = useState<any>({})
 
   useEffect(() => {
     if (id) fetchClient()
@@ -164,9 +182,10 @@ export default function ClientDetailPage() {
   useEffect(() => {
     if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
-    if (activeTab === "Licenses" && licenses.length === 0) fetchLicenses()
+    if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList() }
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
-    if (activeTab === "Websites" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
+    if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
+    if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
 
@@ -264,7 +283,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newCred = await res.json()
         setCredentials(c => [...c, newCred])
-        setCredForm({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "" })
+        setCredForm({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
         setShowAddCred(false)
       }
     } catch {}
@@ -288,6 +307,77 @@ export default function ClientDetailPage() {
     finally { setLoadingLicenses(false) }
   }
 
+  async function fetchVendorsList() {
+    try {
+      const res = await fetch("/api/vendors")
+      const data = await res.json()
+      setVendorsList(data.map((v: any) => ({ id: v.id, name: v.name })))
+    } catch {}
+  }
+
+  async function revealLicenseKey(licenseId: string) {
+    if (revealedLicenseKeys[licenseId] !== undefined) {
+      setRevealedLicenseKeys(r => { const n = { ...r }; delete n[licenseId]; return n })
+      return
+    }
+    setRevealingKey(licenseId)
+    try {
+      const res = await fetch(`/api/clients/${id}/licenses/${licenseId}/reveal`)
+      const data = await res.json()
+      setRevealedLicenseKeys(r => ({ ...r, [licenseId]: data.key ?? "" }))
+    } catch {}
+    finally { setRevealingKey(null) }
+  }
+
+  async function fetchNetworkDevices() {
+    setLoadingNetwork(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/network`)
+      setNetworkDevices(await res.json())
+    } catch {}
+    finally { setLoadingNetwork(false) }
+  }
+
+  async function saveNetworkDevice() {
+    if (!deviceForm.name.trim()) return
+    setSavingDevice(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/network`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deviceForm),
+      })
+      if (res.ok) {
+        const d = await res.json()
+        setNetworkDevices(n => [...n, d])
+        setDeviceForm({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "" })
+        setShowAddDevice(false)
+      }
+    } catch {}
+    finally { setSavingDevice(false) }
+  }
+
+  async function updateNetworkDevice(deviceId: string) {
+    try {
+      const res = await fetch(`/api/clients/${id}/network/${deviceId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deviceEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setNetworkDevices(n => n.map(x => x.id === deviceId ? updated : x))
+        setEditingDevice(null)
+      }
+    } catch {}
+  }
+
+  async function deleteNetworkDevice(deviceId: string) {
+    if (!confirm("Remove this device?")) return
+    try {
+      await fetch(`/api/clients/${id}/network/${deviceId}`, { method: "DELETE" })
+      setNetworkDevices(n => n.filter(x => x.id !== deviceId))
+    } catch {}
+  }
+
   async function fetchApplications() {
     setLoadingApps(true)
     try {
@@ -308,7 +398,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newLicense = await res.json()
         setLicenses(l => [...l, newLicense])
-        setLicenseForm({ name: "", vendor: "", seats: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
+        setLicenseForm({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
         setShowAddLicense(false)
       }
     } catch {}
@@ -581,7 +671,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const site = await res.json()
         setWebsites(w => [...w, site])
-        setWebsiteForm({ domain: "", label: "" })
+        setWebsiteForm({ domain: "", label: "", registrar: "", registrarUrl: "", accountNumber: "", autoRenew: false, notes: "" })
         setShowAddWebsite(false)
       }
     } catch {}
@@ -589,10 +679,24 @@ export default function ClientDetailPage() {
   }
 
   async function deleteWebsite(websiteId: string) {
-    if (!confirm("Remove this website?")) return
+    if (!confirm("Remove this domain?")) return
     try {
       await fetch(`/api/clients/${id}/websites/${websiteId}`, { method: "DELETE" })
       setWebsites(w => w.filter(s => s.id !== websiteId))
+    } catch {}
+  }
+
+  async function updateWebsite(websiteId: string) {
+    try {
+      const res = await fetch(`/api/clients/${id}/websites/${websiteId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(websiteEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setWebsites(w => w.map(s => s.id === websiteId ? updated : s))
+        setEditingWebsite(null)
+      }
     } catch {}
   }
 
@@ -1324,6 +1428,11 @@ export default function ClientDetailPage() {
                     </select>
                   </div>
                 )}
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Expiry date (optional)</label>
+                  <input type="date" value={credForm.expiryDate} onChange={e => setCredForm(f => ({ ...f, expiryDate: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+                </div>
                 <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
                   <button onClick={saveCred} disabled={savingCred} style={{
                     fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
@@ -1395,7 +1504,7 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "Licenses" && (
-          <div style={{ maxWidth: "800px" }}>
+          <div style={{ maxWidth: "900px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <button onClick={() => setShowAddLicense(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add license</button>
             </div>
@@ -1403,23 +1512,60 @@ export default function ClientDetailPage() {
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
                 <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New license</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                  {[
-                    { key: "name", label: "Name *", placeholder: "e.g. Microsoft 365 Business" },
-                    { key: "vendor", label: "Vendor", placeholder: "e.g. Microsoft" },
-                    { key: "seats", label: "Seats", placeholder: "Number of seats" },
-                    { key: "cost", label: "Cost ($/mo)", placeholder: "" },
-                    { key: "expiryDate", label: "Expiry date", placeholder: "", type: "date" },
-                    { key: "renewalDate", label: "Renewal date", placeholder: "", type: "date" },
-                    { key: "notes", label: "Notes", placeholder: "" },
-                  ].map(({ key, label, placeholder, type }) => (
-                    <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
-                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                      <input type={type ?? "text"} value={licenseForm[key as keyof typeof licenseForm]} onChange={e => setLicenseForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
-                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
-                    </div>
-                  ))}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name *</label>
+                    <input value={licenseForm.name} onChange={e => setLicenseForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Microsoft 365 Business"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
                   <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (global)</label>
+                    <select value={licenseForm.vendorId} onChange={e => setLicenseForm(f => ({ ...f, vendorId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">Select vendor...</option>
+                      {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (freetext)</label>
+                    <input value={licenseForm.vendor} onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))} placeholder="If not in list above"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>License key</label>
+                    <input value={licenseForm.licenseKey} onChange={e => setLicenseForm(f => ({ ...f, licenseKey: e.target.value }))} placeholder="Will be encrypted"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Total seats</label>
+                    <input value={licenseForm.seats} onChange={e => setLicenseForm(f => ({ ...f, seats: e.target.value }))} placeholder="e.g. 25"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned seats</label>
+                    <input value={licenseForm.assignedSeats} onChange={e => setLicenseForm(f => ({ ...f, assignedSeats: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Cost ($/mo)</label>
+                    <input value={licenseForm.cost} onChange={e => setLicenseForm(f => ({ ...f, cost: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Purchase date</label>
+                    <input type="date" value={licenseForm.purchaseDate} onChange={e => setLicenseForm(f => ({ ...f, purchaseDate: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Expiry date</label>
+                    <input type="date" value={licenseForm.expiryDate} onChange={e => setLicenseForm(f => ({ ...f, expiryDate: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Renewal date</label>
+                    <input type="date" value={licenseForm.renewalDate} onChange={e => setLicenseForm(f => ({ ...f, renewalDate: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned user</label>
                     <select value={licenseForm.assignedUserId} onChange={e => setLicenseForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                       <option value="">Unassigned</option>
                       {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -1431,6 +1577,11 @@ export default function ClientDetailPage() {
                       <option value="">None</option>
                       {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
+                    <input value={licenseForm.notes} onChange={e => setLicenseForm(f => ({ ...f, notes: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -1445,8 +1596,8 @@ export default function ClientDetailPage() {
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No licenses yet.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 60px 120px 120px 120px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                  {["Name", "Vendor", "Seats", "Expiry", "Renewal", "User", ""].map(h => (
+                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 80px 100px 100px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Name", "Vendor", "Seats", "Expiry", "Renewal", ""].map(h => (
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
@@ -1454,30 +1605,40 @@ export default function ClientDetailPage() {
                   <div key={lic.id} style={{ padding: "14px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                       {[
-                        { key: "name", label: "Name" }, { key: "vendor", label: "Vendor" },
-                        { key: "seats", label: "Seats" }, { key: "cost", label: "Cost ($/mo)" },
+                        { key: "name", label: "Name" }, { key: "vendor", label: "Vendor (freetext)" },
+                        { key: "seats", label: "Total seats" }, { key: "assignedSeats", label: "Assigned seats" },
+                        { key: "cost", label: "Cost ($/mo)" }, { key: "purchaseDate", label: "Purchase date", type: "date" },
                         { key: "expiryDate", label: "Expiry", type: "date" }, { key: "renewalDate", label: "Renewal", type: "date" },
-                        { key: "notes", label: "Notes" },
                       ].map(({ key, label, type }) => (
-                        <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
+                        <div key={key}>
                           <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
                           <input type={type ?? "text"} value={licenseEditForm[key] ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
                             style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                         </div>
                       ))}
                       <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (global)</label>
+                        <select value={licenseEditForm.vendorId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, vendorId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">Select vendor...</option>
+                          {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned user</label>
                         <select value={licenseEditForm.assignedUserId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                           <option value="">Unassigned</option>
                           {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
                       </div>
-                      <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
-                        <select value={licenseEditForm.contactId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                          <option value="">None</option>
-                          {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>License key (leave blank to keep existing)</label>
+                        <input value={licenseEditForm.newLicenseKey ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, newLicenseKey: e.target.value, licenseKey: e.target.value }))} placeholder="Enter new key to replace..."
+                          style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
+                        <input value={licenseEditForm.notes ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, notes: e.target.value }))}
+                          style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
@@ -1486,22 +1647,36 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={lic.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 60px 120px 120px 120px 80px", padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</div>
-                      {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
+                  <div key={lic.id} style={{ padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 80px 100px 100px 80px", alignItems: "center", marginBottom: lic.licenseKey ? "8px" : 0 }}>
+                      <div>
+                        <div style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</div>
+                        {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
+                      </div>
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.vendorRef?.name ?? lic.vendor ?? "—"}</div>
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                        {lic.seats ? `${lic.assignedSeats ?? 0}/${lic.seats}` : "—"}
+                      </div>
+                      <div style={{ fontSize: "13px", color: lic.expiryDate && new Date(lic.expiryDate) < new Date() ? "var(--color-text-danger)" : "var(--color-text-secondary)" }}>
+                        {lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : "—"}
+                      </div>
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.renewalDate ? new Date(lic.renewalDate).toLocaleDateString() : "—"}</div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", purchaseDate: lic.purchaseDate ? lic.purchaseDate.slice(0, 10) : "", vendorId: lic.vendorRef?.id ?? "", assignedUserId: lic.assignedUser?.id ?? "", contactId: lic.contact?.id ?? "", newLicenseKey: "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                        <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.vendor ?? "—"}</div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.seats ?? "—"}</div>
-                    <div style={{ fontSize: "13px", color: lic.expiryDate && new Date(lic.expiryDate) < new Date() ? "var(--color-text-danger)" : "var(--color-text-secondary)" }}>
-                      {lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : "—"}
-                    </div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.renewalDate ? new Date(lic.renewalDate).toLocaleDateString() : "—"}</div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.assignedUser?.name ?? "—"}</div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", assignedUserId: lic.assignedUser?.id ?? "", contactId: lic.contact?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
-                      <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
-                    </div>
+                    {lic.licenseKey && (
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "6px" }}>
+                        <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>License key</span>
+                        <span style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-primary)" }}>
+                          {revealedLicenseKeys[lic.id] !== undefined ? (revealedLicenseKeys[lic.id] || "(empty)") : "••••••••••••"}
+                        </span>
+                        <button onClick={() => revealLicenseKey(lic.id)} disabled={revealingKey === lic.id} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                          {revealingKey === lic.id ? "..." : revealedLicenseKeys[lic.id] !== undefined ? "Hide" : "Reveal"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1617,27 +1792,51 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {activeTab === "Websites" && (
-          <div style={{ maxWidth: "860px" }}>
+        {activeTab === "Domains" && (
+          <div style={{ maxWidth: "920px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <button onClick={() => setShowAddWebsite(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}>
-                Add website
+                Add domain
               </button>
             </div>
 
             {showAddWebsite && (
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
-                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New website</div>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New domain</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
                   <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Domain *</label>
                     <input value={websiteForm.domain} onChange={e => setWebsiteForm(f => ({ ...f, domain: e.target.value }))} placeholder="example.com" autoFocus
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                   <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Label</label>
                     <input value={websiteForm.label} onChange={e => setWebsiteForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Main site"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Registrar</label>
+                    <input value={websiteForm.registrar} onChange={e => setWebsiteForm(f => ({ ...f, registrar: e.target.value }))} placeholder="e.g. GoDaddy"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Registrar URL</label>
+                    <input value={websiteForm.registrarUrl} onChange={e => setWebsiteForm(f => ({ ...f, registrarUrl: e.target.value }))} placeholder="https://..."
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Account number</label>
+                    <input value={websiteForm.accountNumber} onChange={e => setWebsiteForm(f => ({ ...f, accountNumber: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", paddingTop: "20px" }}>
+                    <input type="checkbox" id="autoRenew" checked={websiteForm.autoRenew} onChange={e => setWebsiteForm(f => ({ ...f, autoRenew: e.target.checked }))} />
+                    <label htmlFor="autoRenew" style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Auto-renews</label>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
+                    <input value={websiteForm.notes} onChange={e => setWebsiteForm(f => ({ ...f, notes: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -1652,53 +1851,100 @@ export default function ClientDetailPage() {
             {loadingWebsites ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : websites.length === 0 && !showAddWebsite ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No websites yet. Add a domain to start monitoring expiry and DNS.</div>
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No domains yet. Add a domain to start monitoring expiry, SSL, and DNS.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 130px 130px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                  {["Domain", "Expiry", "Registrar", "Last checked", ""].map(h => (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 140px 130px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Domain", "Domain expiry", "SSL expiry", "Registrar", ""].map(h => (
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
                 {websites.map((site, i) => {
-                  const badge = expiryBadge(site.expiresAt)
+                  const domainBadge = expiryBadge(site.expiresAt)
+                  const sslBadge = expiryBadge(site.sslExpiresAt)
                   const dns = site.dnsRecords as Record<string, any> | null
                   const dnsOpen = expandedDns[site.id]
                   const isChecking = checkingWebsite === site.id
-                  const borderBottom = i < websites.length - 1 || dnsOpen ? "0.5px solid var(--color-border-tertiary)" : "none"
+                  const showExtra = dnsOpen || editingWebsite === site.id
+                  const borderBottom = i < websites.length - 1 || showExtra ? "0.5px solid var(--color-border-tertiary)" : "none"
                   return (
                     <div key={site.id}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 130px 130px", padding: "12px 16px", borderBottom, background: "var(--color-background-primary)", alignItems: "center" }}>
-                        <div>
-                          <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{site.domain}</div>
-                          {site.label && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{site.label}</div>}
-                        </div>
-                        <div>
-                          <span style={{ fontSize: "12px", padding: "3px 8px", borderRadius: "6px", background: badge.bg, color: badge.color, fontWeight: 500 }}>
-                            {badge.label}
-                          </span>
-                          {site.expiresAt && (
-                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "4px" }}>
-                              {new Date(site.expiresAt).toLocaleDateString()}
+                      {editingWebsite === site.id ? (
+                        <div style={{ padding: "14px 16px", borderBottom, background: "var(--color-background-primary)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                            {[
+                              { key: "label", label: "Label" },
+                              { key: "registrar", label: "Registrar" },
+                              { key: "registrarUrl", label: "Registrar URL" },
+                              { key: "accountNumber", label: "Account number" },
+                              { key: "notes", label: "Notes" },
+                            ].map(({ key, label }) => (
+                              <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
+                                <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                                <input value={websiteEditForm[key] ?? ""} onChange={e => setWebsiteEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                                  style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                              </div>
+                            ))}
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <input type="checkbox" checked={websiteEditForm.autoRenew ?? false} onChange={e => setWebsiteEditForm((f: any) => ({ ...f, autoRenew: e.target.checked }))} />
+                              <label style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Auto-renews</label>
                             </div>
-                          )}
+                          </div>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <button onClick={() => updateWebsite(site.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                            <button onClick={() => setEditingWebsite(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                          </div>
                         </div>
-                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{site.registrar ?? "—"}</div>
-                        <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
-                          {site.lastChecked ? new Date(site.lastChecked).toLocaleDateString() : "Never"}
-                        </div>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                          <button onClick={() => checkWebsite(site.id)} disabled={isChecking} style={{ fontSize: "12px", color: "var(--color-accent)", background: "none", border: "none", cursor: isChecking ? "not-allowed" : "pointer", padding: 0, opacity: isChecking ? 0.5 : 1 }}>
-                            {isChecking ? "Checking..." : "Check"}
-                          </button>
-                          {dns && (
-                            <button onClick={() => setExpandedDns(d => ({ ...d, [site.id]: !d[site.id] }))} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                              DNS {dnsOpen ? "▲" : "▼"}
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 140px 130px", padding: "12px 16px", borderBottom, background: "var(--color-background-primary)", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{site.domain}</div>
+                            {site.label && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{site.label}</div>}
+                            {site.autoRenew && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Auto-renews</div>}
+                          </div>
+                          <div>
+                            <span style={{ fontSize: "12px", padding: "3px 8px", borderRadius: "6px", background: domainBadge.bg, color: domainBadge.color, fontWeight: 500 }}>
+                              {domainBadge.label}
+                            </span>
+                            {site.expiresAt && (
+                              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                                {new Date(site.expiresAt).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            {site.sslExpiresAt ? (
+                              <>
+                                <span style={{ fontSize: "12px", padding: "3px 8px", borderRadius: "6px", background: sslBadge.bg, color: sslBadge.color, fontWeight: 500 }}>
+                                  {sslBadge.label}
+                                </span>
+                                <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                                  {new Date(site.sslExpiresAt).toLocaleDateString()}
+                                </div>
+                              </>
+                            ) : <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>}
+                          </div>
+                          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                            {site.registrarUrl ? (
+                              <a href={site.registrarUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-secondary)" }}>{site.registrar ?? "Portal"}</a>
+                            ) : site.registrar ?? "—"}
+                          </div>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                            <button onClick={() => checkWebsite(site.id)} disabled={isChecking} style={{ fontSize: "12px", color: "var(--color-accent)", background: "none", border: "none", cursor: isChecking ? "not-allowed" : "pointer", padding: 0, opacity: isChecking ? 0.5 : 1 }}>
+                              {isChecking ? "Checking..." : "Check"}
                             </button>
-                          )}
-                          <button onClick={() => deleteWebsite(site.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                            <button onClick={() => { setEditingWebsite(site.id); setWebsiteEditForm({ label: site.label ?? "", registrar: site.registrar ?? "", registrarUrl: site.registrarUrl ?? "", accountNumber: site.accountNumber ?? "", autoRenew: site.autoRenew ?? false, notes: site.notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                              Edit
+                            </button>
+                            {dns && (
+                              <button onClick={() => setExpandedDns(d => ({ ...d, [site.id]: !d[site.id] }))} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                                DNS {dnsOpen ? "▲" : "▼"}
+                              </button>
+                            )}
+                            <button onClick={() => deleteWebsite(site.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                       {dnsOpen && dns && (
                         <div style={{ padding: "12px 16px", background: "var(--color-background-secondary)", borderBottom: i < websites.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: "13px" }}>
@@ -1714,6 +1960,148 @@ export default function ClientDetailPage() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Network" && (
+          <div style={{ maxWidth: "960px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <button onClick={() => setShowAddDevice(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add device</button>
+            </div>
+
+            {showAddDevice && (
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New network device</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name *</label>
+                    <input autoFocus value={deviceForm.name} onChange={e => setDeviceForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Core Switch"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
+                    <select value={deviceForm.type} onChange={e => setDeviceForm(f => ({ ...f, type: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      {["SWITCH", "FIREWALL", "ROUTER", "ACCESS_POINT", "NAS", "UPS", "MODEM", "OTHER"].map(t => (
+                        <option key={t} value={t}>{t.replace("_", " ").charAt(0) + t.replace("_", " ").slice(1).toLowerCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Location</label>
+                    <select value={deviceForm.locationId} onChange={e => setDeviceForm(f => ({ ...f, locationId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">No location</option>
+                      {client.locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </div>
+                  {[
+                    { key: "make", label: "Make", placeholder: "e.g. Ubiquiti" },
+                    { key: "model", label: "Model", placeholder: "e.g. USW-Pro-48" },
+                    { key: "ipAddress", label: "IP address", placeholder: "e.g. 192.168.1.1" },
+                    { key: "macAddress", label: "MAC address", placeholder: "" },
+                    { key: "serial", label: "Serial number", placeholder: "" },
+                    { key: "firmwareVersion", label: "Firmware", placeholder: "" },
+                    { key: "managementUrl", label: "Management URL", placeholder: "https://..." },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key}>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                      <input value={deviceForm[key as keyof typeof deviceForm] as string} onChange={e => setDeviceForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  ))}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
+                    <input value={deviceForm.notes} onChange={e => setDeviceForm(f => ({ ...f, notes: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={saveNetworkDevice} disabled={savingDevice} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingDevice ? "Saving..." : "Save"}</button>
+                  <button onClick={() => setShowAddDevice(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {loadingNetwork ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : networkDevices.length === 0 && !showAddDevice ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No network devices yet.</div>
+            ) : (
+              <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                  {["Device", "Type", "IP address", "Location", "Management", ""].map(h => (
+                    <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
+                  ))}
+                </div>
+                {networkDevices.map((dev, i) => editingDevice === dev.id ? (
+                  <div key={dev.id} style={{ padding: "14px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name</label>
+                        <input value={deviceEditForm.name ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, name: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
+                        <select value={deviceEditForm.type ?? "OTHER"} onChange={e => setDeviceEditForm((f: any) => ({ ...f, type: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          {["SWITCH", "FIREWALL", "ROUTER", "ACCESS_POINT", "NAS", "UPS", "MODEM", "OTHER"].map(t => (
+                            <option key={t} value={t}>{t.replace("_", " ").charAt(0) + t.replace("_", " ").slice(1).toLowerCase()}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {[
+                        { key: "make", label: "Make" }, { key: "model", label: "Model" },
+                        { key: "ipAddress", label: "IP address" }, { key: "macAddress", label: "MAC address" },
+                        { key: "serial", label: "Serial" }, { key: "firmwareVersion", label: "Firmware" },
+                        { key: "managementUrl", label: "Management URL" },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                          <input value={deviceEditForm[key] ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      ))}
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Location</label>
+                        <select value={deviceEditForm.locationId ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, locationId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">No location</option>
+                          {client.locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
+                        <input value={deviceEditForm.notes ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, notes: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => updateNetworkDevice(dev.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                      <button onClick={() => setEditingDevice(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={dev.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "12px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{dev.name}</div>
+                      {(dev.make || dev.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[dev.make, dev.model].filter(Boolean).join(" ")}</div>}
+                      {dev.serial && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>S/N: {dev.serial}</div>}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                      <span style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", background: "var(--color-background-hover)" }}>
+                        {dev.type.replace("_", " ").charAt(0) + dev.type.replace("_", " ").slice(1).toLowerCase()}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{dev.ipAddress ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{dev.location?.name ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                      {dev.managementUrl ? (
+                        <a href={dev.managementUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-secondary)" }}>Open ↗</a>
+                      ) : "—"}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={() => { setEditingDevice(dev.id); setDeviceEditForm({ ...dev, locationId: dev.location?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => deleteNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

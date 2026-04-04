@@ -19,6 +19,7 @@ export async function GET(
           include: {
             assetType: { select: { id: true, name: true } },
             primaryUser: { select: { id: true, name: true } },
+            contact: { select: { id: true, name: true } },
           },
         },
       },
@@ -42,7 +43,7 @@ export async function POST(
     const {
       locationId, assetTypeId, name, make, model, serial, assetTag,
       ipAddress, macAddress, managementUrl, purchaseDate, warrantyExpiry,
-      primaryUserId, notes,
+      primaryUserId, contactId, notes,
     } = body
 
     if (!locationId?.trim() || !name?.trim()) {
@@ -68,11 +69,13 @@ export async function POST(
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null,
         primaryUserId: primaryUserId || null,
+        contactId: contactId || null,
         notes: notes?.trim() || null,
       },
       include: {
         assetType: { select: { id: true, name: true } },
         primaryUser: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true } },
       },
     })
 

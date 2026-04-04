@@ -16,6 +16,7 @@ export async function GET(
         location: { include: { client: true } },
         assetType: { select: { id: true, name: true } },
         primaryUser: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true } },
       },
     })
     if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -38,12 +39,13 @@ export async function PATCH(
       assetTypeId, name, make, model, serial, assetTag,
       ipAddress, macAddress, vlan, switchPort, managementUrl,
       splashtopUrl, purchaseDate, warrantyExpiry, room, notes,
-      status, primaryUserId,
+      status, primaryUserId, contactId,
     } = body
     const asset = await prisma.asset.update({
       where: { id },
       data: {
         ...(assetTypeId !== undefined && { assetTypeId: assetTypeId || null }),
+        ...(contactId !== undefined && { contactId: contactId || null }),
         ...(name?.trim() && { name: name.trim() }),
         ...(make !== undefined && { make: make?.trim() || null }),
         ...(model !== undefined && { model: model?.trim() || null }),
@@ -65,6 +67,7 @@ export async function PATCH(
       include: {
         assetType: { select: { id: true, name: true } },
         primaryUser: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true } },
       },
     })
     return NextResponse.json(asset)
