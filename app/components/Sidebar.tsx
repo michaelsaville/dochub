@@ -35,16 +35,8 @@ export default function Sidebar() {
         padding: "18px 20px 16px",
         borderBottom: "0.5px solid var(--color-border-tertiary)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div style={{
-            width: "22px", height: "22px", borderRadius: "6px",
-            background: "var(--color-accent)",
-            flexShrink: 0,
-          }} />
-          <div>
-            <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>DocHub</div>
-            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>PCC2K</div>
-          </div>
+        <div style={{ fontFamily: "var(--mono)", fontSize: "11px", fontWeight: 600, color: "var(--accent)", letterSpacing: "0.08em" }}>
+          PCC<span style={{ color: "var(--muted)", fontWeight: 400 }}> // </span>DOCHUB
         </div>
       </div>
 
@@ -60,16 +52,16 @@ export default function Sidebar() {
                 display: "flex",
                 alignItems: "center",
                 padding: "7px 12px",
-                borderRadius: "7px",
-                fontSize: "13.5px",
+                borderRadius: "5px",
+                fontSize: "13px",
                 fontWeight: active ? 500 : 400,
-                color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                background: active ? "var(--color-accent-muted)" : "transparent",
+                color: active ? "var(--text)" : "var(--muted)",
+                background: active ? "rgba(61, 111, 255, 0.1)" : "transparent",
                 textDecoration: "none",
-                marginBottom: "1px",
-                borderLeft: active ? "2px solid var(--color-accent)" : "2px solid transparent",
-                paddingLeft: active ? "10px" : "10px",
-                transition: "background 0.1s, color 0.1s",
+                marginBottom: "2px",
+                borderLeft: active ? "2px solid var(--accent)" : "2px solid transparent",
+                paddingLeft: "10px",
+                transition: "color 0.15s, background 0.15s",
               }}
             >
               {item.label}

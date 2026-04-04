@@ -178,38 +178,8 @@ export default function SettingsPage() {
             borderRadius: "10px", padding: "20px", marginBottom: "16px",
           }}>
             <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "4px" }}>Appearance</div>
-            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
-              Choose a colour theme. Your preference is saved in this browser.
-            </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              {themes.map((t) => {
-                const active = theme === t.id
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    style={{
-                      display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
-                      padding: "10px 14px", borderRadius: "10px", cursor: "pointer",
-                      border: active ? "1.5px solid var(--color-accent)" : "0.5px solid var(--color-border-secondary)",
-                      background: active ? "var(--color-accent-muted)" : "var(--color-background-primary)",
-                      outline: "none",
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: "3px" }}>
-                      <div style={{ width: "18px", height: "28px", borderRadius: "4px 0 0 4px", background: t.secondary }} />
-                      <div style={{ width: "28px", height: "28px", borderRadius: "0 4px 4px 0", background: t.primary }} />
-                    </div>
-                    <span style={{
-                      fontSize: "12px",
-                      fontWeight: active ? 500 : 400,
-                      color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                    }}>
-                      {t.label}
-                    </span>
-                  </button>
-                )
-              })}
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              DocHub uses the PCC dark theme. Single dark mode — no light mode.
             </div>
           </div>
 

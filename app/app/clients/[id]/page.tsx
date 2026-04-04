@@ -744,15 +744,10 @@ export default function ClientDetailPage() {
           </span>
         </div>
 
-        <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+        <div style={{ display: "flex", marginBottom: "24px", borderBottom: "1px solid var(--border)", overflow: "auto" }}>
           {tabs.map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              fontSize: "14px", padding: "8px 14px", background: "none", border: "none", cursor: "pointer",
-              color: activeTab === tab ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-              fontWeight: activeTab === tab ? 500 : 400,
-              borderBottom: activeTab === tab ? "2px solid var(--color-text-primary)" : "2px solid transparent",
-              marginBottom: "-0.5px",
-            }}>
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
               {tab}{tab === "Assets" && assets.length > 0 ? ` (${assets.length})` : ""}
             </button>
           ))}
