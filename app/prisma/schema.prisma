@@ -135,6 +135,14 @@ model Asset {
   updatedAt      DateTime       @updatedAt
   splashtopUrl   String?
   driverUrl      String?
+  friendlyName   String?
+  isFavorite     Boolean  @default(false)
+  rdpEnabled     Boolean  @default(false)
+  rdpHost        String?
+  rdpPort        Int?
+  vncEnabled     Boolean  @default(false)
+  vncHost        String?
+  vncPort        Int?
   assetTypeId    String?
   contactId      String?
   dataSource     String         @default("MANUAL")
@@ -171,6 +179,7 @@ model Credential {
   url               String?
   notes             String?
   isRetired         Boolean     @default(false)
+  isFavorite        Boolean     @default(false)
   lastRotated       DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt

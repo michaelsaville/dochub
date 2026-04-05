@@ -47,6 +47,7 @@ type Client = {
 type Asset = {
   id: string
   name: string
+  friendlyName: string | null
   category: string
   assetTypeId: string | null
   assetType: { id: string; name: string } | null
@@ -61,6 +62,14 @@ type Asset = {
   macAddress: string | null
   status: string
   managementUrl: string | null
+  splashtopUrl: string | null
+  isFavorite: boolean
+  rdpEnabled: boolean
+  rdpHost: string | null
+  rdpPort: number | null
+  vncEnabled: boolean
+  vncHost: string | null
+  vncPort: number | null
   warrantyExpiry: string | null
   syncroAssetId: string | null
   dataSource: string | null
@@ -69,7 +78,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Documents", "SOPs", "Activity"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Documents", "SOPs", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -167,7 +176,7 @@ export default function ClientDetailPage() {
       const tab = new URLSearchParams(window.location.search).get("tab")
       if (tab) return tab
     }
-    return "Overview"
+    return "Dashboard"
   })
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
@@ -250,6 +259,9 @@ export default function ClientDetailPage() {
   const [loadingSubnets, setLoadingSubnets] = useState(false)
   const [racks, setRacks] = useState<any[]>([])
   const [loadingRacks, setLoadingRacks] = useState(false)
+  const [dashboardData, setDashboardData] = useState<{ favoritedAssets: any[]; favoritedCredentials: any[] } | null>(null)
+  const [loadingDashboard, setLoadingDashboard] = useState(false)
+  const [dashRevealedPasswords, setDashRevealedPasswords] = useState<Record<string, string>>({})
 
   const boundSourceTag = (ds?: string | null, si?: string | null, pi?: string | null) =>
     sourceTag(ds, si, pi, sourceColors)
@@ -263,6 +275,7 @@ export default function ClientDetailPage() {
   }, [id])
 
   useEffect(() => {
+    if (activeTab === "Dashboard" && !dashboardData) fetchDashboard()
     if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList() }
@@ -287,6 +300,47 @@ export default function ClientDetailPage() {
       setClient(await res.json())
     } catch { router.push("/clients") }
     finally { setLoadingClient(false) }
+  }
+
+  async function fetchDashboard() {
+    setLoadingDashboard(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/dashboard`)
+      if (res.ok) setDashboardData(await res.json())
+    } finally { setLoadingDashboard(false) }
+  }
+
+  async function toggleAssetFavorite(assetId: string, current: boolean) {
+    await fetch(`/api/assets/${assetId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isFavorite: !current }),
+    })
+    setAssets(prev => prev.map(a => a.id === assetId ? { ...a, isFavorite: !current } : a))
+    // Refresh dashboard data
+    setDashboardData(null)
+    if (activeTab === "Dashboard") fetchDashboard()
+  }
+
+  async function toggleCredFavorite(credId: string, current: boolean) {
+    await fetch(`/api/credentials/${credId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isFavorite: !current }),
+    })
+    setCredentials(prev => prev.map(c => c.id === credId ? { ...c, isFavorite: !current } : c))
+    setDashboardData(null)
+    if (activeTab === "Dashboard") fetchDashboard()
+  }
+
+  async function revealDashPassword(credId: string) {
+    try {
+      const res = await fetch(`/api/credentials/${credId}/reveal`)
+      if (res.ok) {
+        const { password } = await res.json()
+        setDashRevealedPasswords(p => ({ ...p, [credId]: password }))
+      }
+    } catch {}
   }
 
   async function saveClient() {
@@ -886,37 +940,135 @@ export default function ClientDetailPage() {
           ))}
         </div>
 
-        {activeTab === "Overview" && (
-          <div style={{ maxWidth: "600px" }}>
-            <div style={{
-              background: "var(--color-background-secondary)",
-              border: "0.5px solid var(--color-border-tertiary)",
-              borderRadius: "10px", padding: "20px", marginBottom: "16px",
-            }}>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>Details</div>
-              {[
-                { label: "Type", value: client.type === "BUSINESS" ? "Business" : "Residential" },
-                { label: "Syncro ID", value: client.syncroId ?? "Not linked" },
-                { label: "Status", value: client.isActive ? "Active" : "Inactive" },
-                { label: "Locations", value: String(client.locations.length) },
-                { label: "Users", value: String(client.users.length) },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                  <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{label}</span>
-                  <span style={{ fontSize: "13px" }}>{value}</span>
-                </div>
-              ))}
-            </div>
-            {client.notes && (
-              <div style={{
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "10px", padding: "20px",
-              }}>
-                <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px" }}>Notes</div>
-                <div style={{ fontSize: "14px", lineHeight: "1.6" }}>{client.notes}</div>
+        {activeTab === "Dashboard" && (
+          <div style={{ maxWidth: "960px" }}>
+            {/* Top row: details + notes */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "20px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>Details</div>
+                {[
+                  { label: "Type", value: client.type === "BUSINESS" ? "Business" : "Residential" },
+                  { label: "Syncro ID", value: client.syncroId ?? "Not linked" },
+                  { label: "Status", value: client.isActive ? "Active" : "Inactive" },
+                  { label: "Locations", value: String(client.locations.length) },
+                  { label: "Users", value: String(client.users.length) },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                    <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{label}</span>
+                    <span style={{ fontSize: "13px" }}>{value}</span>
+                  </div>
+                ))}
               </div>
-            )}
+              {client.notes && (
+                <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "20px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px" }}>Notes</div>
+                  <div style={{ fontSize: "14px", lineHeight: "1.6" }}>{client.notes}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Favorited assets */}
+            <div style={{ marginBottom: "24px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
+                Quick Access — Assets
+              </div>
+              {loadingDashboard ? (
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Loading...</div>
+              ) : !dashboardData || dashboardData.favoritedAssets.length === 0 ? (
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                  No favorited assets. Star an asset on the Assets tab to pin it here.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "10px" }}>
+                  {dashboardData.favoritedAssets.map((a: any) => (
+                    <div key={a.id} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "14px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "6px" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {a.friendlyName || a.name}
+                          </div>
+                          {a.friendlyName && a.friendlyName !== a.name && (
+                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{a.name}</div>
+                          )}
+                          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>
+                            {[a.make, a.model].filter(Boolean).join(" ") || categoryLabel[a.category] || a.category}
+                          </div>
+                        </div>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[a.status] ?? "#94a3b8", flexShrink: 0, marginTop: "6px" }} />
+                      </div>
+                      {a.ipAddress && (
+                        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace", marginBottom: "8px" }}>{a.ipAddress}</div>
+                      )}
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                        {a.splashtopUrl && (
+                          <a href={a.splashtopUrl} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none", cursor: "pointer" }}>
+                            Splashtop
+                          </a>
+                        )}
+                        {a.rdpEnabled && (
+                          <a href={`/api/assets/${a.id}/rdp`} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none" }}>
+                            RDP
+                          </a>
+                        )}
+                        {a.vncEnabled && (
+                          <a href={`vnc://${a.vncHost || a.ipAddress}:${a.vncPort ?? 5900}`} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none" }}>
+                            VNC
+                          </a>
+                        )}
+                        {a.managementUrl && (
+                          <a href={a.managementUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none" }}>
+                            Syncro
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Favorited credentials */}
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
+                Quick Access — Credentials
+              </div>
+              {loadingDashboard ? (
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Loading...</div>
+              ) : !dashboardData || dashboardData.favoritedCredentials.length === 0 ? (
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                  No favorited credentials. Star a credential on the Credentials tab to pin it here.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {dashboardData.favoritedCredentials.map((cred: any) => (
+                    <div key={cred.id} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 500, minWidth: "120px" }}>{cred.label}</div>
+                      {cred.username && (
+                        <div style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{cred.username}</div>
+                      )}
+                      {cred.hasPassword && (
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <span style={{ fontSize: "13px", fontFamily: "monospace" }}>
+                            {dashRevealedPasswords[cred.id] ?? "••••••••••••"}
+                          </span>
+                          <button onClick={() => dashRevealedPasswords[cred.id]
+                            ? setDashRevealedPasswords(p => { const n = { ...p }; delete n[cred.id]; return n })
+                            : revealDashPassword(cred.id)
+                          } style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                            {dashRevealedPasswords[cred.id] ? "Hide" : "Show"}
+                          </button>
+                        </div>
+                      )}
+                      {cred.url && (
+                        <a href={cred.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", padding: "3px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none" }}>
+                          Open ↗
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1208,7 +1360,7 @@ export default function ClientDetailPage() {
                   </div>
                   <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
                     <div style={{
-                      display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px 60px",
+                      display: "grid", gridTemplateColumns: "1fr 160px 100px 120px 80px 1fr",
                       padding: "8px 16px", background: "var(--color-background-secondary)",
                       borderBottom: "0.5px solid var(--color-border-tertiary)",
                     }}>
@@ -1220,8 +1372,9 @@ export default function ClientDetailPage() {
                       <div key={asset.id} style={{ padding: "14px 16px", borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                           {[
-                            { key: "name", label: "Name" }, { key: "make", label: "Make" },
-                            { key: "model", label: "Model" }, { key: "serial", label: "Serial" },
+                            { key: "name", label: "Name" }, { key: "friendlyName", label: "Friendly Name" },
+                            { key: "make", label: "Make" }, { key: "model", label: "Model" },
+                            { key: "serial", label: "Serial" },
                             { key: "ipAddress", label: "IP Address" }, { key: "macAddress", label: "MAC Address" },
                             { key: "managementUrl", label: "Management URL" }, { key: "notes", label: "Notes" },
                           ].map(({ key, label }) => (
@@ -1231,6 +1384,45 @@ export default function ClientDetailPage() {
                                 style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                             </div>
                           ))}
+                          {/* RDP */}
+                          <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "10px" }}>
+                            <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "8px" }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                                <input type="checkbox" checked={assetEditForm.rdpEnabled ?? false} onChange={e => setAssetEditForm((f: any) => ({ ...f, rdpEnabled: e.target.checked }))} />
+                                Enable RDP
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                                <input type="checkbox" checked={assetEditForm.vncEnabled ?? false} onChange={e => setAssetEditForm((f: any) => ({ ...f, vncEnabled: e.target.checked }))} />
+                                Enable VNC
+                              </label>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px" }}>
+                              {assetEditForm.rdpEnabled && <>
+                                <div>
+                                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>RDP Host (blank = IP)</label>
+                                  <input value={assetEditForm.rdpHost ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, rdpHost: e.target.value }))} placeholder="e.g. 192.168.1.10"
+                                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>RDP Port</label>
+                                  <input type="number" value={assetEditForm.rdpPort ?? "3389"} onChange={e => setAssetEditForm((f: any) => ({ ...f, rdpPort: e.target.value }))} placeholder="3389"
+                                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                                </div>
+                              </>}
+                              {assetEditForm.vncEnabled && <>
+                                <div>
+                                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>VNC Host (blank = IP)</label>
+                                  <input value={assetEditForm.vncHost ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, vncHost: e.target.value }))} placeholder="e.g. 192.168.1.10"
+                                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>VNC Port</label>
+                                  <input type="number" value={assetEditForm.vncPort ?? "5900"} onChange={e => setAssetEditForm((f: any) => ({ ...f, vncPort: e.target.value }))} placeholder="5900"
+                                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                                </div>
+                              </>}
+                            </div>
+                          </div>
                           <div>
                             <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
                             <select value={assetEditForm.assetTypeId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, assetTypeId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
@@ -1268,16 +1460,19 @@ export default function ClientDetailPage() {
                       </div>
                     ) : (
                       <div key={asset.id} style={{
-                        display: "grid", gridTemplateColumns: "1fr 160px 120px 120px 80px 60px",
+                        display: "grid", gridTemplateColumns: "1fr 160px 100px 120px 80px 1fr",
                         padding: "10px 16px", background: "var(--color-background-primary)",
                         borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                         alignItems: "center",
                       }}>
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</span>
+                            <span style={{ fontSize: "14px", fontWeight: 500 }}>{asset.friendlyName || asset.name}</span>
                             {boundSourceTag(asset.dataSource, asset.syncroAssetId)}
                           </div>
+                          {asset.friendlyName && asset.friendlyName !== asset.name && (
+                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{asset.name}</div>
+                          )}
                           {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
                         </div>
                         <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
@@ -1302,8 +1497,28 @@ export default function ClientDetailPage() {
                             {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
                           </span>
                         </div>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, primaryUserId: asset.primaryUserId ?? "", contactId: asset.contactId ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => toggleAssetFavorite(asset.id, asset.isFavorite)}
+                            title={asset.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
+                            style={{ fontSize: "14px", background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1, color: asset.isFavorite ? "#f59e0b" : "var(--color-text-muted)" }}
+                          >★</button>
+                          {asset.splashtopUrl && (
+                            <a href={asset.splashtopUrl} title="Launch Splashtop" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none", whiteSpace: "nowrap" }}>
+                              Splashtop
+                            </a>
+                          )}
+                          {asset.rdpEnabled && (
+                            <a href={`/api/assets/${asset.id}/rdp`} title="Download RDP file" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none" }}>
+                              RDP
+                            </a>
+                          )}
+                          {asset.vncEnabled && (
+                            <a href={`vnc://${asset.vncHost || asset.ipAddress}:${asset.vncPort ?? 5900}`} title="Launch VNC" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none" }}>
+                              VNC
+                            </a>
+                          )}
+                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, primaryUserId: asset.primaryUserId ?? "", contactId: asset.contactId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                         </div>
                       </div>
                     ))}
@@ -1598,10 +1813,17 @@ export default function ClientDetailPage() {
                       </span>
                     )}
                   </div>
-                  <button onClick={() => deleteCred(cred.id)} style={{
-                    fontSize: "12px", color: "var(--color-text-secondary)", background: "none",
-                    border: "none", cursor: "pointer", padding: 0,
-                  }}>Retire</button>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <button
+                      onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
+                      title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
+                      style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "#f59e0b" : "var(--color-text-muted)" }}
+                    >★</button>
+                    <button onClick={() => deleteCred(cred.id)} style={{
+                      fontSize: "12px", color: "var(--color-text-secondary)", background: "none",
+                      border: "none", cursor: "pointer", padding: 0,
+                    }}>Retire</button>
+                  </div>
                 </div>
                 {cred.username && (
                   <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>

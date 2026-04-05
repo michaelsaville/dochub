@@ -36,9 +36,11 @@ export async function PATCH(
     const { id } = await params
     const body = await req.json()
     const {
-      assetTypeId, name, make, model, serial, assetTag,
+      assetTypeId, name, friendlyName, make, model, serial, assetTag,
       ipAddress, macAddress, vlan, switchPort, managementUrl,
-      splashtopUrl, driverUrl, purchaseDate, warrantyExpiry, room, notes,
+      splashtopUrl, driverUrl, isFavorite,
+      rdpEnabled, rdpHost, rdpPort, vncEnabled, vncHost, vncPort,
+      purchaseDate, warrantyExpiry, room, notes,
       status, primaryUserId, contactId,
     } = body
     const asset = await prisma.asset.update({
@@ -47,6 +49,7 @@ export async function PATCH(
         ...(assetTypeId !== undefined && { assetTypeId: assetTypeId || null }),
         ...(contactId !== undefined && { contactId: contactId || null }),
         ...(name?.trim() && { name: name.trim() }),
+        ...(friendlyName !== undefined && { friendlyName: friendlyName?.trim() || null }),
         ...(make !== undefined && { make: make?.trim() || null }),
         ...(model !== undefined && { model: model?.trim() || null }),
         ...(serial !== undefined && { serial: serial?.trim() || null }),
@@ -58,6 +61,13 @@ export async function PATCH(
         ...(managementUrl !== undefined && { managementUrl: managementUrl?.trim() || null }),
         ...(splashtopUrl !== undefined && { splashtopUrl: splashtopUrl?.trim() || null }),
         ...(driverUrl !== undefined && { driverUrl: driverUrl?.trim() || null }),
+        ...(isFavorite !== undefined && { isFavorite }),
+        ...(rdpEnabled !== undefined && { rdpEnabled }),
+        ...(rdpHost !== undefined && { rdpHost: rdpHost?.trim() || null }),
+        ...(rdpPort !== undefined && { rdpPort: rdpPort ? Number(rdpPort) : null }),
+        ...(vncEnabled !== undefined && { vncEnabled }),
+        ...(vncHost !== undefined && { vncHost: vncHost?.trim() || null }),
+        ...(vncPort !== undefined && { vncPort: vncPort ? Number(vncPort) : null }),
         ...(purchaseDate !== undefined && { purchaseDate: purchaseDate ? new Date(purchaseDate) : null }),
         ...(warrantyExpiry !== undefined && { warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null }),
         ...(room !== undefined && { room: room?.trim() || null }),

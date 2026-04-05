@@ -90,10 +90,15 @@ export async function POST() {
         const splashtopUuid = p.syncro_splashtop_uuid || p["Splashtop UUID"] || null
         const splashtopUrl = splashtopUuid ? `splashtop://launch?uuid=${splashtopUuid}` : null
 
+        // friendlyName = tech-given Syncro label; name = actual device hostname
+        const syncroFriendlyName = a.name?.trim() || null
+        const hostname = p.computer_name || p.device_name || a.name || String(a.id)
+
         await prisma.asset.upsert({
           where: { syncroAssetId: String(a.id) },
           update: {
-            name: a.name || p.computer_name || p.device_name || String(a.id),
+            name: hostname,
+            friendlyName: syncroFriendlyName,
             make: p.manufacturer || null,
             model: p.model || null,
             serial: a.asset_serial || null,
@@ -108,7 +113,8 @@ export async function POST() {
             locationId: client.locations[0].id,
             syncroAssetId: String(a.id),
             category: detectAssetCategory(a) as any,
-            name: a.name || p.computer_name || p.device_name || String(a.id),
+            name: hostname,
+            friendlyName: syncroFriendlyName,
             make: p.manufacturer || null,
             model: p.model || null,
             serial: a.asset_serial || null,
