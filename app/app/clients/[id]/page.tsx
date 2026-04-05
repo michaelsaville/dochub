@@ -105,18 +105,33 @@ const statusColor: Record<string, string> = {
 const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual", SYNCRO: "Syncro", UNIFI: "Unifi",
   ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
+  MERAKI: "Meraki", HPINSTANTON: "HP Instant On", SONICWALL: "SonicWall",
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
   SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
+  MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a",
 }
 
 const SOURCE_DOMAINS: Record<string, string> = {
-  SYNCRO:   "syncromsp.com",
-  UNIFI:    "ui.com",
-  ITFLOW:   "itflow.org",
-  PAX8:     "pax8.com",
-  PULSEWAY: "pulseway.com",
+  SYNCRO:      "syncromsp.com",
+  UNIFI:       "ui.com",
+  ITFLOW:      "itflow.org",
+  PAX8:        "pax8.com",
+  PULSEWAY:    "pulseway.com",
+  MERAKI:      "meraki.cisco.com",
+  HPINSTANTON: "arubainstanton.com",
+  SONICWALL:   "sonicwall.com",
+}
+
+function formatUptime(seconds: number | null | undefined): string {
+  if (!seconds) return "—"
+  const d = Math.floor(seconds / 86400)
+  const h = Math.floor((seconds % 86400) / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
 }
 
 function SourceStamp({ sourceKey, color, label }: { sourceKey: string; color: string; label: string }) {
@@ -2462,6 +2477,12 @@ export default function ClientDetailPage() {
                       </div>
                       {(dev.make || dev.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[dev.make, dev.model].filter(Boolean).join(" ")}</div>}
                       {dev.serial && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>S/N: {dev.serial}</div>}
+                      {dev.firmwareVersion && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>FW: {dev.firmwareVersion}</div>}
+                      <div style={{ display: "flex", gap: "10px", marginTop: "3px", flexWrap: "wrap" }}>
+                        {dev.uptime != null && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>⏱ {formatUptime(dev.uptime)}</span>}
+                        {dev.connectedClients != null && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>👥 {dev.connectedClients} clients</span>}
+                        {dev.lastSeenAt && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Seen {new Date(dev.lastSeenAt).toLocaleDateString()}</span>}
+                      </div>
                     </div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                       <span style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", background: "var(--color-background-hover)" }}>

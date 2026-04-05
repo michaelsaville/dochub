@@ -488,15 +488,19 @@ model NetworkDevice {
   macAddress      String?
   serial          String?
   firmwareVersion String?
-  managementUrl   String?
-  notes           String?
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  dataSource      String            @default("MANUAL")
-  client          Client            @relation(fields: [clientId], references: [id])
-  location        Location?         @relation(fields: [locationId], references: [id])
-  rackSlots       RackSlot[]
+  managementUrl    String?
+  notes            String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  dataSource       String            @default("MANUAL")
+  externalId       String?           // ID from external system (Unifi _id, Meraki serial, etc.)
+  lastSeenAt       DateTime?
+  uptime           Int?              // uptime in seconds
+  connectedClients Int?              // number of connected clients (APs/switches)
+  client           Client            @relation(fields: [clientId], references: [id])
+  location         Location?         @relation(fields: [locationId], references: [id])
+  rackSlots        RackSlot[]
 }
 
 model Rack {
