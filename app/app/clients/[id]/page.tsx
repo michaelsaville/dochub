@@ -66,7 +66,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Runbooks", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -176,6 +176,8 @@ export default function ClientDetailPage() {
   const [savingDevice, setSavingDevice] = useState(false)
   const [editingDevice, setEditingDevice] = useState<string | null>(null)
   const [deviceEditForm, setDeviceEditForm] = useState<any>({})
+  const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
+  const [loadingRunbooks, setLoadingRunbooks] = useState(false)
   const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks">("devices")
   const [subnets, setSubnets] = useState<any[]>([])
   const [loadingSubnets, setLoadingSubnets] = useState(false)
@@ -193,6 +195,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
+    if (activeTab === "Runbooks" && clientRunbooks.length === 0) fetchClientRunbooks()
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
 
@@ -389,6 +392,15 @@ export default function ClientDetailPage() {
       await fetch(`/api/clients/${id}/network/${deviceId}`, { method: "DELETE" })
       setNetworkDevices(n => n.filter(x => x.id !== deviceId))
     } catch {}
+  }
+
+  async function fetchClientRunbooks() {
+    setLoadingRunbooks(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/runbooks`)
+      setClientRunbooks(await res.json())
+    } catch {}
+    finally { setLoadingRunbooks(false) }
   }
 
   async function fetchSubnets() {
@@ -2185,6 +2197,39 @@ export default function ClientDetailPage() {
                     onRacksChange={setRacks}
                   />
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Runbooks" && (
+          <div style={{ maxWidth: "820px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+              <a href={`/runbooks/new?clientId=${id}`} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", textDecoration: "none", color: "var(--color-text-primary)" }}>
+                New runbook
+              </a>
+            </div>
+            {loadingRunbooks ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : clientRunbooks.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No runbooks yet for this client.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {clientRunbooks.map((rb: any) => (
+                  <a key={rb.id} href={`/runbooks/${rb.id}`} style={{ textDecoration: "none", display: "block", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "14px 18px", background: "var(--color-background-secondary)", color: "inherit" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)" }}>{rb.title}</span>
+                      {rb.category && (
+                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: rb.category.color + "22", color: rb.category.color, border: `1px solid ${rb.category.color}44` }}>{rb.category.name}</span>
+                      )}
+                    </div>
+                    {rb.summary && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "6px" }}>{rb.summary}</div>}
+                    <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                      {rb.steps.length > 0 && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{rb.steps.length} steps</span>}
+                      {rb.tags.map((t: any) => <span key={t.tagId} style={{ fontSize: "11px", color: "var(--color-text-muted)", background: "var(--color-background-hover)", padding: "1px 6px", borderRadius: "4px" }}>#{t.tag.name}</span>)}
+                    </div>
+                  </a>
+                ))}
               </div>
             )}
           </div>

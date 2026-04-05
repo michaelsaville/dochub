@@ -131,6 +131,7 @@ model Client {
   websites       Website[]
   networkDevices NetworkDevice[]
   subnets        Subnet[]
+  runbooks       Runbook[]
 }
 
 model Location {
@@ -473,6 +474,62 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt @default(now())
+}
+
+model RunbookCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#6366f1")
+  createdAt DateTime  @default(now())
+
+  runbooks  Runbook[]
+}
+
+model RunbookTag {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  createdAt DateTime         @default(now())
+
+  runbooks  RunbookTagMap[]
+}
+
+model Runbook {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String?
+  content     String?  // markdown body
+  categoryId  String?
+  clientId    String?  // null = global MSP runbook
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category RunbookCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  client   Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tags     RunbookTagMap[]
+  steps    RunbookStep[]
+}
+
+model RunbookTagMap {
+  runbookId String
+  tagId     String
+
+  runbook Runbook    @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+  tag     RunbookTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([runbookId, tagId])
+}
+
+model RunbookStep {
+  id        String   @id @default(cuid())
+  runbookId String
+  order     Int
+  title     String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runbook Runbook @relation(fields: [runbookId], references: [id], onDelete: Cascade)
 }
 
 model VendorContact {
