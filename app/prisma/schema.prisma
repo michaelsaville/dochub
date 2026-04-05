@@ -8,6 +8,554 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model StaffUser {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String?
+  role           UserRole        @default(TECH)
+  microsoftId    String?         @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  activityEvents ActivityEvent[]
+}
+
+model Client {
+  id             String             @id @default(cuid())
+  name           String
+  type           ClientType         @default(BUSINESS)
+  syncroId       String?            @unique
+  notes          String?
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  activityEvents ActivityEvent[]
+  alarms         Alarm[]
+  applications   Application[]
+  attachments    ClientAttachment[]
+  documents      ClientDocument[]
+  users          ClientUser[]
+  contacts       Contact[]
+  credentials    Credential[]
+  licenses       License[]
+  locations      Location[]
+  networkDevices NetworkDevice[]
+  runbooks       Runbook[]
+  subnets        Subnet[]
+  websites       Website[]
+  vendors        Vendor[]           @relation("ClientVendors")
+}
+
+model Location {
+  id             String          @id @default(cuid())
+  clientId       String
+  name           String
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  ispName        String?
+  wanIp          String?
+  notes          String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  assets         Asset[]
+  client         Client          @relation(fields: [clientId], references: [id])
+  networkDevices NetworkDevice[]
+  racks          Rack[]
+  subnets        Subnet[]
+  userLocations  UserLocation[]
+}
+
+model ClientUser {
+  id            String         @id @default(cuid())
+  clientId      String
+  name          String
+  email         String?
+  phone         String?
+  m365Upn       String?
+  jobTitle      String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  applications  Application[]  @relation("ApplicationAssignedUser")
+  assets        Asset[]        @relation("AssetPrimaryUser")
+  client        Client         @relation(fields: [clientId], references: [id])
+  credentials   Credential[]   @relation("CredentialUser")
+  ipAssignments IpAssignment[] @relation("UserIpAssignment")
+  licenses      License[]      @relation("LicenseAssignedUser")
+  userLocations UserLocation[]
+}
+
+model UserLocation {
+  id         String           @id @default(cuid())
+  userId     String
+  locationId String
+  relation   LocationRelation @default(PRIMARY)
+  location   Location         @relation(fields: [locationId], references: [id])
+  user       ClientUser       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, locationId])
+}
+
+model AssetType {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assets      Asset[]
+}
+
+model Asset {
+  id             String         @id @default(cuid())
+  locationId     String
+  primaryUserId  String?
+  category       AssetCategory  @default(OTHER)
+  status         AssetStatus    @default(ACTIVE)
+  name           String
+  make           String?
+  model          String?
+  serial         String?
+  assetTag       String?
+  ipAddress      String?
+  macAddress     String?
+  vlan           String?
+  switchPort     String?
+  managementUrl  String?
+  purchaseDate   DateTime?
+  warrantyExpiry DateTime?
+  room           String?
+  syncroAssetId  String?        @unique
+  notes          String?
+  successorId    String?        @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  splashtopUrl   String?
+  driverUrl      String?
+  assetTypeId    String?
+  contactId      String?
+  dataSource     String         @default("MANUAL")
+  assetType      AssetType?     @relation(fields: [assetTypeId], references: [id])
+  contact        Contact?       @relation("AssetContact", fields: [contactId], references: [id])
+  location       Location       @relation(fields: [locationId], references: [id])
+  primaryUser    ClientUser?    @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
+  successor      Asset?         @relation("AssetSuccessor", fields: [successorId], references: [id])
+  predecessor    Asset?         @relation("AssetSuccessor")
+  credentials    Credential[]
+  exitInterview  ExitInterview?
+  ipAssignments  IpAssignment[] @relation("AssetIpAssignment")
+  rackSlots      RackSlot[]     @relation("AssetRackSlot")
+}
+
+model ExitInterview {
+  id        String   @id @default(cuid())
+  assetId   String   @unique
+  reason    String
+  retiredBy String
+  retiredAt DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+  asset     Asset    @relation(fields: [assetId], references: [id])
+}
+
+model Credential {
+  id                String      @id @default(cuid())
+  clientId          String
+  assetId           String?
+  label             String
+  username          String?
+  encryptedPassword String
+  url               String?
+  notes             String?
+  isRetired         Boolean     @default(false)
+  lastRotated       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  userId            String?
+  contactId         String?
+  expiryDate        DateTime?
+  dataSource        String      @default("MANUAL")
+  asset             Asset?      @relation(fields: [assetId], references: [id])
+  client            Client      @relation(fields: [clientId], references: [id])
+  contact           Contact?    @relation("CredentialContact", fields: [contactId], references: [id])
+  user              ClientUser? @relation("CredentialUser", fields: [userId], references: [id])
+}
+
+model License {
+  id             String      @id @default(cuid())
+  clientId       String
+  name           String
+  vendor         String?
+  seats          Int?
+  expiryDate     DateTime?
+  renewalDate    DateTime?
+  cost           Float?
+  pax8Id         String?
+  notes          String?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  assignedUserId String?
+  contactId      String?
+  assignedSeats  Int?
+  licenseKey     String?
+  purchaseDate   DateTime?
+  vendorId       String?
+  dataSource     String      @default("MANUAL")
+  assignedUser   ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
+  client         Client      @relation(fields: [clientId], references: [id])
+  contact        Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
+  vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
+}
+
+model Application {
+  id             String      @id @default(cuid())
+  clientId       String
+  name           String
+  vendor         String?
+  version        String?
+  supportUrl     String?
+  notes          String?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  assignedUserId String?
+  contactId      String?
+  vendorId       String?
+  assignedUser   ClientUser? @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
+  client         Client      @relation(fields: [clientId], references: [id])
+  contact        Contact?    @relation("ApplicationContact", fields: [contactId], references: [id])
+  vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
+}
+
+model Contact {
+  id              String        @id @default(cuid())
+  clientId        String
+  name            String
+  role            String?
+  email           String?
+  phone           String?
+  isPrimary       Boolean       @default(false)
+  isBilling       Boolean       @default(false)
+  isEscalation    Boolean       @default(false)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  mobile          String?
+  syncroContactId String?       @unique
+  applications    Application[] @relation("ApplicationContact")
+  assets          Asset[]       @relation("AssetContact")
+  client          Client        @relation(fields: [clientId], references: [id])
+  credentials     Credential[]  @relation("CredentialContact")
+  licenses        License[]     @relation("LicenseContact")
+}
+
+model Alarm {
+  id              String        @id @default(cuid())
+  clientId        String
+  severity        AlarmSeverity @default(INFO)
+  status          AlarmStatus   @default(ACTIVE)
+  type            String
+  message         String
+  details         String?
+  visibleToClient Boolean       @default(false)
+  dismissedAt     DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  client          Client        @relation(fields: [clientId], references: [id])
+}
+
+model ActivityEvent {
+  id              String            @id @default(cuid())
+  clientId        String
+  staffUserId     String?
+  eventType       ActivityEventType
+  title           String
+  body            String?
+  isPinned        Boolean           @default(false)
+  visibleToClient Boolean           @default(false)
+  dismissedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  client          Client            @relation(fields: [clientId], references: [id])
+  staffUser       StaffUser?        @relation(fields: [staffUserId], references: [id])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  ext_expires_in    Int?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Vendor {
+  id            String          @id @default(cuid())
+  name          String
+  website       String?
+  supportUrl    String?
+  supportPhone  String?
+  supportEmail  String?
+  accountNumber String?
+  notes         String?
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  category      VendorCategory  @default(OTHER)
+  portalUrl     String?
+  applications  Application[]
+  licenses      License[]
+  contacts      VendorContact[]
+  clients       Client[]        @relation("ClientVendors")
+}
+
+model Website {
+  id            String    @id @default(cuid())
+  clientId      String
+  label         String?
+  domain        String
+  registrar     String?
+  expiresAt     DateTime?
+  lastChecked   DateTime?
+  dnsRecords    Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accountNumber String?
+  autoRenew     Boolean   @default(false)
+  notes         String?
+  registrarUrl  String?
+  sslExpiresAt  DateTime?
+  sslIssuer     String?
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model ClientDocument {
+  id          String             @id @default(cuid())
+  clientId    String
+  title       String
+  content     String?
+  category    String?
+  isPinned    Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  attachments ClientAttachment[]
+  client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientAttachment {
+  id           String          @id @default(cuid())
+  clientId     String
+  documentId   String?
+  originalName String
+  storageName  String          @unique
+  mimeType     String
+  size         Int
+  notes        String?
+  createdAt    DateTime        @default(now())
+  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  document     ClientDocument? @relation(fields: [documentId], references: [id])
+}
+
+model RunbookCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#6366f1")
+  createdAt DateTime  @default(now())
+  runbooks  Runbook[]
+}
+
+model RunbookTag {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  createdAt DateTime        @default(now())
+  runbooks  RunbookTagMap[]
+}
+
+model Runbook {
+  id          String           @id @default(cuid())
+  title       String
+  summary     String?
+  content     String?
+  categoryId  String?
+  clientId    String?
+  isPublished Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  category    RunbookCategory? @relation(fields: [categoryId], references: [id])
+  client      Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  steps       RunbookStep[]
+  tags        RunbookTagMap[]
+}
+
+model RunbookTagMap {
+  runbookId String
+  tagId     String
+  runbook   Runbook    @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+  tag       RunbookTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([runbookId, tagId])
+}
+
+model RunbookStep {
+  id        String   @id @default(cuid())
+  runbookId String
+  order     Int
+  title     String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  runbook   Runbook  @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+}
+
+model VendorContact {
+  id        String   @id @default(cuid())
+  vendorId  String
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  mobile    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model NetworkDevice {
+  id              String            @id @default(cuid())
+  clientId        String
+  locationId      String?
+  name            String
+  type            NetworkDeviceType @default(OTHER)
+  make            String?
+  model           String?
+  ipAddress       String?
+  macAddress      String?
+  serial          String?
+  firmwareVersion String?
+  managementUrl   String?
+  notes           String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  dataSource      String            @default("MANUAL")
+  client          Client            @relation(fields: [clientId], references: [id])
+  location        Location?         @relation(fields: [locationId], references: [id])
+  rackSlots       RackSlot[]
+}
+
+model Rack {
+  id         String     @id @default(cuid())
+  locationId String
+  name       String
+  totalU     Int        @default(42)
+  notes      String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  slots      RackSlot[]
+}
+
+model RackSlot {
+  id              String         @id @default(cuid())
+  rackId          String
+  startU          Int
+  heightU         Int            @default(1)
+  label           String?
+  networkDeviceId String?
+  assetId         String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  shelfPos        Int            @default(0)
+  asset           Asset?         @relation("AssetRackSlot", fields: [assetId], references: [id])
+  networkDevice   NetworkDevice? @relation(fields: [networkDeviceId], references: [id])
+  rack            Rack           @relation(fields: [rackId], references: [id], onDelete: Cascade)
+
+  @@unique([rackId, startU, shelfPos])
+}
+
+model Subnet {
+  id            String         @id @default(cuid())
+  clientId      String
+  locationId    String?
+  cidr          String
+  gateway       String?
+  dns1          String?
+  dns2          String?
+  vlan          String?
+  description   String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  ipAssignments IpAssignment[]
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  location      Location?      @relation(fields: [locationId], references: [id])
+}
+
+model IpAssignment {
+  id        String      @id @default(cuid())
+  subnetId  String
+  ipAddress String
+  hostname  String?
+  assetId   String?
+  userId    String?
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  asset     Asset?      @relation("AssetIpAssignment", fields: [assetId], references: [id])
+  subnet    Subnet      @relation(fields: [subnetId], references: [id], onDelete: Cascade)
+  user      ClientUser? @relation("UserIpAssignment", fields: [userId], references: [id])
+
+  @@unique([subnetId, ipAddress])
+}
+
 enum ClientType {
   BUSINESS
   RESIDENTIAL
@@ -95,582 +643,4 @@ enum NetworkDeviceType {
   UPS
   MODEM
   OTHER
-}
-
-model StaffUser {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  role         UserRole  @default(TECH)
-  microsoftId  String?   @unique
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  activityEvents ActivityEvent[]
-}
-
-model Client {
-  id        String     @id @default(cuid())
-  name      String
-  type      ClientType @default(BUSINESS)
-  syncroId  String?    @unique
-  notes     String?
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  locations      Location[]
-  users          ClientUser[]
-  credentials    Credential[]
-  licenses       License[]
-  applications   Application[]
-  contacts       Contact[]
-  alarms         Alarm[]
-  activityEvents ActivityEvent[]
-  vendors        Vendor[]        @relation("ClientVendors")
-  websites       Website[]
-  networkDevices NetworkDevice[]
-  subnets        Subnet[]
-  runbooks       Runbook[]
-  documents      ClientDocument[]
-  attachments    ClientAttachment[]
-}
-
-model Location {
-  id        String   @id @default(cuid())
-  clientId  String
-  name      String
-  address   String?
-  city      String?
-  state     String?
-  zip       String?
-  ispName   String?
-  wanIp     String?
-  notes     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  client        Client         @relation(fields: [clientId], references: [id])
-  assets        Asset[]
-  userLocations UserLocation[]
-  networkDevices NetworkDevice[]
-  racks         Rack[]
-  subnets       Subnet[]
-}
-
-model ClientUser {
-  id        String   @id @default(cuid())
-  clientId  String
-  name      String
-  email     String?
-  phone     String?
-  m365Upn   String?
-  jobTitle  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  client        Client         @relation(fields: [clientId], references: [id])
-  userLocations UserLocation[]
-  assets        Asset[]        @relation("AssetPrimaryUser")
-  licenses      License[]      @relation("LicenseAssignedUser")
-  applications  Application[]  @relation("ApplicationAssignedUser")
-  credentials   Credential[]   @relation("CredentialUser")
-  ipAssignments IpAssignment[] @relation("UserIpAssignment")
-}
-
-model UserLocation {
-  id         String           @id @default(cuid())
-  userId     String
-  locationId String
-  relation   LocationRelation @default(PRIMARY)
-
-  user     ClientUser @relation(fields: [userId], references: [id])
-  location Location   @relation(fields: [locationId], references: [id])
-
-  @@unique([userId, locationId])
-}
-
-model AssetType {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  assets Asset[]
-}
-
-model Asset {
-  id             String        @id @default(cuid())
-  locationId     String
-  primaryUserId  String?
-  assetTypeId    String?
-  contactId      String?
-  category       AssetCategory @default(OTHER)
-  status         AssetStatus   @default(ACTIVE)
-  name           String
-  make           String?
-  model          String?
-  serial         String?
-  assetTag       String?
-  ipAddress      String?
-  macAddress     String?
-  vlan           String?
-  switchPort     String?
-  managementUrl  String?
-  splashtopUrl   String?
-  purchaseDate   DateTime?
-  warrantyExpiry DateTime?
-  room           String?
-  syncroAssetId  String?       @unique
-  dataSource     String        @default("MANUAL")
-  notes          String?
-  successorId    String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  location      Location      @relation(fields: [locationId], references: [id])
-  primaryUser   ClientUser?   @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
-  assetType     AssetType?    @relation(fields: [assetTypeId], references: [id])
-  contact       Contact?      @relation("AssetContact", fields: [contactId], references: [id])
-  credentials   Credential[]
-  exitInterview ExitInterview?
-  successor     Asset?        @relation("AssetSuccessor", fields: [successorId], references: [id])
-  predecessor   Asset?        @relation("AssetSuccessor")
-  rackSlots     RackSlot[]    @relation("AssetRackSlot")
-  ipAssignments IpAssignment[] @relation("AssetIpAssignment")
-}
-
-model ExitInterview {
-  id        String   @id @default(cuid())
-  assetId   String   @unique
-  reason    String
-  retiredBy String
-  retiredAt DateTime @default(now())
-  notes     String?
-  createdAt DateTime @default(now())
-
-  asset Asset @relation(fields: [assetId], references: [id])
-}
-
-model Credential {
-  id                String    @id @default(cuid())
-  clientId          String
-  assetId           String?
-  userId            String?
-  contactId         String?
-  label             String
-  username          String?
-  encryptedPassword String
-  url               String?
-  dataSource        String    @default("MANUAL")
-  notes             String?
-  isRetired         Boolean   @default(false)
-  lastRotated       DateTime?
-  expiryDate        DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  client   Client      @relation(fields: [clientId], references: [id])
-  asset    Asset?      @relation(fields: [assetId], references: [id])
-  user     ClientUser? @relation("CredentialUser", fields: [userId], references: [id])
-  contact  Contact?    @relation("CredentialContact", fields: [contactId], references: [id])
-}
-
-model License {
-  id             String    @id @default(cuid())
-  clientId       String
-  assignedUserId String?
-  contactId      String?
-  vendorId       String?
-  name           String
-  vendor         String?
-  licenseKey     String?
-  seats          Int?
-  assignedSeats  Int?
-  purchaseDate   DateTime?
-  expiryDate     DateTime?
-  renewalDate    DateTime?
-  cost           Float?
-  pax8Id         String?
-  dataSource     String    @default("MANUAL")
-  notes          String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  client       Client      @relation(fields: [clientId], references: [id])
-  assignedUser ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
-  contact      Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
-  vendorRef    Vendor?     @relation(fields: [vendorId], references: [id])
-}
-
-model Application {
-  id             String   @id @default(cuid())
-  clientId       String
-  assignedUserId String?
-  contactId      String?
-  vendorId       String?
-  name           String
-  vendor         String?
-  version        String?
-  supportUrl     String?
-  notes          String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  client       Client      @relation(fields: [clientId], references: [id])
-  assignedUser ClientUser? @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
-  contact      Contact?    @relation("ApplicationContact", fields: [contactId], references: [id])
-  vendorRef    Vendor?     @relation(fields: [vendorId], references: [id])
-}
-
-model Contact {
-  id              String   @id @default(cuid())
-  clientId        String
-  syncroContactId String?  @unique
-  name            String
-  role            String?
-  email           String?
-  phone           String?
-  mobile          String?
-  isPrimary       Boolean  @default(false)
-  isBilling    Boolean  @default(false)
-  isEscalation Boolean  @default(false)
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  client      Client        @relation(fields: [clientId], references: [id])
-  assets      Asset[]       @relation("AssetContact")
-  licenses    License[]     @relation("LicenseContact")
-  applications Application[] @relation("ApplicationContact")
-  credentials Credential[]  @relation("CredentialContact")
-}
-
-model Alarm {
-  id              String        @id @default(cuid())
-  clientId        String
-  severity        AlarmSeverity @default(INFO)
-  status          AlarmStatus   @default(ACTIVE)
-  type            String
-  message         String
-  details         String?
-  visibleToClient Boolean       @default(false)
-  dismissedAt     DateTime?
-  resolvedAt      DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  client Client @relation(fields: [clientId], references: [id])
-}
-
-model ActivityEvent {
-  id              String            @id @default(cuid())
-  clientId        String
-  staffUserId     String?
-  eventType       ActivityEventType
-  title           String
-  body            String?
-  isPinned        Boolean           @default(false)
-  visibleToClient Boolean           @default(false)
-  dismissedAt     DateTime?
-  createdAt       DateTime          @default(now())
-
-  client    Client     @relation(fields: [clientId], references: [id])
-  staffUser StaffUser? @relation(fields: [staffUserId], references: [id])
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  ext_expires_in    Int?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-
-  accounts Account[]
-  sessions Session[]
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-model Vendor {
-  id            String         @id @default(cuid())
-  name          String
-  category      VendorCategory @default(OTHER)
-  website       String?
-  supportUrl    String?
-  supportPhone  String?
-  supportEmail  String?
-  accountNumber String?
-  portalUrl     String?
-  notes         String?
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-
-  clients      Client[]        @relation("ClientVendors")
-  contacts     VendorContact[]
-  applications Application[]
-  licenses     License[]
-}
-
-model Website {
-  id            String    @id @default(cuid())
-  clientId      String
-  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  label         String?
-  domain        String
-  registrar     String?
-  registrarUrl  String?
-  accountNumber String?
-  autoRenew     Boolean   @default(false)
-  expiresAt     DateTime?
-  sslExpiresAt  DateTime?
-  sslIssuer     String?
-  lastChecked   DateTime?
-  dnsRecords    Json?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
-
-model AppSetting {
-  key       String   @id
-  value     String
-  updatedAt DateTime @updatedAt @default(now())
-}
-
-model ClientDocument {
-  id          String   @id @default(cuid())
-  clientId    String
-  title       String
-  content     String?
-  category    String?
-  isPinned    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  attachments ClientAttachment[]
-}
-
-model ClientAttachment {
-  id           String   @id @default(cuid())
-  clientId     String
-  documentId   String?
-  originalName String
-  storageName  String   @unique
-  mimeType     String
-  size         Int
-  notes        String?
-  createdAt    DateTime @default(now())
-
-  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  document ClientDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-}
-
-model RunbookCategory {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  color     String    @default("#6366f1")
-  createdAt DateTime  @default(now())
-
-  runbooks  Runbook[]
-}
-
-model RunbookTag {
-  id        String           @id @default(cuid())
-  name      String           @unique
-  createdAt DateTime         @default(now())
-
-  runbooks  RunbookTagMap[]
-}
-
-model Runbook {
-  id          String   @id @default(cuid())
-  title       String
-  summary     String?
-  content     String?  // markdown body
-  categoryId  String?
-  clientId    String?  // null = global MSP runbook
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  category RunbookCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  client   Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  tags     RunbookTagMap[]
-  steps    RunbookStep[]
-}
-
-model RunbookTagMap {
-  runbookId String
-  tagId     String
-
-  runbook Runbook    @relation(fields: [runbookId], references: [id], onDelete: Cascade)
-  tag     RunbookTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([runbookId, tagId])
-}
-
-model RunbookStep {
-  id        String   @id @default(cuid())
-  runbookId String
-  order     Int
-  title     String
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  runbook Runbook @relation(fields: [runbookId], references: [id], onDelete: Cascade)
-}
-
-model VendorContact {
-  id        String   @id @default(cuid())
-  vendorId  String
-  name      String
-  role      String?
-  email     String?
-  phone     String?
-  mobile    String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-}
-
-model NetworkDevice {
-  id              String            @id @default(cuid())
-  clientId        String
-  locationId      String?
-  name            String
-  type            NetworkDeviceType @default(OTHER)
-  make            String?
-  model           String?
-  ipAddress       String?
-  macAddress      String?
-  serial          String?
-  firmwareVersion String?
-  managementUrl   String?
-  dataSource      String            @default("MANUAL")
-  notes           String?
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  client    Client      @relation(fields: [clientId], references: [id])
-  location  Location?   @relation(fields: [locationId], references: [id])
-  rackSlots RackSlot[]
-}
-
-model Rack {
-  id         String   @id @default(cuid())
-  locationId String
-  name       String
-  totalU     Int      @default(42)
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  location Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  slots    RackSlot[]
-}
-
-model RackSlot {
-  id              String   @id @default(cuid())
-  rackId          String
-  startU          Int      // 0 = top-of-rack shelf
-  heightU         Int      @default(1)
-  shelfPos        Int      @default(0)  // 0 = single/first; >0 = additional shelf items side-by-side
-  label           String?
-  networkDeviceId String?
-  assetId         String?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  rack          Rack           @relation(fields: [rackId], references: [id], onDelete: Cascade)
-  networkDevice NetworkDevice? @relation(fields: [networkDeviceId], references: [id], onDelete: SetNull)
-  asset         Asset?         @relation("AssetRackSlot", fields: [assetId], references: [id], onDelete: SetNull)
-
-  @@unique([rackId, startU, shelfPos])
-}
-
-model Subnet {
-  id          String   @id @default(cuid())
-  clientId    String
-  locationId  String?
-  cidr        String
-  gateway     String?
-  dns1        String?
-  dns2        String?
-  vlan        String?
-  description String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  client        Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  location      Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  ipAssignments IpAssignment[]
-}
-
-model IpAssignment {
-  id         String   @id @default(cuid())
-  subnetId   String
-  ipAddress  String
-  hostname   String?
-  assetId    String?
-  userId     String?
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  subnet  Subnet      @relation(fields: [subnetId], references: [id], onDelete: Cascade)
-  asset   Asset?      @relation("AssetIpAssignment", fields: [assetId], references: [id], onDelete: SetNull)
-  user    ClientUser? @relation("UserIpAssignment", fields: [userId], references: [id], onDelete: SetNull)
-
-  @@unique([subnetId, ipAddress])
 }
