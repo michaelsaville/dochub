@@ -248,7 +248,11 @@ export default function SettingsPage() {
     setLoadingUnifiSites(true); setUnifiSites([])
     try {
       // Save credentials first
-      await saveIntegration(["integration:unifi:url", "integration:unifi:username", "integration:unifi:password", "integration:unifi:controllerType"])
+      const isCloud = cfg("integration:unifi:controllerType", "unifi_os") === "ui_cloud"
+      const keysToSave = isCloud
+        ? ["integration:unifi:controllerType", "integration:unifi:apiKey"]
+        : ["integration:unifi:url", "integration:unifi:username", "integration:unifi:password", "integration:unifi:controllerType"]
+      await saveIntegration(keysToSave)
       const r = await fetch("/api/integrations/unifi/sites")
       const data = await r.json()
       if (!r.ok) { alert(data.error || "Failed to load sites"); return }
@@ -520,27 +524,37 @@ export default function SettingsPage() {
             {/* ── Unifi ── */}
             {activeSection === "unifi" && (
               <>
-                <SectionCard title="Ubiquiti / Unifi — Credentials" description="Connect to your Unifi Network Application or UniFi OS controller. Self-signed certificates are supported.">
+                <SectionCard title="Ubiquiti / Unifi — Credentials" description="Connect to a local UniFi controller or a UI.com cloud account.">
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
                     <div style={{ gridColumn: "1 / -1" }}>
-                      <label style={lbl}>Controller URL</label>
-                      <input value={cfg("integration:unifi:url")} onChange={e => setCfg("integration:unifi:url", e.target.value)} placeholder="https://192.168.1.1 or https://unifi.example.com:8443" style={inp} />
-                    </div>
-                    <div>
-                      <label style={lbl}>Username</label>
-                      <input value={cfg("integration:unifi:username")} onChange={e => setCfg("integration:unifi:username", e.target.value)} style={inp} />
-                    </div>
-                    <div>
-                      <label style={lbl}>Password</label>
-                      <input type="password" value={cfg("integration:unifi:password")} onChange={e => setCfg("integration:unifi:password", e.target.value)} style={inp} />
-                    </div>
-                    <div>
                       <label style={lbl}>Controller type</label>
                       <select value={cfg("integration:unifi:controllerType", "unifi_os")} onChange={e => setCfg("integration:unifi:controllerType", e.target.value)} style={inp}>
-                        <option value="unifi_os">UniFi OS (UDM / UDR / Cloud Key Gen2+)</option>
-                        <option value="network_application">Network Application (standalone, port 8443)</option>
+                        <option value="unifi_os">UniFi OS — local (UDM / UDR / Cloud Key Gen2+)</option>
+                        <option value="network_application">Network Application — local (standalone, port 8443)</option>
+                        <option value="ui_cloud">UI.com — cloud (unifi.ui.com)</option>
                       </select>
                     </div>
+                    {cfg("integration:unifi:controllerType", "unifi_os") === "ui_cloud" ? (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={lbl}>API Key</label>
+                        <input type="password" value={cfg("integration:unifi:apiKey")} onChange={e => setCfg("integration:unifi:apiKey", e.target.value)} placeholder="Generate in UI.com → Account → API Keys" style={inp} />
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={lbl}>Controller URL</label>
+                          <input value={cfg("integration:unifi:url")} onChange={e => setCfg("integration:unifi:url", e.target.value)} placeholder="https://192.168.1.1 or https://unifi.example.com:8443" style={inp} />
+                        </div>
+                        <div>
+                          <label style={lbl}>Username</label>
+                          <input value={cfg("integration:unifi:username")} onChange={e => setCfg("integration:unifi:username", e.target.value)} style={inp} />
+                        </div>
+                        <div>
+                          <label style={lbl}>Password</label>
+                          <input type="password" value={cfg("integration:unifi:password")} onChange={e => setCfg("integration:unifi:password", e.target.value)} style={inp} />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button onClick={loadUnifiSites} disabled={loadingUnifiSites} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: loadingUnifiSites ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: loadingUnifiSites ? 0.6 : 1 }}>

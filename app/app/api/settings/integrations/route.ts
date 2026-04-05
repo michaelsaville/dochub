@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth"
 // Password/token fields are stored as-is (internal tool).
 const SENSITIVE_KEYS = new Set([
   "integration:unifi:password",
+  "integration:unifi:apiKey",
   "integration:hpinstanton:bearerToken",
   "integration:sonicwall:devices", // JSON array — not individually sensitive but contains passwords
 ])

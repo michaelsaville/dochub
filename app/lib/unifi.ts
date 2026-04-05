@@ -1,10 +1,13 @@
 import https from "node:https"
 
 export type UnifiConfig = {
-  url: string          // e.g. https://192.168.1.1 or https://unifi.example.com:8443
-  username: string
-  password: string
-  controllerType: "network_application" | "unifi_os"
+  controllerType: "network_application" | "unifi_os" | "ui_cloud"
+  // Local controller fields (network_application / unifi_os)
+  url?: string
+  username?: string
+  password?: string
+  // UI.com cloud field
+  apiKey?: string
 }
 
 type UnifiResponse = { data: any; setCookie: string; csrfToken: string }
@@ -61,6 +64,8 @@ function extractCsrfToken(rawHeaders: Record<string, string | string[]>): string
   return Array.isArray(token) ? token[0] : token
 }
 
+// ── Local controller auth ────────────────────────────────────────────────────
+
 export async function unifiLogin(cfg: UnifiConfig): Promise<{ cookies: string; csrfToken: string }> {
   const loginPath =
     cfg.controllerType === "unifi_os" ? "/api/auth/login" : "/api/login"
@@ -85,7 +90,7 @@ export async function unifiLogout(cfg: UnifiConfig, cookies: string, csrfToken: 
 }
 
 function apiBase(cfg: UnifiConfig): string {
-  return cfg.controllerType === "unifi_os" ? `${cfg.url}/proxy/network` : cfg.url
+  return cfg.controllerType === "unifi_os" ? `${cfg.url}/proxy/network` : cfg.url!
 }
 
 export async function unifiGetSites(
@@ -121,6 +126,37 @@ export async function unifiGetDevices(
   return data?.data ?? []
 }
 
+// ── UI.com cloud API ─────────────────────────────────────────────────────────
+
+const UI_API = "https://api.ui.com"
+
+function cloudHeaders(apiKey: string): Record<string, string> {
+  return { "X-API-KEY": apiKey, Accept: "application/json" }
+}
+
+export async function uiCloudGetHosts(
+  apiKey: string
+): Promise<{ id: string; name: string }[]> {
+  const { data } = await httpsRequest(`${UI_API}/v1/hosts`, "GET", undefined, cloudHeaders(apiKey))
+  const hosts: any[] = data?.data ?? []
+  return hosts.map((h: any) => ({
+    id: h.id,
+    name: h.reportedState?.name || h.id,
+  }))
+}
+
+export async function uiCloudGetDevices(apiKey: string, hostId: string): Promise<any[]> {
+  const { data } = await httpsRequest(
+    `${UI_API}/v1/devices?hostIds[]=${encodeURIComponent(hostId)}`,
+    "GET",
+    undefined,
+    cloudHeaders(apiKey)
+  )
+  return data?.data ?? []
+}
+
+// ── Shared helpers ───────────────────────────────────────────────────────────
+
 export function unifiDeviceType(type: string): string {
   const map: Record<string, string> = {
     uap: "ACCESS_POINT",
@@ -134,6 +170,17 @@ export function unifiDeviceType(type: string): string {
     "usw-pro": "SWITCH",
   }
   return map[type?.toLowerCase()] ?? "OTHER"
+}
+
+/** Map a UI.com cloud device's productLine/model to a NetworkDevice type */
+export function uiCloudDeviceType(device: any): string {
+  const model: string = (device.model || "").toLowerCase()
+  const line: string = (device.productLine || "").toLowerCase()
+  if (line === "protect") return "OTHER"
+  if (model.startsWith("uap") || model.startsWith("u6") || model.startsWith("bea") || line === "wifi") return "ACCESS_POINT"
+  if (model.startsWith("usw") || model.startsWith("us-") || line === "switching") return "SWITCH"
+  if (model.startsWith("udm") || model.startsWith("uxg") || model.startsWith("usg") || line === "routing") return "ROUTER"
+  return "OTHER"
 }
 
 export function formatUptime(seconds: number): string {
