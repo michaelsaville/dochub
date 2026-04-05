@@ -67,7 +67,7 @@ export async function GET(
 
   if (modules.includes("vendors")) {
     data.vendors = await prisma.vendor.findMany({
-      where: { clientId: id },
+      where: { clients: { some: { id } } },
       orderBy: { name: "asc" },
       include: {
         contacts: { orderBy: { name: "asc" } },
