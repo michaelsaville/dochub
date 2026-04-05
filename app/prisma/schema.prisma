@@ -49,6 +49,7 @@ model Client {
   vpnGateways    VpnGateway[]
   phoneSystems   PhoneSystem[]
   cameraSystems  CameraSystem[]
+  wifiControllers WifiController[]
 }
 
 model Location {
@@ -170,6 +171,7 @@ model Asset {
   phoneExtensions  PhoneExtension[] @relation("AssetPhoneExtension")
   cameraSystems    CameraSystem[]   @relation("AssetCameraSystem")
   cameras          Camera[]         @relation("AssetCamera")
+  wifiControllers  WifiController[] @relation("AssetWifiController")
 }
 
 model ExitInterview {
@@ -212,6 +214,8 @@ model Credential {
   phoneExtensions      PhoneExtension[] @relation("CredentialPhoneExtension")
   voicemailExtensions  PhoneExtension[] @relation("CredentialVoicemail")
   cameraSystems        CameraSystem[]   @relation("CredentialCameraSystem")
+  wifiControllers      WifiController[] @relation("CredentialWifiController")
+  wifiNetworks         WifiNetwork[]    @relation("CredentialWifiNetwork")
 }
 
 model License {
@@ -527,6 +531,7 @@ model NetworkDevice {
   location         Location?         @relation(fields: [locationId], references: [id])
   rackSlots        RackSlot[]
   vpnGateways      VpnGateway[]      @relation("NetworkDeviceVpnGateway")
+  wifiControllers  WifiController[]  @relation("NetworkDeviceWifiController")
 }
 
 model Rack {
@@ -574,6 +579,7 @@ model Subnet {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   ipAssignments IpAssignment[]
+  wifiNetworks  WifiNetwork[]
   client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   location      Location?      @relation(fields: [locationId], references: [id])
 }
@@ -960,4 +966,86 @@ enum CameraType {
   WIRELESS
   FISHEYE
   PTZ
+}
+
+// ─── Wireless ─────────────────────────────────────────────────────────────────
+
+model WifiController {
+  id              String            @id @default(cuid())
+  clientId        String
+  assetId         String?           // on-prem controller hardware as asset
+  networkDeviceId String?           // controller as a network device record
+  credentialId    String?           // admin credential in vault
+  name            String            // e.g. "Unifi Controller", "Meraki Dashboard"
+  type            WifiControllerType
+  managementUrl   String?
+  notes           String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset           Asset?            @relation("AssetWifiController", fields: [assetId], references: [id])
+  networkDevice   NetworkDevice?    @relation("NetworkDeviceWifiController", fields: [networkDeviceId], references: [id])
+  credential      Credential?       @relation("CredentialWifiController", fields: [credentialId], references: [id])
+  networks        WifiNetwork[]
+}
+
+model WifiNetwork {
+  id              String          @id @default(cuid())
+  controllerId    String
+  credentialId    String?         // PSK credential in vault
+  subnetId        String?         // optional link to IPAM subnet
+  ssid            String
+  band            WifiBand        @default(DUAL)
+  security        WifiSecurity    @default(WPA2_PERSONAL)
+  purpose         WifiPurpose     @default(CORPORATE)
+  vlanId          Int?            // VLAN tag (fallback if no subnet linked)
+  vlanName        String?         // e.g. "Corp", "Guest", "IoT"
+  isHidden        Boolean         @default(false)
+  clientIsolation Boolean         @default(false)
+  bandSteering    Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  controller      WifiController  @relation(fields: [controllerId], references: [id], onDelete: Cascade)
+  credential      Credential?     @relation("CredentialWifiNetwork", fields: [credentialId], references: [id])
+  subnet          Subnet?         @relation(fields: [subnetId], references: [id])
+}
+
+enum WifiControllerType {
+  UNIFI
+  MERAKI
+  HP_INSTANT_ON
+  GRANDSTREAM
+  UBIQUITI_CLOUD
+  STANDALONE
+  OTHER
+}
+
+enum WifiBand {
+  DUAL
+  TRI
+  TWO_FOUR
+  FIVE
+  SIX
+}
+
+enum WifiSecurity {
+  WPA2_PERSONAL
+  WPA2_ENTERPRISE
+  WPA3_PERSONAL
+  WPA3_ENTERPRISE
+  WPA2_WPA3_TRANSITION
+  OPEN
+}
+
+enum WifiPurpose {
+  CORPORATE
+  GUEST
+  IOT
+  VOIP
+  CAMERAS
+  MANAGEMENT
+  OTHER
 }

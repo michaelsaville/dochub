@@ -8,6 +8,7 @@ import FileSharesPanel from "@/components/FileSharesPanel"
 import VpnPanel from "@/components/VpnPanel"
 import PhonePanel from "@/components/PhonePanel"
 import CameraPanel from "@/components/CameraPanel"
+import WifiPanel from "@/components/WifiPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -277,7 +278,7 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks" | "shares">("devices")
+  const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks" | "shares" | "wireless">("devices")
   const [subnets, setSubnets] = useState<any[]>([])
   const [loadingSubnets, setLoadingSubnets] = useState(false)
   const [racks, setRacks] = useState<any[]>([])
@@ -295,6 +296,8 @@ export default function ClientDetailPage() {
   const [phoneCredentials, setPhoneCredentials] = useState<any[]>([])
   const [cameraSystems, setCameraSystems] = useState<any[]>([])
   const [loadingCameras, setLoadingCameras] = useState(false)
+  const [wifiControllers, setWifiControllers] = useState<any[]>([])
+  const [loadingWifi, setLoadingWifi] = useState(false)
   const [dashboardData, setDashboardData] = useState<{ favoritedAssets: any[]; favoritedCredentials: any[] } | null>(null)
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [dashRevealedPasswords, setDashRevealedPasswords] = useState<Record<string, string>>({})
@@ -344,6 +347,11 @@ export default function ClientDetailPage() {
     if (networkSubTab === "racks" && racks.length === 0) { fetchRacks(); if (networkDevices.length === 0) fetchNetworkDevices(); if (assets.length === 0) fetchAssets() }
     if (networkSubTab === "shares") {
       if (adDomains.length === 0 && clientShares.length === 0) fetchShares()
+      if (assets.length === 0) fetchAssets()
+    }
+    if (networkSubTab === "wireless") {
+      if (wifiControllers.length === 0) fetchWifi()
+      if (subnets.length === 0) fetchSubnets()
       if (assets.length === 0) fetchAssets()
     }
   }, [networkSubTab, activeTab])
@@ -726,6 +734,22 @@ export default function ClientDetailPage() {
       }
     } catch {}
     finally { setLoadingCameras(false) }
+  }
+
+  async function fetchWifi() {
+    setLoadingWifi(true)
+    try {
+      const [ctrlRes, credsRes] = await Promise.all([
+        fetch(`/api/clients/${id}/wifi-controllers`),
+        fetch(`/api/clients/${id}/credentials`),
+      ])
+      if (ctrlRes.ok) setWifiControllers(await ctrlRes.json())
+      if (credsRes.ok) {
+        const creds = await credsRes.json()
+        setPhoneCredentials(prev => prev.length ? prev : creds.map((c: any) => ({ id: c.id, label: c.label })))
+      }
+    } catch {}
+    finally { setLoadingWifi(false) }
   }
 
   async function fetchApplications() {
@@ -2615,7 +2639,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["devices", "ipam", "racks", "shares"] as const).map(t => (
+              {(["devices", "ipam", "racks", "wireless", "shares"] as const).map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
@@ -2623,7 +2647,7 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "devices" ? "Devices" : t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : "File Shares"}
+                  {t === "devices" ? "Devices" : t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : "File Shares"}
                 </button>
               ))}
             </div>
@@ -2818,6 +2842,24 @@ export default function ClientDetailPage() {
             )}
 
             {/* File Shares sub-tab */}
+            {networkSubTab === "wireless" && (
+              <div>
+                {loadingWifi ? (
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+                ) : (
+                  <WifiPanel
+                    controllers={wifiControllers}
+                    assets={assets}
+                    networkDevices={networkDevices}
+                    subnets={subnets}
+                    credentials={phoneCredentials}
+                    clientId={id as string}
+                    onControllersChange={setWifiControllers}
+                  />
+                )}
+              </div>
+            )}
+
             {networkSubTab === "shares" && (
               <div>
                 {loadingShares ? (
