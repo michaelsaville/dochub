@@ -1513,7 +1513,14 @@ export default function ClientDetailPage() {
                       }}>
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ fontSize: "14px", fontWeight: 500 }}>{asset.friendlyName || asset.name}</span>
+                            <span
+                              onClick={() => router.push(`/assets/${asset.id}`)}
+                              style={{ fontSize: "14px", fontWeight: 500, cursor: "pointer" }}
+                              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                            >
+                              {asset.friendlyName || asset.name}
+                            </span>
                             {boundSourceTag(asset.dataSource, asset.syncroAssetId)}
                           </div>
                           {asset.friendlyName && asset.friendlyName !== asset.name && (

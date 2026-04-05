@@ -13,14 +13,28 @@ export async function GET(
     const asset = await prisma.asset.findUnique({
       where: { id },
       include: {
-        location: { include: { client: true } },
+        location: {
+          include: { client: { select: { id: true, name: true } } },
+        },
         assetType: { select: { id: true, name: true } },
-        primaryUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        primaryUser: { select: { id: true, name: true, email: true, phone: true, m365Upn: true, jobTitle: true } },
+        contact: { select: { id: true, name: true, role: true, email: true, phone: true } },
+        credentials: {
+          where: { isRetired: false },
+          select: { id: true, label: true, username: true, url: true, encryptedPassword: true },
+          orderBy: { label: "asc" },
+        },
       },
     })
     if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })
-    return NextResponse.json(asset)
+    const { credentials, ...rest } = asset
+    return NextResponse.json({
+      ...rest,
+      credentials: credentials.map(c => ({
+        id: c.id, label: c.label, username: c.username, url: c.url,
+        hasPassword: !!c.encryptedPassword,
+      })),
+    })
   } catch (e) {
     return NextResponse.json({ error: "Failed to fetch asset" }, { status: 500 })
   }
