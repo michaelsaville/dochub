@@ -78,7 +78,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Documents", "SOPs", "Activity"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Documents", "SOPs", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -217,6 +217,9 @@ export default function ClientDetailPage() {
   const [revealedLicenseKeys, setRevealedLicenseKeys] = useState<Record<string, string>>({})
   const [revealingKey, setRevealingKey] = useState<string | null>(null)
   const [vendorsList, setVendorsList] = useState<{ id: string; name: string }[]>([])
+  const [subscriptions, setSubscriptions] = useState<any[]>([])
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
+  const [assigningSubUser, setAssigningSubUser] = useState<string | null>(null)
   const [applications, setApplications] = useState<any[]>([])
   const [loadingApps, setLoadingApps] = useState(false)
   const [showAddApp, setShowAddApp] = useState(false)
@@ -294,6 +297,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList() }
+    if (activeTab === "Subscriptions" && subscriptions.length === 0) fetchSubscriptions()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
@@ -462,9 +466,36 @@ export default function ClientDetailPage() {
     setLoadingLicenses(true)
     try {
       const res = await fetch(`/api/clients/${id}/licenses`)
-      setLicenses(await res.json())
+      const all = await res.json()
+      setLicenses(Array.isArray(all) ? all.filter((l: any) => l.dataSource !== "PAX8") : all)
     } catch {}
     finally { setLoadingLicenses(false) }
+  }
+
+  async function fetchSubscriptions() {
+    setLoadingSubscriptions(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/licenses`)
+      const all = await res.json()
+      setSubscriptions(Array.isArray(all) ? all.filter((l: any) => l.dataSource === "PAX8") : [])
+    } catch {}
+    finally { setLoadingSubscriptions(false) }
+  }
+
+  async function assignSubUser(licenseId: string, userId: string) {
+    setAssigningSubUser(licenseId)
+    try {
+      const res = await fetch(`/api/clients/${id}/licenses/${licenseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedUserId: userId || null }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setSubscriptions(s => s.map(x => x.id === licenseId ? updated : x))
+      }
+    } catch {}
+    finally { setAssigningSubUser(null) }
   }
 
   async function fetchVendorsList() {
@@ -2052,6 +2083,80 @@ export default function ClientDetailPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Subscriptions" && (
+          <div style={{ maxWidth: "960px" }}>
+            {loadingSubscriptions ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : subscriptions.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No Pax8 subscriptions synced yet. Configure Pax8 in Settings and run a sync.</div>
+            ) : (
+              <>
+                {/* Group by vendor */}
+                {(() => {
+                  const byVendor: Record<string, any[]> = {}
+                  for (const sub of subscriptions) {
+                    const v = sub.vendor ?? "Other"
+                    if (!byVendor[v]) byVendor[v] = []
+                    byVendor[v].push(sub)
+                  }
+                  return Object.entries(byVendor).sort(([a], [b]) => a.localeCompare(b)).map(([vendor, subs]) => (
+                    <div key={vendor} style={{ marginBottom: "24px" }}>
+                      <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{vendor}</div>
+                      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 70px 90px 110px 160px", padding: "9px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                          {["Product", "Status", "Qty", "$/mo", "Renewal", "Assigned To"].map(h => (
+                            <div key={h} style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
+                          ))}
+                        </div>
+                        {subs.map((sub, i) => {
+                          const statusColor = sub.status === "Active" ? "#22c55e"
+                            : sub.status === "Suspended" ? "#f59e0b"
+                            : sub.status === "Trial" ? "#3b82f6"
+                            : "#94a3b8"
+                          return (
+                            <div key={sub.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 70px 90px 110px 160px", padding: "11px 16px", borderBottom: i < subs.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                              <div>
+                                <div style={{ fontSize: "14px", fontWeight: 500 }}>{sub.name}</div>
+                                {sub.billingTerm && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>{sub.billingTerm}</div>}
+                              </div>
+                              <div>
+                                <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: `${statusColor}18`, color: statusColor, fontWeight: 500 }}>
+                                  {sub.status ?? "—"}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{sub.seats ?? "—"}</div>
+                              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                                {sub.cost != null ? `$${sub.cost.toFixed(2)}` : "—"}
+                              </div>
+                              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                                {sub.renewalDate ? new Date(sub.renewalDate).toLocaleDateString() : "—"}
+                              </div>
+                              <div>
+                                <select
+                                  value={sub.assignedUser?.id ?? ""}
+                                  onChange={e => assignSubUser(sub.id, e.target.value)}
+                                  disabled={assigningSubUser === sub.id}
+                                  style={{ width: "100%", fontSize: "12px", padding: "4px 8px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", cursor: "pointer" }}
+                                >
+                                  <option value="">Unassigned</option>
+                                  {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))
+                })()}
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "8px" }}>
+                  {subscriptions.length} subscription{subscriptions.length !== 1 ? "s" : ""} · Total $/mo: ${subscriptions.reduce((s, l) => s + (l.cost ?? 0), 0).toFixed(2)}
+                </div>
+              </>
             )}
           </div>
         )}

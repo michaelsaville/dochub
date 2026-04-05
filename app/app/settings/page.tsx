@@ -35,7 +35,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "asset-types" | "data-sources" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall"
+type Section = "platform" | "asset-types" | "data-sources" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -46,6 +46,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
   { id: "hpinstanton", label: "HP Instant On", group: "Integrations" },
   { id: "sonicwall", label: "SonicWall", group: "Integrations" },
+  { id: "pax8", label: "Pax8", group: "Integrations" },
 ]
 
 function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
@@ -67,10 +68,12 @@ function SyncResult({ result }: { result: any }) {
           <div style={{ fontWeight: 500, color: "#22c55e", marginBottom: "4px" }}>Sync complete</div>
           <div style={{ color: "var(--color-text-secondary)" }}>
             {result.devices != null && `${result.devices} devices`}
+            {result.licenses != null && `${result.licenses} subscriptions`}
             {result.clients != null && ` · ${result.clients} clients`}
             {result.assets != null && ` · ${result.assets} assets`}
             {result.sites != null && ` · ${result.sites} sites`}
             {result.networks != null && ` · ${result.networks} networks`}
+            {result.companies != null && ` · ${result.companies} companies`}
           </div>
           {result.errors?.length > 0 && <div style={{ marginTop: "6px", color: "#f59e0b", fontSize: "12px" }}>{result.errors.length} error(s) — check logs</div>}
         </div>
@@ -143,6 +146,13 @@ export default function SettingsPage() {
   const [showAddSonicwall, setShowAddSonicwall] = useState(false)
   const [sonicwallForm, setSonicwallForm] = useState({ host: "", username: "", password: "", clientId: "", name: "" })
 
+  // --- Pax8 ---
+  const [pax8Companies, setPax8Companies] = useState<{ id: string; name: string }[]>([])
+  const [loadingPax8Companies, setLoadingPax8Companies] = useState(false)
+  const [pax8CompanyMap, setPax8CompanyMap] = useState<Record<string, string>>({})
+  const [pax8Syncing, setPax8Syncing] = useState(false)
+  const [pax8SyncResult, setPax8SyncResult] = useState<any>(null)
+
   // --- Shared clients list for mapping ---
   const [clientsList, setClientsList] = useState<{ id: string; name: string }[]>([])
 
@@ -156,6 +166,7 @@ export default function SettingsPage() {
       if (d["integration:meraki:networkMap"]) { try { setMerakiNetworkMap(JSON.parse(d["integration:meraki:networkMap"])) } catch {} }
       if (d["integration:hpinstanton:siteMap"]) { try { setHpSiteMap(JSON.parse(d["integration:hpinstanton:siteMap"])) } catch {} }
       if (d["integration:sonicwall:devices"]) { try { setSonicwallDevices(JSON.parse(d["integration:sonicwall:devices"])) } catch {} }
+      if (d["integration:pax8:companyMap"]) { try { setPax8CompanyMap(JSON.parse(d["integration:pax8:companyMap"])) } catch {} }
     }).catch(() => {})
     fetch("/api/clients").then(r => r.json()).then((cs: any[]) => setClientsList(cs.map(c => ({ id: c.id, name: c.name })))).catch(() => {})
   }, [])
@@ -310,6 +321,26 @@ export default function SettingsPage() {
   async function runSonicwallSync() {
     setSonicwallSyncing(true); setSonicwallSyncResult(null)
     try { const r = await fetch("/api/integrations/sonicwall/sync", { method: "POST" }); setSonicwallSyncResult(await r.json()) } finally { setSonicwallSyncing(false) }
+  }
+
+  // Pax8
+  async function loadPax8Companies() {
+    setLoadingPax8Companies(true); setPax8Companies([])
+    try {
+      await saveIntegration(["integration:pax8:clientId", "integration:pax8:clientSecret"])
+      const r = await fetch("/api/integrations/pax8/companies")
+      const data = await r.json()
+      if (!r.ok) { alert(data.error || "Failed to load Pax8 companies"); return }
+      setPax8Companies(data)
+    } finally { setLoadingPax8Companies(false) }
+  }
+  async function savePax8Mapping() {
+    await saveIntegration([], { "integration:pax8:companyMap": JSON.stringify(pax8CompanyMap) })
+    alert("Mapping saved")
+  }
+  async function runPax8Sync() {
+    setPax8Syncing(true); setPax8SyncResult(null)
+    try { const r = await fetch("/api/integrations/pax8/sync", { method: "POST" }); setPax8SyncResult(await r.json()) } finally { setPax8Syncing(false) }
   }
 
   const saveBtn = (onClick: () => void, saving: boolean, label = "Save", savingLabel = "Saving...") => (
@@ -753,6 +784,73 @@ export default function SettingsPage() {
                   Requires SonicOS 6.5.4+ with REST API enabled. Enable at Device → Administration → Management → REST API.
                 </div>
               </SectionCard>
+            )}
+
+            {/* ── Pax8 ── */}
+            {activeSection === "pax8" && (
+              <>
+                <SectionCard title="Pax8 Credentials" description="OAuth2 client credentials from your Pax8 Partner Portal (Admin → API credentials).">
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                    <div>
+                      <label style={lbl}>Client ID</label>
+                      <input value={cfg("integration:pax8:clientId")} onChange={e => setCfg("integration:pax8:clientId", e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={inp} />
+                    </div>
+                    <div>
+                      <label style={lbl}>Client Secret</label>
+                      <input type="password" value={cfg("integration:pax8:clientSecret")} onChange={e => setCfg("integration:pax8:clientSecret", e.target.value)} style={inp} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    {saveBtn(() => saveIntegration(["integration:pax8:clientId", "integration:pax8:clientSecret"]), savingIntegration)}
+                    <button onClick={loadPax8Companies} disabled={loadingPax8Companies} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: loadingPax8Companies ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: loadingPax8Companies ? 0.6 : 1 }}>
+                      {loadingPax8Companies ? "Loading..." : "Load companies"}
+                    </button>
+                  </div>
+                </SectionCard>
+
+                {pax8Companies.length > 0 && (
+                  <SectionCard title="Company → Client Mapping" description="Map each Pax8 company to a client in DocHub. Subscriptions will be imported as licenses.">
+                    <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden", marginBottom: "12px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", padding: "8px 14px", background: "var(--color-background-hover)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                        <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>Pax8 Company</div>
+                        <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>DocHub Client</div>
+                      </div>
+                      {pax8Companies.map((company, i) => (
+                        <div key={company.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "8px 14px", borderBottom: i < pax8Companies.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center", background: "var(--color-background-primary)" }}>
+                          <div style={{ fontSize: "13px" }}>{company.name}</div>
+                          <select value={pax8CompanyMap[company.id] ?? ""} onChange={e => setPax8CompanyMap(m => ({ ...m, [company.id]: e.target.value }))} style={{ ...inp, padding: "5px 10px", fontSize: "13px" }}>
+                            <option value="">— skip —</option>
+                            {clientsList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={savePax8Mapping} disabled={savingIntegration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save mapping</button>
+                      <button onClick={runPax8Sync} disabled={pax8Syncing} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: pax8Syncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: pax8Syncing ? 0.6 : 1 }}>
+                        {pax8Syncing ? "Syncing..." : "Run sync"}
+                      </button>
+                    </div>
+                    <SyncResult result={pax8SyncResult} />
+                  </SectionCard>
+                )}
+
+                {pax8Companies.length === 0 && pax8CompanyMap && Object.keys(pax8CompanyMap).length > 0 && (
+                  <SectionCard title="Sync">
+                    <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>Company mapping is saved. Load companies above to modify, or run sync directly.</p>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={runPax8Sync} disabled={pax8Syncing} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: pax8Syncing ? "not-allowed" : "pointer", opacity: pax8Syncing ? 0.6 : 1 }}>
+                        {pax8Syncing ? "Syncing..." : "Run sync"}
+                      </button>
+                    </div>
+                    <SyncResult result={pax8SyncResult} />
+                  </SectionCard>
+                )}
+
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                  Subscriptions are synced into each client&apos;s Subscriptions tab. Cancelled and terminated subscriptions are skipped. User assignments are preserved on re-sync.
+                </div>
+              </>
             )}
 
           </div>

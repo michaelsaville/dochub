@@ -214,6 +214,8 @@ model License {
   purchaseDate   DateTime?
   vendorId       String?
   dataSource     String      @default("MANUAL")
+  billingTerm    String?
+  status         String?
   assignedUser   ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
   client         Client      @relation(fields: [clientId], references: [id])
   contact        Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
