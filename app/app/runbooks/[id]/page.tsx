@@ -34,7 +34,7 @@ export default function RunbookViewPage() {
   }
 
   if (loading) return <AppShell><div style={{ padding: "32px", color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div></AppShell>
-  if (!runbook || runbook.error) return <AppShell><div style={{ padding: "32px", color: "var(--color-text-secondary)", fontSize: "14px" }}>Runbook not found.</div></AppShell>
+  if (!runbook || runbook.error) return <AppShell><div style={{ padding: "32px", color: "var(--color-text-secondary)", fontSize: "14px" }}>SOP not found.</div></AppShell>
 
   const completedCount = Object.values(checked).filter(Boolean).length
   const totalSteps = runbook.steps.length
@@ -150,7 +150,7 @@ export default function RunbookViewPage() {
         )}
 
         {!runbook.content && totalSteps === 0 && (
-          <div style={{ color: "var(--color-text-muted)", fontSize: "14px" }}>This runbook has no content yet. <button onClick={() => router.push(`/runbooks/${id}/edit`)} style={{ color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: "14px", padding: 0 }}>Add some →</button></div>
+          <div style={{ color: "var(--color-text-muted)", fontSize: "14px" }}>This SOP has no content yet. <button onClick={() => router.push(`/runbooks/${id}/edit`)} style={{ color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: "14px", padding: 0 }}>Add some →</button></div>
         )}
       </div>
     </AppShell>

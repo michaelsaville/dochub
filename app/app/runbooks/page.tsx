@@ -48,16 +48,16 @@ export default function RunbooksPage() {
       <div style={{ padding: "32px", maxWidth: "960px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>
-            <div style={{ fontSize: "20px", fontWeight: 600, color: "var(--color-text-primary)" }}>Runbooks</div>
+            <div style={{ fontSize: "20px", fontWeight: 600, color: "var(--color-text-primary)" }}>SOPs</div>
             <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>
-              {runbooks.length} procedure{runbooks.length !== 1 ? "s" : ""}
+              {runbooks.length} SOP{runbooks.length !== 1 ? "s" : ""}
             </div>
           </div>
           <button
             onClick={() => router.push("/runbooks/new")}
             style={{ fontSize: "14px", fontWeight: 500, padding: "8px 18px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}
           >
-            New runbook
+            New SOP
           </button>
         </div>
 
@@ -66,7 +66,7 @@ export default function RunbooksPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search runbooks..."
+            placeholder="Search SOPs..."
             style={{ flex: "1 1 200px", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", minWidth: "160px" }}
           />
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
@@ -78,7 +78,7 @@ export default function RunbooksPage() {
             {tags.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
           </select>
           <select value={filterScope} onChange={e => setFilterScope(e.target.value as any)} style={{ padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
-            <option value="all">All runbooks</option>
+            <option value="all">All SOPs</option>
             <option value="global">Global (MSP)</option>
             <option value="client">Client-specific</option>
           </select>
@@ -88,7 +88,7 @@ export default function RunbooksPage() {
           <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
         ) : filtered.length === 0 ? (
           <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
-            {runbooks.length === 0 ? "No runbooks yet. Create your first one." : "No runbooks match your filters."}
+            {runbooks.length === 0 ? "No SOPs yet. Create your first one." : "No SOPs match your filters."}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>

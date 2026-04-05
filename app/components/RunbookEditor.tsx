@@ -151,7 +151,7 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
       {/* Summary */}
       <div style={{ marginBottom: "20px" }}>
         <label style={lbl}>Summary <span style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>(one-liner shown on list)</span></label>
-        <input value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief description of what this runbook covers" style={inp} />
+        <input value={summary} onChange={e => setSummary(e.target.value)} placeholder="Brief description of what this SOP covers" style={inp} />
       </div>
 
       {/* Category + Client row */}
@@ -186,7 +186,7 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
         <div>
           <label style={lbl}>Client <span style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>(leave blank for global)</span></label>
           <select value={clientId} onChange={e => setClientId(e.target.value)} style={inp}>
-            <option value="">Global (MSP runbook)</option>
+            <option value="">Global (MSP SOP)</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
@@ -279,7 +279,7 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
       {/* Actions */}
       <div style={{ display: "flex", gap: "8px" }}>
         <button onClick={save} disabled={saving} style={{ fontSize: "14px", fontWeight: 500, padding: "10px 24px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
-          {saving ? "Saving..." : isEdit ? "Save changes" : "Create runbook"}
+          {saving ? "Saving..." : isEdit ? "Save changes" : "Create SOP"}
         </button>
         <button onClick={() => router.back()} style={{ fontSize: "14px", padding: "10px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
       </div>

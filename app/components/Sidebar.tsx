@@ -10,7 +10,7 @@ const nav = [
   { label: "Vendors",   href: "/vendors"   },
   { label: "Licenses",  href: "/licenses"  },
   { label: "Alerts",    href: "/alerts"    },
-  { label: "Runbooks",  href: "/runbooks"  },
+  { label: "SOPs",      href: "/runbooks"  },
   { label: "Alarms",    href: "/alarms"    },
   { label: "Import",    href: "/import"    },
   { label: "Settings",  href: "/settings"  },

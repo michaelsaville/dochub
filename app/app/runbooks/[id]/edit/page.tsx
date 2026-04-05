@@ -20,13 +20,13 @@ export default function EditRunbookPage() {
   return (
     <AppShell>
       <div style={{ padding: "32px" }}>
-        <div style={{ fontSize: "20px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "24px" }}>Edit runbook</div>
+        <div style={{ fontSize: "20px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "24px" }}>Edit SOP</div>
         {loading ? (
           <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
         ) : runbook ? (
           <RunbookEditor initial={runbook} />
         ) : (
-          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Runbook not found.</div>
+          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>SOP not found.</div>
         )}
       </div>
     </AppShell>

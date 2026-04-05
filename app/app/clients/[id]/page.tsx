@@ -67,7 +67,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Documents", "Runbooks", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Documents", "SOPs", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -199,7 +199,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
     if (activeTab === "Documents" && clientDocs.length === 0) fetchClientDocs()
-    if (activeTab === "Runbooks" && clientRunbooks.length === 0) fetchClientRunbooks()
+    if (activeTab === "SOPs" && clientRunbooks.length === 0) fetchClientRunbooks()
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
 
@@ -2225,17 +2225,17 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {activeTab === "Runbooks" && (
+        {activeTab === "SOPs" && (
           <div style={{ maxWidth: "820px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <a href={`/runbooks/new?clientId=${id}`} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", textDecoration: "none", color: "var(--color-text-primary)" }}>
-                New runbook
+                New SOP
               </a>
             </div>
             {loadingRunbooks ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : clientRunbooks.length === 0 ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No runbooks yet for this client.</div>
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No SOPs yet for this client.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {clientRunbooks.map((rb: any) => (

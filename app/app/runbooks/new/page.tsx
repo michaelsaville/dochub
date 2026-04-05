@@ -15,7 +15,7 @@ export default function NewRunbookPage() {
   return (
     <AppShell>
       <div style={{ padding: "32px" }}>
-        <div style={{ fontSize: "20px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "24px" }}>New runbook</div>
+        <div style={{ fontSize: "20px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "24px" }}>New SOP</div>
         <Suspense fallback={null}>
           <NewRunbookInner />
         </Suspense>
