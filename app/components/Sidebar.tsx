@@ -12,6 +12,7 @@ const nav = [
   { label: "Alerts",    href: "/alerts"    },
   { label: "Runbooks",  href: "/runbooks"  },
   { label: "Alarms",    href: "/alarms"    },
+  { label: "Import",    href: "/import"    },
   { label: "Settings",  href: "/settings"  },
 ]
 
