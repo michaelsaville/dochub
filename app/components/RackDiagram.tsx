@@ -88,6 +88,11 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
 
   // addingSlotTo: { rackId, startU } — startU=0 means top shelf
   const [addingSlotTo, setAddingSlotTo] = useState<{ rackId: string; startU: number } | null>(null)
+
+  // Drag state for within-row reordering
+  const [draggingSlotId, setDraggingSlotId] = useState<string | null>(null)
+  const [dragOverSlotId, setDragOverSlotId] = useState<string | null>(null)
+  const [dragOverSide, setDragOverSide] = useState<"left" | "right" | null>(null)
   const [slotForm, setSlotForm] = useState(BLANK_SLOT_FORM)
   const [savingSlot, setSavingSlot] = useState(false)
   const [editingSlot, setEditingSlot] = useState<string | null>(null)
@@ -184,23 +189,93 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
     ))
   }
 
-  function renderSlotItem(slot: RackSlot, rackId: string, rowHeight: number, isShelf: boolean) {
+  async function reorderSlots(rackId: string, startU: number, newOrder: RackSlot[]) {
+    const slotIds = newOrder.map(s => s.id)
+    // Optimistic update
+    onRacksChange(racks.map(r => r.id === rackId
+      ? { ...r, slots: r.slots.map(s => {
+          const idx = slotIds.indexOf(s.id)
+          return idx >= 0 ? { ...s, shelfPos: idx } : s
+        })}
+      : r
+    ))
+    // Find rackId from racks for the API URL
+    const rack = racks.find(r => r.id === rackId)
+    if (!rack) return
+    await fetch(`/api/racks/${rackId}/slots/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slotIds }),
+    })
+  }
+
+  function handleDragStart(slotId: string) {
+    setDraggingSlotId(slotId)
+  }
+
+  function handleDragOver(e: React.DragEvent, slotId: string) {
+    e.preventDefault()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const side = e.clientX < rect.left + rect.width / 2 ? "left" : "right"
+    setDragOverSlotId(slotId)
+    setDragOverSide(side)
+  }
+
+  function handleDrop(e: React.DragEvent, rackId: string, rowSlots: RackSlot[], targetSlotId: string) {
+    e.preventDefault()
+    if (!draggingSlotId || draggingSlotId === targetSlotId) {
+      setDraggingSlotId(null); setDragOverSlotId(null); setDragOverSide(null)
+      return
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const side = e.clientX < rect.left + rect.width / 2 ? "left" : "right"
+
+    const without = rowSlots.filter(s => s.id !== draggingSlotId)
+    const targetIdx = without.findIndex(s => s.id === targetSlotId)
+    const insertAt = side === "left" ? targetIdx : targetIdx + 1
+    const dragged = rowSlots.find(s => s.id === draggingSlotId)!
+    const newOrder = [...without]
+    newOrder.splice(insertAt, 0, dragged)
+
+    reorderSlots(rackId, rowSlots[0].startU, newOrder)
+    setDraggingSlotId(null); setDragOverSlotId(null); setDragOverSide(null)
+  }
+
+  function handleDragEnd() {
+    setDraggingSlotId(null); setDragOverSlotId(null); setDragOverSide(null)
+  }
+
+  function renderSlotItem(slot: RackSlot, rackId: string, rowSlots: RackSlot[], rowHeight: number, isShelf: boolean) {
     const color = slotColor(slot)
     const isHovered = hoveredSlot === slot.id
     const isEditing = editingSlot === slot.id
+    const isDragging = draggingSlotId === slot.id
+    const isDropTarget = dragOverSlotId === slot.id && draggingSlotId !== slot.id
+    const canDrag = rowSlots.length > 1 && !isEditing
 
     return (
       <div
         key={slot.id}
+        draggable={canDrag}
+        onDragStart={canDrag ? () => handleDragStart(slot.id) : undefined}
+        onDragOver={canDrag && draggingSlotId ? (e) => handleDragOver(e, slot.id) : undefined}
+        onDrop={canDrag ? (e) => handleDrop(e, rackId, rowSlots, slot.id) : undefined}
+        onDragEnd={handleDragEnd}
         style={{
           flex: 1,
           minWidth: 0,
           height: `${rowHeight}px`,
           background: isEditing ? "#1e293b" : `${color}22`,
-          borderLeft: `3px solid ${color}`,
-          borderRight: isShelf ? "1px solid #1e293b" : undefined,
+          borderLeft: isDropTarget && dragOverSide === "left"
+            ? "3px solid #facc15"
+            : `3px solid ${color}`,
+          borderRight: isDropTarget && dragOverSide === "right"
+            ? "3px solid #facc15"
+            : isShelf ? "1px solid #1e293b" : undefined,
           position: "relative",
-          cursor: "pointer",
+          cursor: canDrag ? "grab" : "pointer",
+          opacity: isDragging ? 0.4 : 1,
+          transition: "opacity 0.1s, border-color 0.1s",
         }}
         onMouseEnter={() => setHoveredSlot(slot.id)}
         onMouseLeave={() => setHoveredSlot(null)}
@@ -240,6 +315,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
         ) : (
           <div style={{ padding: "0 8px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ fontSize: "12px", fontWeight: 500, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {canDrag && <span style={{ marginRight: "4px", color: "#475569", fontSize: "10px", userSelect: "none" }}>⠿</span>}
               {slotName(slot)}
             </div>
             {slotSub(slot) && (
@@ -247,7 +323,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                 {slotSub(slot)}
               </div>
             )}
-            {isHovered && (
+            {isHovered && !draggingSlotId && (
               <button
                 onClick={() => { setEditingSlot(slot.id); setSlotEditForm({ label: slot.label ?? "", notes: slot.notes ?? "", networkDeviceId: slot.networkDevice?.id ?? "", assetId: slot.asset?.id ?? "" }) }}
                 style={{ position: "absolute", right: "4px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #475569", background: "#1e293b", color: "#94a3b8", cursor: "pointer", zIndex: 1 }}
@@ -343,10 +419,36 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                   {topShelfSlots.map(slot => {
                     const color = slotColor(slot)
                     const isEditing = editingSlot === slot.id
+                    const isDragging = draggingSlotId === slot.id
+                    const isDropTarget = dragOverSlotId === slot.id && draggingSlotId !== slot.id
+                    const canDrag = topShelfSlots.length > 1 && !isEditing
                     return (
                       <div
                         key={slot.id}
-                        style={{ background: `${color}33`, border: `1px solid ${color}88`, borderRadius: "4px", padding: "2px 8px", fontSize: "11px", color: "#e2e8f0", cursor: "pointer", position: "relative" }}
+                        draggable={canDrag}
+                        onDragStart={canDrag ? () => handleDragStart(slot.id) : undefined}
+                        onDragOver={canDrag && draggingSlotId ? (e) => handleDragOver(e, slot.id) : undefined}
+                        onDrop={canDrag ? (e) => handleDrop(e, rack.id, topShelfSlots, slot.id) : undefined}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                          background: `${color}33`,
+                          border: isDropTarget
+                            ? `2px solid #facc15`
+                            : `1px solid ${color}88`,
+                          borderRadius: "4px",
+                          padding: "2px 8px",
+                          fontSize: "11px",
+                          color: "#e2e8f0",
+                          cursor: canDrag ? "grab" : "pointer",
+                          position: "relative",
+                          opacity: isDragging ? 0.4 : 1,
+                          transition: "opacity 0.1s",
+                          boxShadow: isDropTarget && dragOverSide === "left"
+                            ? "-3px 0 0 #facc15"
+                            : isDropTarget && dragOverSide === "right"
+                            ? "3px 0 0 #facc15"
+                            : undefined,
+                        }}
                         onMouseEnter={() => setHoveredSlot(slot.id)}
                         onMouseLeave={() => setHoveredSlot(null)}
                       >
@@ -369,8 +471,9 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                           </div>
                         ) : (
                           <>
+                            {canDrag && <span style={{ marginRight: "3px", color: "#475569", fontSize: "9px", userSelect: "none" }}>⠿</span>}
                             {slotName(slot)}
-                            {hoveredSlot === slot.id && (
+                            {hoveredSlot === slot.id && !draggingSlotId && (
                               <button
                                 onClick={() => { setEditingSlot(slot.id); setSlotEditForm({ label: slot.label ?? "", notes: slot.notes ?? "", networkDeviceId: slot.networkDevice?.id ?? "", assetId: slot.asset?.id ?? "" }) }}
                                 style={{ marginLeft: "6px", fontSize: "10px", padding: "1px 5px", borderRadius: "3px", border: "1px solid #475569", background: "#1e293b", color: "#94a3b8", cursor: "pointer" }}
@@ -420,7 +523,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                       key={row.u}
                       style={{ height: `${row.height * U_HEIGHT}px`, borderBottom: "1px solid #0f172a", display: "flex" }}
                     >
-                      {row.slots.map(slot => renderSlotItem(slot, rack.id, row.height * U_HEIGHT, isShelf))}
+                      {row.slots.map(slot => renderSlotItem(slot, rack.id, row.slots, row.height * U_HEIGHT, isShelf))}
                       {/* Add-to-shelf button appears at end of occupied rows */}
                       <div
                         style={{ width: "24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: 0.4 }}
