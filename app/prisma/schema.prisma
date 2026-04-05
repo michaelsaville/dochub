@@ -17,6 +17,7 @@ model StaffUser {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   activityEvents ActivityEvent[]
+  vpnAccess      VpnAccessor[]   @relation("StaffUserVpnAccess")
 }
 
 model Client {
@@ -43,6 +44,9 @@ model Client {
   subnets        Subnet[]
   websites       Website[]
   vendors        Vendor[]           @relation("ClientVendors")
+  adDomains      AdDomain[]
+  networkShares  NetworkShare[]
+  vpnGateways    VpnGateway[]
 }
 
 model Location {
@@ -85,6 +89,7 @@ model ClientUser {
   ipAssignments IpAssignment[] @relation("UserIpAssignment")
   licenses      License[]      @relation("LicenseAssignedUser")
   userLocations UserLocation[]
+  vpnAccess     VpnAccessor[]  @relation("ClientUserVpnAccess")
 }
 
 model UserLocation {
@@ -154,8 +159,10 @@ model Asset {
   predecessor    Asset?         @relation("AssetSuccessor")
   credentials    Credential[]
   exitInterview  ExitInterview?
-  ipAssignments  IpAssignment[] @relation("AssetIpAssignment")
-  rackSlots      RackSlot[]     @relation("AssetRackSlot")
+  ipAssignments  IpAssignment[]  @relation("AssetIpAssignment")
+  rackSlots      RackSlot[]      @relation("AssetRackSlot")
+  networkShares  NetworkShare[]  @relation("AssetNetworkShare")
+  vpnGateways    VpnGateway[]    @relation("AssetVpnGateway")
 }
 
 model ExitInterview {
@@ -188,10 +195,12 @@ model Credential {
   contactId         String?
   expiryDate        DateTime?
   dataSource        String      @default("MANUAL")
-  asset             Asset?      @relation(fields: [assetId], references: [id])
-  client            Client      @relation(fields: [clientId], references: [id])
-  contact           Contact?    @relation("CredentialContact", fields: [contactId], references: [id])
-  user              ClientUser? @relation("CredentialUser", fields: [userId], references: [id])
+  asset             Asset?       @relation(fields: [assetId], references: [id])
+  client            Client       @relation(fields: [clientId], references: [id])
+  contact           Contact?     @relation("CredentialContact", fields: [contactId], references: [id])
+  user              ClientUser?  @relation("CredentialUser", fields: [userId], references: [id])
+  vpnGateways       VpnGateway[] @relation("CredentialVpnGateway")
+  vpnAccessors      VpnAccessor[] @relation("CredentialVpnAccessor")
 }
 
 model License {
@@ -263,6 +272,7 @@ model Contact {
   client          Client        @relation(fields: [clientId], references: [id])
   credentials     Credential[]  @relation("CredentialContact")
   licenses        License[]     @relation("LicenseContact")
+  vpnAccess       VpnAccessor[] @relation("ContactVpnAccess")
 }
 
 model Alarm {
@@ -359,6 +369,7 @@ model Vendor {
   licenses      License[]
   contacts      VendorContact[]
   clients       Client[]        @relation("ClientVendors")
+  vpnAccess     VpnAccessor[]   @relation("VendorVpnAccess")
 }
 
 model Website {
@@ -504,6 +515,7 @@ model NetworkDevice {
   client           Client            @relation(fields: [clientId], references: [id])
   location         Location?         @relation(fields: [locationId], references: [id])
   rackSlots        RackSlot[]
+  vpnGateways      VpnGateway[]      @relation("NetworkDeviceVpnGateway")
 }
 
 model Rack {
@@ -659,4 +671,158 @@ enum NetworkDeviceType {
   UPS
   MODEM
   OTHER
+}
+
+model AdDomain {
+  id              String         @id @default(cuid())
+  clientId        String
+  name            String         // e.g. corp.client.local
+  netbiosName     String?        // e.g. CORP
+  functionalLevel String?        // e.g. Windows Server 2019
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  groups          DomainGroup[]
+  shares          NetworkShare[]
+}
+
+model DomainGroup {
+  id          String            @id @default(cuid())
+  domainId    String
+  name        String            // e.g. Finance_Users
+  scope       String?           // Global / Universal / Domain Local
+  purpose     String?
+  members     String[]          // samAccountNames
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  domain      AdDomain          @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  permissions SharePermission[]
+}
+
+model NetworkShare {
+  id          String            @id @default(cuid())
+  clientId    String
+  domainId    String?
+  assetId     String?           // file server / NAS asset
+  name        String            // e.g. Finance
+  uncPath     String            // e.g. \\FS01\Finance
+  shareType   ShareType         @default(SMB)
+  purpose     String?
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  client      Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  domain      AdDomain?         @relation(fields: [domainId], references: [id])
+  asset       Asset?            @relation("AssetNetworkShare", fields: [assetId], references: [id])
+  permissions SharePermission[]
+}
+
+model SharePermission {
+  id            String          @id @default(cuid())
+  shareId       String
+  principal     String          // e.g. CORP\Finance_Users
+  principalType PrincipalType   @default(GROUP)
+  domainGroupId String?
+  accessLevel   ShareAccess     @default(READ)
+  layer         PermissionLayer @default(BOTH)
+  notes         String?
+  createdAt     DateTime        @default(now())
+  share         NetworkShare    @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  domainGroup   DomainGroup?    @relation(fields: [domainGroupId], references: [id])
+}
+
+enum ShareType {
+  SMB
+  DFS
+  NFS
+}
+
+enum PrincipalType {
+  USER
+  GROUP
+  COMPUTER
+}
+
+enum ShareAccess {
+  READ
+  CHANGE
+  FULL_CONTROL
+  DENY
+}
+
+enum PermissionLayer {
+  SHARE
+  NTFS
+  BOTH
+}
+
+model VpnGateway {
+  id              String        @id @default(cuid())
+  clientId        String
+  assetId         String?       // Windows/Linux box hosting OpenVPN etc.
+  networkDeviceId String?       // SonicWall, Meraki firewall, etc.
+  credentialId    String?       // PSK or admin credential in vault
+  name            String        // e.g. "OpenVPN Server", "SonicWall Global VPN"
+  type            VpnType
+  serverAddress   String?       // IP or hostname clients connect to
+  port            Int?
+  protocol        String?       // UDP / TCP
+  serverConfig    String?       // server-side config blob (markdown/text)
+  clientConfig    String?       // .ovpn template or profile blob
+  notes           String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset           Asset?        @relation("AssetVpnGateway", fields: [assetId], references: [id])
+  networkDevice   NetworkDevice? @relation("NetworkDeviceVpnGateway", fields: [networkDeviceId], references: [id])
+  credential      Credential?   @relation("CredentialVpnGateway", fields: [credentialId], references: [id])
+  accessors       VpnAccessor[]
+}
+
+model VpnAccessor {
+  id             String          @id @default(cuid())
+  gatewayId      String
+  accessorType   VpnAccessorType
+  clientUserId   String?
+  vendorId       String?
+  staffUserId    String?         // PCC tech accessing this client
+  contactId      String?
+  thirdPartyName String?         // fallback: "Ricoh copier tech"
+  credentialId   String?         // their VPN credential/cert in vault
+  mfaEnabled     Boolean         @default(false)
+  accessScope    String?         // "Full network" / "Backup subnet only"
+  certExpiry     DateTime?
+  isActive       Boolean         @default(true)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  gateway        VpnGateway      @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  clientUser     ClientUser?     @relation("ClientUserVpnAccess", fields: [clientUserId], references: [id])
+  vendor         Vendor?         @relation("VendorVpnAccess", fields: [vendorId], references: [id])
+  staffUser      StaffUser?      @relation("StaffUserVpnAccess", fields: [staffUserId], references: [id])
+  contact        Contact?        @relation("ContactVpnAccess", fields: [contactId], references: [id])
+  credential     Credential?     @relation("CredentialVpnAccessor", fields: [credentialId], references: [id])
+}
+
+enum VpnType {
+  OPENVPN
+  SONICWALL_GVN
+  MERAKI_VPN
+  TAILSCALE
+  L2TP_IPSEC
+  WIREGUARD
+  CISCO_ANYCONNECT
+  FORTINET
+  OTHER
+}
+
+enum VpnAccessorType {
+  CLIENT_USER
+  VENDOR
+  STAFF_USER
+  CONTACT
+  THIRD_PARTY
 }

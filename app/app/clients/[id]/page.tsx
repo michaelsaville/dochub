@@ -4,6 +4,8 @@ import AppShell from "@/components/AppShell"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
 import DocumentsPanel from "@/components/DocumentsPanel"
+import FileSharesPanel from "@/components/FileSharesPanel"
+import VpnPanel from "@/components/VpnPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -78,7 +80,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Documents", "SOPs", "Activity"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Documents", "SOPs", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -273,11 +275,19 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks">("devices")
+  const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks" | "shares">("devices")
   const [subnets, setSubnets] = useState<any[]>([])
   const [loadingSubnets, setLoadingSubnets] = useState(false)
   const [racks, setRacks] = useState<any[]>([])
   const [loadingRacks, setLoadingRacks] = useState(false)
+  const [adDomains, setAdDomains] = useState<any[]>([])
+  const [clientShares, setClientShares] = useState<any[]>([])
+  const [loadingShares, setLoadingShares] = useState(false)
+  const [vpnGateways, setVpnGateways] = useState<any[]>([])
+  const [loadingVpn, setLoadingVpn] = useState(false)
+  const [vpnVendors, setVpnVendors] = useState<any[]>([])
+  const [vpnStaffUsers, setVpnStaffUsers] = useState<any[]>([])
+  const [vpnCredentials, setVpnCredentials] = useState<any[]>([])
   const [dashboardData, setDashboardData] = useState<{ favoritedAssets: any[]; favoritedCredentials: any[] } | null>(null)
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [dashRevealedPasswords, setDashRevealedPasswords] = useState<Record<string, string>>({})
@@ -303,6 +313,11 @@ export default function ClientDetailPage() {
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
+    if (activeTab === "Remote Access") {
+      if (vpnGateways.length === 0) fetchVpn()
+      if (assets.length === 0) fetchAssets()
+      if (networkDevices.length === 0) fetchNetworkDevices()
+    }
     if (activeTab === "Documents" && clientDocs.length === 0) fetchClientDocs()
     if (activeTab === "SOPs" && clientRunbooks.length === 0) fetchClientRunbooks()
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
@@ -312,6 +327,10 @@ export default function ClientDetailPage() {
     if (activeTab !== "Network") return
     if (networkSubTab === "ipam" && subnets.length === 0) fetchSubnets()
     if (networkSubTab === "racks" && racks.length === 0) { fetchRacks(); if (networkDevices.length === 0) fetchNetworkDevices(); if (assets.length === 0) fetchAssets() }
+    if (networkSubTab === "shares") {
+      if (adDomains.length === 0 && clientShares.length === 0) fetchShares()
+      if (assets.length === 0) fetchAssets()
+    }
   }, [networkSubTab, activeTab])
 
   async function fetchClient() {
@@ -627,6 +646,39 @@ export default function ClientDetailPage() {
       setRacks(await res.json())
     } catch {}
     finally { setLoadingRacks(false) }
+  }
+
+  async function fetchShares() {
+    setLoadingShares(true)
+    try {
+      const [domainsRes, sharesRes] = await Promise.all([
+        fetch(`/api/clients/${id}/ad-domains`),
+        fetch(`/api/clients/${id}/shares`),
+      ])
+      setAdDomains(await domainsRes.json())
+      setClientShares(await sharesRes.json())
+    } catch {}
+    finally { setLoadingShares(false) }
+  }
+
+  async function fetchVpn() {
+    setLoadingVpn(true)
+    try {
+      const [gwRes, vendorsRes, staffRes, credsRes] = await Promise.all([
+        fetch(`/api/clients/${id}/vpn`),
+        fetch(`/api/vendors`),
+        fetch(`/api/staff`),
+        fetch(`/api/clients/${id}/credentials`),
+      ])
+      if (gwRes.ok) setVpnGateways(await gwRes.json())
+      if (vendorsRes.ok) setVpnVendors(await vendorsRes.json())
+      if (staffRes.ok) setVpnStaffUsers(await staffRes.json())
+      if (credsRes.ok) {
+        const creds = await credsRes.json()
+        setVpnCredentials(creds.map((c: any) => ({ id: c.id, label: c.label })))
+      }
+    } catch {}
+    finally { setLoadingVpn(false) }
   }
 
   async function fetchApplications() {
@@ -2516,7 +2568,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["devices", "ipam", "racks"] as const).map(t => (
+              {(["devices", "ipam", "racks", "shares"] as const).map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
@@ -2524,7 +2576,7 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "devices" ? "Devices" : t === "ipam" ? "IPAM" : "Rack Diagrams"}
+                  {t === "devices" ? "Devices" : t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : "File Shares"}
                 </button>
               ))}
             </div>
@@ -2716,6 +2768,45 @@ export default function ClientDetailPage() {
                   />
                 )}
               </div>
+            )}
+
+            {/* File Shares sub-tab */}
+            {networkSubTab === "shares" && (
+              <div>
+                {loadingShares ? (
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+                ) : (
+                  <FileSharesPanel
+                    domains={adDomains}
+                    shares={clientShares}
+                    assets={assets}
+                    clientId={id as string}
+                    onDomainsChange={setAdDomains}
+                    onSharesChange={setClientShares}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Remote Access" && (
+          <div style={{ maxWidth: "960px" }}>
+            {loadingVpn ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : (
+              <VpnPanel
+                gateways={vpnGateways}
+                assets={assets}
+                networkDevices={networkDevices}
+                clientUsers={client.users}
+                vendors={vpnVendors}
+                staffUsers={vpnStaffUsers}
+                contacts={client.contacts}
+                credentials={vpnCredentials}
+                clientId={id as string}
+                onGatewaysChange={setVpnGateways}
+              />
             )}
           </div>
         )}
