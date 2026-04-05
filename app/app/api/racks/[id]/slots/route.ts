@@ -12,32 +12,46 @@ export async function POST(
     const { id } = await params
     const body = await req.json()
     const { startU, heightU, label, networkDeviceId, assetId, notes } = body
-    if (!startU) return NextResponse.json({ error: "Start U is required" }, { status: 400 })
 
-    // Check for slot conflicts
+    if (startU === undefined || startU === null) {
+      return NextResponse.json({ error: "Start U is required" }, { status: 400 })
+    }
+
     const rack = await prisma.rack.findUnique({ where: { id }, include: { slots: true } })
     if (!rack) return NextResponse.json({ error: "Rack not found" }, { status: 404 })
 
     const h = heightU || 1
-    const end = startU + h - 1
-    if (end > rack.totalU) {
-      return NextResponse.json({ error: `Slot exceeds rack size (${rack.totalU}U)` }, { status: 400 })
+    const isTopShelf = startU === 0
+
+    // Boundary check (skip for top-of-rack shelf)
+    if (!isTopShelf) {
+      const end = startU + h - 1
+      if (end > rack.totalU) {
+        return NextResponse.json({ error: `Slot exceeds rack size (${rack.totalU}U)` }, { status: 400 })
+      }
+
+      // Conflict check: only block slots from DIFFERENT startU that overlap this U range
+      const end2 = startU + h - 1
+      const conflict = rack.slots.find(s => {
+        if (s.startU === startU) return false  // same row = shelf mode, allowed
+        const sEnd = s.startU + s.heightU - 1
+        return startU <= sEnd && end2 >= s.startU
+      })
+      if (conflict) {
+        return NextResponse.json({ error: `Conflicts with existing slot at U${conflict.startU}` }, { status: 409 })
+      }
     }
 
-    // Check for overlapping slots
-    const conflict = rack.slots.find(s => {
-      const sEnd = s.startU + s.heightU - 1
-      return startU <= sEnd && end >= s.startU
-    })
-    if (conflict) {
-      return NextResponse.json({ error: `Conflicts with existing slot at U${conflict.startU}` }, { status: 409 })
-    }
+    // Auto-assign next shelfPos for this U
+    const slotsAtU = rack.slots.filter(s => s.startU === startU)
+    const shelfPos = slotsAtU.length
 
     const slot = await prisma.rackSlot.create({
       data: {
         rackId: id,
         startU: Number(startU),
-        heightU: h,
+        heightU: isTopShelf ? 1 : h,
+        shelfPos,
         label: label?.trim() || null,
         networkDeviceId: networkDeviceId || null,
         assetId: assetId || null,

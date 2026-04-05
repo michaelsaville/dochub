@@ -617,8 +617,9 @@ model Rack {
 model RackSlot {
   id              String   @id @default(cuid())
   rackId          String
-  startU          Int
+  startU          Int      // 0 = top-of-rack shelf
   heightU         Int      @default(1)
+  shelfPos        Int      @default(0)  // 0 = single/first; >0 = additional shelf items side-by-side
   label           String?
   networkDeviceId String?
   assetId         String?
@@ -630,7 +631,7 @@ model RackSlot {
   networkDevice NetworkDevice? @relation(fields: [networkDeviceId], references: [id], onDelete: SetNull)
   asset         Asset?         @relation("AssetRackSlot", fields: [assetId], references: [id], onDelete: SetNull)
 
-  @@unique([rackId, startU])
+  @@unique([rackId, startU, shelfPos])
 }
 
 model Subnet {
