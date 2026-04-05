@@ -33,6 +33,14 @@ const DEFAULT_TYPES = [
   { name: "Other", sortOrder: 99 },
 ]
 
+const SOURCE_LABELS: Record<string, string> = {
+  SYNCRO:   "Syncro",
+  UNIFI:    "Unifi",
+  ITFLOW:   "ITFlow",
+  PAX8:     "Pax8",
+  PULSEWAY: "Pulseway",
+}
+
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [domainThreshold, setDomainThresholdState] = useState(30)
@@ -50,13 +58,35 @@ export default function SettingsPage() {
   const [typeEditForm, setTypeEditForm] = useState<any>({})
   const [seedingDefaults, setSeedingDefaults] = useState(false)
 
+  const [sourceColors, setSourceColors] = useState<Record<string, string>>({
+    SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
+  })
+  const [savingColors, setSavingColors] = useState(false)
+
   useEffect(() => {
     fetchAssetTypes()
     fetch("/api/settings/domain-threshold")
       .then(r => r.json())
       .then(d => { setDomainThresholdState(d.days); setThresholdInput(String(d.days)) })
       .catch(() => {})
+    fetch("/api/settings/source-colors")
+      .then(r => r.json())
+      .then(d => setSourceColors(d))
+      .catch(() => {})
   }, [])
+
+  async function saveSourceColors() {
+    setSavingColors(true)
+    try {
+      const res = await fetch("/api/settings/source-colors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sourceColors),
+      })
+      if (res.ok) setSourceColors(await res.json())
+    } catch {}
+    finally { setSavingColors(false) }
+  }
 
   async function saveThreshold() {
     setSavingThreshold(true)
@@ -320,6 +350,45 @@ export default function SettingsPage() {
               Currently: alert when a domain expires within <strong style={{ color: "var(--color-text-secondary)" }}>{domainThreshold} days</strong>.
               Cron endpoint: <code style={{ fontFamily: "monospace" }}>GET /api/cron/domains</code>
             </div>
+          </div>
+
+          {/* Data Source Badge Colors */}
+          <div style={{
+            background: "var(--color-background-secondary)",
+            border: "0.5px solid var(--color-border-tertiary)",
+            borderRadius: "10px", padding: "20px", marginBottom: "16px",
+          }}>
+            <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "4px" }}>Data Source Badge Colors</div>
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+              Color of the source badge shown on assets, credentials, licenses, and network devices.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+              {Object.entries(SOURCE_LABELS).map(([key, label]) => {
+                const color = sourceColors[key] ?? "#64748b"
+                return (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={e => setSourceColors(c => ({ ...c, [key]: e.target.value }))}
+                      style={{ width: "36px", height: "28px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", cursor: "pointer", padding: "1px 2px", background: "var(--color-background-primary)" }}
+                    />
+                    <span style={{ fontSize: "13px", color: "var(--color-text-primary)", width: "72px" }}>{label}</span>
+                    <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: color + "18", color, border: `1px solid ${color}44`, fontWeight: 600 }}>
+                      {label}
+                    </span>
+                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{color}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              onClick={saveSourceColors}
+              disabled={savingColors}
+              style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: savingColors ? "not-allowed" : "pointer", opacity: savingColors ? 0.6 : 1 }}
+            >
+              {savingColors ? "Saving..." : "Save colors"}
+            </button>
           </div>
 
           {/* SyncroMSP */}

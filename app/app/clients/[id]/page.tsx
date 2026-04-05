@@ -93,22 +93,28 @@ const statusColor: Record<string, string> = {
   SUNSET: "#94a3b8",
 }
 
-const SOURCE_META: Record<string, { label: string; color: string; bg: string }> = {
-  MANUAL:    { label: "Manual",    color: "#64748b", bg: "#64748b18" },
-  SYNCRO:    { label: "Syncro",    color: "#3b82f6", bg: "#3b82f618" },
-  UNIFI:     { label: "Unifi",     color: "#8b5cf6", bg: "#8b5cf618" },
-  ITFLOW:    { label: "ITFlow",    color: "#f97316", bg: "#f9731618" },
-  PAX8:      { label: "Pax8",      color: "#10b981", bg: "#10b98118" },
-  PULSEWAY:  { label: "Pulseway",  color: "#ec4899", bg: "#ec489918" },
+const SOURCE_LABELS: Record<string, string> = {
+  MANUAL: "Manual", SYNCRO: "Syncro", UNIFI: "Unifi",
+  ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
 }
 
-function sourceTag(dataSource?: string | null, fallbackSyncroId?: string | null, fallbackPax8Id?: string | null) {
+const SOURCE_DEFAULTS: Record<string, string> = {
+  SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
+}
+
+function sourceTag(
+  dataSource?: string | null,
+  fallbackSyncroId?: string | null,
+  fallbackPax8Id?: string | null,
+  colors?: Record<string, string>,
+) {
   const src = dataSource || (fallbackSyncroId ? "SYNCRO" : fallbackPax8Id ? "PAX8" : "MANUAL")
-  if (src === "MANUAL") return null  // don't show badge for manual — it's the default
-  const m = SOURCE_META[src] ?? { label: src, color: "#64748b", bg: "#64748b18" }
+  if (src === "MANUAL") return null
+  const color = colors?.[src] ?? SOURCE_DEFAULTS[src] ?? "#64748b"
+  const label = SOURCE_LABELS[src] ?? src
   return (
-    <span title={`Source: ${m.label}`} style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: m.bg, color: m.color, border: `1px solid ${m.color}44`, fontWeight: 600, letterSpacing: "0.01em", flexShrink: 0 }}>
-      {m.label}
+    <span title={`Source: ${label}`} style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: color + "18", color, border: `1px solid ${color}44`, fontWeight: 600, letterSpacing: "0.01em", flexShrink: 0 }}>
+      {label}
     </span>
   )
 }
@@ -119,6 +125,7 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<Client | null>(null)
   const [assets, setAssets] = useState<Asset[]>([])
   const [loadingClient, setLoadingClient] = useState(true)
+  const [sourceColors, setSourceColors] = useState<Record<string, string>>(SOURCE_DEFAULTS)
   const [loadingAssets, setLoadingAssets] = useState(false)
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
@@ -209,8 +216,15 @@ export default function ClientDetailPage() {
   const [racks, setRacks] = useState<any[]>([])
   const [loadingRacks, setLoadingRacks] = useState(false)
 
+  const boundSourceTag = (ds?: string | null, si?: string | null, pi?: string | null) =>
+    sourceTag(ds, si, pi, sourceColors)
+
   useEffect(() => {
     if (id) fetchClient()
+    fetch("/api/settings/source-colors")
+      .then(r => r.json())
+      .then(d => setSourceColors(d))
+      .catch(() => {})
   }, [id])
 
   useEffect(() => {
@@ -1227,7 +1241,7 @@ export default function ClientDetailPage() {
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <span style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</span>
-                            {sourceTag(asset.dataSource, asset.syncroAssetId)}
+                            {boundSourceTag(asset.dataSource, asset.syncroAssetId)}
                           </div>
                           {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
                         </div>
@@ -1542,7 +1556,7 @@ export default function ClientDetailPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
-                    {sourceTag(cred.dataSource)}
+                    {boundSourceTag(cred.dataSource)}
                     {cred.user && (
                       <span onClick={() => { setActiveTab("Users"); selectUser(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
                         {cred.user.name}
@@ -1735,7 +1749,7 @@ export default function ClientDetailPage() {
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</span>
-                          {sourceTag(lic.dataSource, null, lic.pax8Id)}
+                          {boundSourceTag(lic.dataSource, null, lic.pax8Id)}
                         </div>
                         {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
                       </div>
@@ -2187,7 +2201,7 @@ export default function ClientDetailPage() {
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{dev.name}</span>
-                        {sourceTag(dev.dataSource)}
+                        {boundSourceTag(dev.dataSource)}
                       </div>
                       {(dev.make || dev.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[dev.make, dev.model].filter(Boolean).join(" ")}</div>}
                       {dev.serial && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>S/N: {dev.serial}</div>}
