@@ -102,6 +102,45 @@ const SOURCE_DEFAULTS: Record<string, string> = {
   SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
 }
 
+const SOURCE_DOMAINS: Record<string, string> = {
+  SYNCRO:   "syncromsp.com",
+  UNIFI:    "ui.com",
+  ITFLOW:   "itflow.org",
+  PAX8:     "pax8.com",
+  PULSEWAY: "pulseway.com",
+}
+
+function SourceStamp({ sourceKey, color, label }: { sourceKey: string; color: string; label: string }) {
+  const [failed, setFailed] = useState(false)
+  const domain = SOURCE_DOMAINS[sourceKey]
+  return (
+    <span
+      title={`Source: ${label}`}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: "20px", height: "20px", borderRadius: "4px",
+        border: `1px solid ${color}55`,
+        background: "rgba(255,255,255,0.07)",
+        overflow: "hidden", flexShrink: 0, cursor: "default",
+        boxShadow: `0 0 0 1px ${color}22`,
+      }}
+    >
+      {domain && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+          width={14} height={14}
+          alt={label}
+          style={{ display: "block", imageRendering: "auto" }}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span style={{ fontSize: "9px", fontWeight: 700, color, lineHeight: 1 }}>{label[0]}</span>
+      )}
+    </span>
+  )
+}
+
 function sourceTag(
   dataSource?: string | null,
   fallbackSyncroId?: string | null,
@@ -112,11 +151,7 @@ function sourceTag(
   if (src === "MANUAL") return null
   const color = colors?.[src] ?? SOURCE_DEFAULTS[src] ?? "#64748b"
   const label = SOURCE_LABELS[src] ?? src
-  return (
-    <span title={`Source: ${label}`} style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: color + "18", color, border: `1px solid ${color}44`, fontWeight: 600, letterSpacing: "0.01em", flexShrink: 0 }}>
-      {label}
-    </span>
-  )
+  return <SourceStamp sourceKey={src} color={color} label={label} />
 }
 
 export default function ClientDetailPage() {

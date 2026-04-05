@@ -41,6 +41,14 @@ const SOURCE_LABELS: Record<string, string> = {
   PULSEWAY: "Pulseway",
 }
 
+const SOURCE_DOMAINS: Record<string, string> = {
+  SYNCRO:   "syncromsp.com",
+  UNIFI:    "ui.com",
+  ITFLOW:   "itflow.org",
+  PAX8:     "pax8.com",
+  PULSEWAY: "pulseway.com",
+}
+
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [domainThreshold, setDomainThresholdState] = useState(30)
@@ -362,22 +370,42 @@ export default function SettingsPage() {
             <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
               Color of the source badge shown on assets, credentials, licenses, and network devices.
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "16px" }}>
               {Object.entries(SOURCE_LABELS).map(([key, label]) => {
                 const color = sourceColors[key] ?? "#64748b"
+                const domain = SOURCE_DOMAINS[key]
                 return (
-                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                    {/* Stamp preview */}
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: "28px", height: "28px", borderRadius: "5px",
+                      border: `1px solid ${color}55`,
+                      background: "rgba(255,255,255,0.07)",
+                      overflow: "hidden", flexShrink: 0,
+                      boxShadow: `0 0 0 1px ${color}22`,
+                    }}>
+                      {domain ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+                          width={20} height={20}
+                          alt={label}
+                          style={{ display: "block" }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: "11px", fontWeight: 700, color }}>{label[0]}</span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: "13px", color: "var(--color-text-primary)", width: "72px" }}>{label}</span>
                     <input
                       type="color"
                       value={color}
                       onChange={e => setSourceColors(c => ({ ...c, [key]: e.target.value }))}
                       style={{ width: "36px", height: "28px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", cursor: "pointer", padding: "1px 2px", background: "var(--color-background-primary)" }}
                     />
-                    <span style={{ fontSize: "13px", color: "var(--color-text-primary)", width: "72px" }}>{label}</span>
-                    <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: color + "18", color, border: `1px solid ${color}44`, fontWeight: 600 }}>
-                      {label}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{color}</span>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{color}</span>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>← border / glow color</span>
                   </div>
                 )
               })}
