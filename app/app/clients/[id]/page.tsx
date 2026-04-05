@@ -3,6 +3,7 @@
 import AppShell from "@/components/AppShell"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
+import DocumentsPanel from "@/components/DocumentsPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -66,7 +67,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Runbooks", "Activity"]
+const tabs = ["Overview", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Applications", "Domains", "Network", "Documents", "Runbooks", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -176,6 +177,8 @@ export default function ClientDetailPage() {
   const [savingDevice, setSavingDevice] = useState(false)
   const [editingDevice, setEditingDevice] = useState<string | null>(null)
   const [deviceEditForm, setDeviceEditForm] = useState<any>({})
+  const [clientDocs, setClientDocs] = useState<any[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
   const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks">("devices")
@@ -195,6 +198,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
+    if (activeTab === "Documents" && clientDocs.length === 0) fetchClientDocs()
     if (activeTab === "Runbooks" && clientRunbooks.length === 0) fetchClientRunbooks()
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
@@ -392,6 +396,15 @@ export default function ClientDetailPage() {
       await fetch(`/api/clients/${id}/network/${deviceId}`, { method: "DELETE" })
       setNetworkDevices(n => n.filter(x => x.id !== deviceId))
     } catch {}
+  }
+
+  async function fetchClientDocs() {
+    setLoadingDocs(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/documents`)
+      setClientDocs(await res.json())
+    } catch {}
+    finally { setLoadingDocs(false) }
   }
 
   async function fetchClientRunbooks() {
@@ -2198,6 +2211,16 @@ export default function ClientDetailPage() {
                   />
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Documents" && (
+          <div style={{ maxWidth: "820px" }}>
+            {loadingDocs ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : (
+              <DocumentsPanel docs={clientDocs} clientId={id as string} onDocsChange={setClientDocs} />
             )}
           </div>
         )}

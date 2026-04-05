@@ -18,6 +18,8 @@ services:
     env_file: .env
     environment:
       - DATABASE_URL=postgresql://dochub:changeme_before_production@db:5432/dochub
+    volumes:
+      - uploads:/uploads
     depends_on:
       - db
 
@@ -43,3 +45,4 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
+  uploads:

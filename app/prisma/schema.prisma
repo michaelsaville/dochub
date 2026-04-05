@@ -132,6 +132,8 @@ model Client {
   networkDevices NetworkDevice[]
   subnets        Subnet[]
   runbooks       Runbook[]
+  documents      ClientDocument[]
+  attachments    ClientAttachment[]
 }
 
 model Location {
@@ -474,6 +476,35 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt @default(now())
+}
+
+model ClientDocument {
+  id          String   @id @default(cuid())
+  clientId    String
+  title       String
+  content     String?
+  category    String?
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  attachments ClientAttachment[]
+}
+
+model ClientAttachment {
+  id           String   @id @default(cuid())
+  clientId     String
+  documentId   String?
+  originalName String
+  storageName  String   @unique
+  mimeType     String
+  size         Int
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  document ClientDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 }
 
 model RunbookCategory {
