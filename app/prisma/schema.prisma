@@ -130,6 +130,7 @@ model Client {
   vendors        Vendor[]        @relation("ClientVendors")
   websites       Website[]
   networkDevices NetworkDevice[]
+  subnets        Subnet[]
 }
 
 model Location {
@@ -151,6 +152,8 @@ model Location {
   assets        Asset[]
   userLocations UserLocation[]
   networkDevices NetworkDevice[]
+  racks         Rack[]
+  subnets       Subnet[]
 }
 
 model ClientUser {
@@ -171,6 +174,7 @@ model ClientUser {
   licenses      License[]      @relation("LicenseAssignedUser")
   applications  Application[]  @relation("ApplicationAssignedUser")
   credentials   Credential[]   @relation("CredentialUser")
+  ipAssignments IpAssignment[] @relation("UserIpAssignment")
 }
 
 model UserLocation {
@@ -233,6 +237,8 @@ model Asset {
   exitInterview ExitInterview?
   successor     Asset?        @relation("AssetSuccessor", fields: [successorId], references: [id])
   predecessor   Asset?        @relation("AssetSuccessor")
+  rackSlots     RackSlot[]    @relation("AssetRackSlot")
+  ipAssignments IpAssignment[] @relation("AssetIpAssignment")
 }
 
 model ExitInterview {
@@ -502,6 +508,76 @@ model NetworkDevice {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
-  client   Client    @relation(fields: [clientId], references: [id])
-  location Location? @relation(fields: [locationId], references: [id])
+  client    Client      @relation(fields: [clientId], references: [id])
+  location  Location?   @relation(fields: [locationId], references: [id])
+  rackSlots RackSlot[]
+}
+
+model Rack {
+  id         String   @id @default(cuid())
+  locationId String
+  name       String
+  totalU     Int      @default(42)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  location Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  slots    RackSlot[]
+}
+
+model RackSlot {
+  id              String   @id @default(cuid())
+  rackId          String
+  startU          Int
+  heightU         Int      @default(1)
+  label           String?
+  networkDeviceId String?
+  assetId         String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rack          Rack           @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  networkDevice NetworkDevice? @relation(fields: [networkDeviceId], references: [id], onDelete: SetNull)
+  asset         Asset?         @relation("AssetRackSlot", fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@unique([rackId, startU])
+}
+
+model Subnet {
+  id          String   @id @default(cuid())
+  clientId    String
+  locationId  String?
+  cidr        String
+  gateway     String?
+  dns1        String?
+  dns2        String?
+  vlan        String?
+  description String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client        Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  location      Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  ipAssignments IpAssignment[]
+}
+
+model IpAssignment {
+  id         String   @id @default(cuid())
+  subnetId   String
+  ipAddress  String
+  hostname   String?
+  assetId    String?
+  userId     String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  subnet  Subnet      @relation(fields: [subnetId], references: [id], onDelete: Cascade)
+  asset   Asset?      @relation("AssetIpAssignment", fields: [assetId], references: [id], onDelete: SetNull)
+  user    ClientUser? @relation("UserIpAssignment", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([subnetId, ipAddress])
 }

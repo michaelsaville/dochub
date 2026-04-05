@@ -1,6 +1,8 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
+import IpamPanel from "@/components/IpamPanel"
+import RackDiagram from "@/components/RackDiagram"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -174,6 +176,11 @@ export default function ClientDetailPage() {
   const [savingDevice, setSavingDevice] = useState(false)
   const [editingDevice, setEditingDevice] = useState<string | null>(null)
   const [deviceEditForm, setDeviceEditForm] = useState<any>({})
+  const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks">("devices")
+  const [subnets, setSubnets] = useState<any[]>([])
+  const [loadingSubnets, setLoadingSubnets] = useState(false)
+  const [racks, setRacks] = useState<any[]>([])
+  const [loadingRacks, setLoadingRacks] = useState(false)
 
   useEffect(() => {
     if (id) fetchClient()
@@ -188,6 +195,12 @@ export default function ClientDetailPage() {
     if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
     if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== "Network") return
+    if (networkSubTab === "ipam" && subnets.length === 0) fetchSubnets()
+    if (networkSubTab === "racks" && racks.length === 0) { fetchRacks(); if (networkDevices.length === 0) fetchNetworkDevices(); if (assets.length === 0) fetchAssets() }
+  }, [networkSubTab, activeTab])
 
   async function fetchClient() {
     try {
@@ -376,6 +389,24 @@ export default function ClientDetailPage() {
       await fetch(`/api/clients/${id}/network/${deviceId}`, { method: "DELETE" })
       setNetworkDevices(n => n.filter(x => x.id !== deviceId))
     } catch {}
+  }
+
+  async function fetchSubnets() {
+    setLoadingSubnets(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/subnets`)
+      setSubnets(await res.json())
+    } catch {}
+    finally { setLoadingSubnets(false) }
+  }
+
+  async function fetchRacks() {
+    setLoadingRacks(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/racks`)
+      setRacks(await res.json())
+    } catch {}
+    finally { setLoadingRacks(false) }
   }
 
   async function fetchApplications() {
@@ -1962,6 +1993,24 @@ export default function ClientDetailPage() {
 
         {activeTab === "Network" && (
           <div style={{ maxWidth: "960px" }}>
+            {/* Network sub-tabs */}
+            <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
+              {(["devices", "ipam", "racks"] as const).map(t => (
+                <button key={t} onClick={() => setNetworkSubTab(t)} style={{
+                  fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
+                  padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
+                  color: networkSubTab === t ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                  borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
+                  marginBottom: "-1px",
+                }}>
+                  {t === "devices" ? "Devices" : t === "ipam" ? "IPAM" : "Rack Diagrams"}
+                </button>
+              ))}
+            </div>
+
+            {/* Devices sub-tab */}
+            {networkSubTab === "devices" && (
+            <div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <button onClick={() => setShowAddDevice(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add device</button>
             </div>
@@ -2023,6 +2072,7 @@ export default function ClientDetailPage() {
             ) : networkDevices.length === 0 && !showAddDevice ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No network devices yet.</div>
             ) : (
+
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
                   {["Device", "Type", "IP address", "Location", "Management", ""].map(h => (
@@ -2097,6 +2147,44 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            </div>
+            )} {/* end devices sub-tab */}
+
+            {/* IPAM sub-tab */}
+            {networkSubTab === "ipam" && (
+              <div>
+                {loadingSubnets ? (
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+                ) : (
+                  <IpamPanel
+                    subnets={subnets}
+                    locations={client.locations}
+                    assets={assets}
+                    users={client.users}
+                    clientId={id as string}
+                    onSubnetsChange={setSubnets}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Racks sub-tab */}
+            {networkSubTab === "racks" && (
+              <div>
+                {loadingRacks ? (
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+                ) : (
+                  <RackDiagram
+                    racks={racks}
+                    locations={client.locations}
+                    networkDevices={networkDevices}
+                    assets={assets}
+                    clientId={id as string}
+                    onRacksChange={setRacks}
+                  />
+                )}
               </div>
             )}
           </div>
