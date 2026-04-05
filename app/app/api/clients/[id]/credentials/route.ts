@@ -24,7 +24,9 @@ export async function GET(
     const safe = credentials.map(c => ({
       ...c,
       encryptedPassword: undefined,
+      encryptedTotp: undefined,
       hasPassword: !!c.encryptedPassword,
+      hasTotp: !!c.encryptedTotp,
     }))
     return NextResponse.json(safe)
   } catch (e) {
@@ -41,7 +43,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { label, username, password, url, notes, userId, contactId, expiryDate } = body
+    const { label, username, password, totp, url, notes, userId, contactId, expiryDate } = body
     if (!label?.trim()) return NextResponse.json({ error: "Label is required" }, { status: 400 })
     if (!password?.trim()) return NextResponse.json({ error: "Password is required" }, { status: 400 })
 
@@ -51,6 +53,7 @@ export async function POST(
         label: label.trim(),
         username: username || null,
         encryptedPassword: encrypt(password),
+        encryptedTotp: totp?.trim() ? encrypt(totp.trim()) : null,
         url: url || null,
         notes: notes || null,
         userId: userId || null,
@@ -70,7 +73,7 @@ export async function POST(
       title: `Credential added: ${label.trim()}`,
     })
 
-    return NextResponse.json({ ...credential, encryptedPassword: undefined, hasPassword: true, user: credential.user, contact: credential.contact }, { status: 201 })
+    return NextResponse.json({ ...credential, encryptedPassword: undefined, encryptedTotp: undefined, hasPassword: true, hasTotp: !!credential.encryptedTotp, user: credential.user, contact: credential.contact }, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: "Failed to create credential" }, { status: 500 })
   }

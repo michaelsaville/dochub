@@ -36,7 +36,9 @@ export async function GET(
     const favCreds = rawCreds.map(c => ({
       ...c,
       encryptedPassword: undefined,
+      encryptedTotp: undefined,
       hasPassword: !!c.encryptedPassword,
+      hasTotp: !!c.encryptedTotp,
     }))
 
     return NextResponse.json({ favoritedAssets: rawAssets, favoritedCredentials: favCreds })

@@ -196,9 +196,10 @@ export default function ClientDetailPage() {
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
-  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
+  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", totp: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
+  const [revealedTotps, setRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
   const [editingClient, setEditingClient] = useState(false)
   const [clientForm, setClientForm] = useState({ name: "", type: "BUSINESS", notes: "" })
   const [savingClient, setSavingClient] = useState(false)
@@ -280,6 +281,7 @@ export default function ClientDetailPage() {
   const [dashboardData, setDashboardData] = useState<{ favoritedAssets: any[]; favoritedCredentials: any[] } | null>(null)
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [dashRevealedPasswords, setDashRevealedPasswords] = useState<Record<string, string>>({})
+  const [dashRevealedTotps, setDashRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
 
   const boundSourceTag = (ds?: string | null, si?: string | null, pi?: string | null) =>
     sourceTag(ds, si, pi, sourceColors)
@@ -362,6 +364,16 @@ export default function ClientDetailPage() {
     } catch {}
   }
 
+  async function revealDashTotp(credId: string) {
+    try {
+      const res = await fetch(`/api/credentials/${credId}/reveal`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.totp) setDashRevealedTotps(t => ({ ...t, [credId]: { seed: data.totp, code: data.totpCode ?? "------" } }))
+      }
+    } catch {}
+  }
+
   async function saveClient() {
     setSavingClient(true)
     try {
@@ -435,6 +447,18 @@ export default function ClientDetailPage() {
     } catch {}
   }
 
+  async function revealTotp(credId: string) {
+    if (revealedTotps[credId]) {
+      setRevealedTotps(t => { const n = { ...t }; delete n[credId]; return n })
+      return
+    }
+    try {
+      const res = await fetch(`/api/credentials/${credId}/reveal`)
+      const data = await res.json()
+      if (data.totp) setRevealedTotps(t => ({ ...t, [credId]: { seed: data.totp, code: data.totpCode ?? "------" } }))
+    } catch {}
+  }
+
   async function saveCred() {
     if (!credForm.label.trim() || !credForm.password.trim()) return
     setSavingCred(true)
@@ -447,7 +471,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newCred = await res.json()
         setCredentials(c => [...c, newCred])
-        setCredForm({ label: "", username: "", password: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
+        setCredForm({ label: "", username: "", password: "", totp: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
         setShowAddCred(false)
       }
     } catch {}
@@ -1103,6 +1127,22 @@ export default function ClientDetailPage() {
                           } style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                             {dashRevealedPasswords[cred.id] ? "Hide" : "Show"}
                           </button>
+                        </div>
+                      )}
+                      {cred.hasTotp && (
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          {dashRevealedTotps[cred.id] ? (
+                            <>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>{dashRevealedTotps[cred.id].code}</span>
+                              <button onClick={() => navigator.clipboard.writeText(dashRevealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
+                              <button onClick={() => setDashRevealedTotps(t => { const n = { ...t }; delete n[cred.id]; return n })} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>MFA</span>
+                              <button onClick={() => revealDashTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show code</button>
+                            </>
+                          )}
                         </div>
                       )}
                       {cred.url && (
@@ -1791,6 +1831,7 @@ export default function ClientDetailPage() {
                   { key: "label", label: "Label", placeholder: "e.g. Router admin, Office WiFi" },
                   { key: "username", label: "Username", placeholder: "" },
                   { key: "password", label: "Password", placeholder: "" },
+                  { key: "totp", label: "MFA / TOTP seed (optional)", placeholder: "Base32 secret from authenticator app" },
                   { key: "url", label: "URL", placeholder: "https://" },
                   { key: "notes", label: "Notes", placeholder: "" },
                 ].map(({ key, label, placeholder }) => (
@@ -1894,6 +1935,28 @@ export default function ClientDetailPage() {
                       fontSize: "12px", color: "var(--color-text-secondary)", background: "none",
                       border: "none", cursor: "pointer", padding: 0,
                     }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
+                  </div>
+                )}
+                {cred.hasTotp && (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>MFA</span>
+                    {revealedTotps[cred.id] ? (
+                      <>
+                        <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>
+                          {revealedTotps[cred.id].code}
+                        </span>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>
+                          · {revealedTotps[cred.id].seed}
+                        </span>
+                        <button onClick={() => navigator.clipboard.writeText(revealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
+                        <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: "13px", fontFamily: "monospace", letterSpacing: "3px" }}>••••••</span>
+                        <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
+                      </>
+                    )}
                   </div>
                 )}
                 {cred.url && (
