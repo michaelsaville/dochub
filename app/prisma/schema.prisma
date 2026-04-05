@@ -47,6 +47,8 @@ model Client {
   adDomains      AdDomain[]
   networkShares  NetworkShare[]
   vpnGateways    VpnGateway[]
+  phoneSystems   PhoneSystem[]
+  cameraSystems  CameraSystem[]
 }
 
 model Location {
@@ -89,7 +91,8 @@ model ClientUser {
   ipAssignments IpAssignment[] @relation("UserIpAssignment")
   licenses      License[]      @relation("LicenseAssignedUser")
   userLocations UserLocation[]
-  vpnAccess     VpnAccessor[]  @relation("ClientUserVpnAccess")
+  vpnAccess        VpnAccessor[]    @relation("ClientUserVpnAccess")
+  phoneExtensions  PhoneExtension[] @relation("ClientUserExtension")
 }
 
 model UserLocation {
@@ -161,8 +164,12 @@ model Asset {
   exitInterview  ExitInterview?
   ipAssignments  IpAssignment[]  @relation("AssetIpAssignment")
   rackSlots      RackSlot[]      @relation("AssetRackSlot")
-  networkShares  NetworkShare[]  @relation("AssetNetworkShare")
-  vpnGateways    VpnGateway[]    @relation("AssetVpnGateway")
+  networkShares    NetworkShare[]   @relation("AssetNetworkShare")
+  vpnGateways      VpnGateway[]     @relation("AssetVpnGateway")
+  phoneSystems     PhoneSystem[]    @relation("AssetPhoneSystem")
+  phoneExtensions  PhoneExtension[] @relation("AssetPhoneExtension")
+  cameraSystems    CameraSystem[]   @relation("AssetCameraSystem")
+  cameras          Camera[]         @relation("AssetCamera")
 }
 
 model ExitInterview {
@@ -199,8 +206,12 @@ model Credential {
   client            Client       @relation(fields: [clientId], references: [id])
   contact           Contact?     @relation("CredentialContact", fields: [contactId], references: [id])
   user              ClientUser?  @relation("CredentialUser", fields: [userId], references: [id])
-  vpnGateways       VpnGateway[] @relation("CredentialVpnGateway")
-  vpnAccessors      VpnAccessor[] @relation("CredentialVpnAccessor")
+  vpnGateways          VpnGateway[]     @relation("CredentialVpnGateway")
+  vpnAccessors         VpnAccessor[]    @relation("CredentialVpnAccessor")
+  phoneSystems         PhoneSystem[]    @relation("CredentialPhoneSystem")
+  phoneExtensions      PhoneExtension[] @relation("CredentialPhoneExtension")
+  voicemailExtensions  PhoneExtension[] @relation("CredentialVoicemail")
+  cameraSystems        CameraSystem[]   @relation("CredentialCameraSystem")
 }
 
 model License {
@@ -825,4 +836,128 @@ enum VpnAccessorType {
   STAFF_USER
   CONTACT
   THIRD_PARTY
+}
+
+// ─── Phone Systems ────────────────────────────────────────────────────────────
+
+model PhoneSystem {
+  id            String           @id @default(cuid())
+  clientId      String
+  assetId       String?          // UCM/PBX box as asset
+  credentialId  String?          // admin credential in vault
+  name          String           // e.g. "Grandstream UCM6304"
+  type          PhoneSystemType
+  sipDomain     String?          // SIP realm / domain
+  managementUrl String?
+  notes         String?
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset         Asset?           @relation("AssetPhoneSystem", fields: [assetId], references: [id])
+  credential    Credential?      @relation("CredentialPhoneSystem", fields: [credentialId], references: [id])
+  extensions    PhoneExtension[]
+}
+
+model PhoneExtension {
+  id               String              @id @default(cuid())
+  systemId         String
+  clientUserId     String?             // linked client user
+  assetId          String?             // handset asset
+  credentialId     String?             // SIP credential in vault
+  voicemailCredId  String?             // voicemail PIN credential in vault
+  extension        String              // e.g. "101"
+  displayName      String              // e.g. "Jane Smith" or "Reception"
+  type             PhoneExtensionType  @default(USER)
+  did              String?             // direct inward dial number
+  voicemailEnabled Boolean             @default(false)
+  notes            String?
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  system           PhoneSystem         @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  clientUser       ClientUser?         @relation("ClientUserExtension", fields: [clientUserId], references: [id])
+  asset            Asset?              @relation("AssetPhoneExtension", fields: [assetId], references: [id])
+  credential       Credential?         @relation("CredentialPhoneExtension", fields: [credentialId], references: [id])
+  voicemailCred    Credential?         @relation("CredentialVoicemail", fields: [voicemailCredId], references: [id])
+}
+
+enum PhoneSystemType {
+  GRANDSTREAM_UCM
+  FREEPBX
+  THREE_CX
+  HOSTED_VOIP
+  MITEL
+  AVAYA
+  CISCO
+  OTHER
+}
+
+enum PhoneExtensionType {
+  USER
+  RING_GROUP
+  IVR
+  VOICEMAIL_ONLY
+  FAX
+  PAGING
+  CONFERENCE
+}
+
+// ─── Camera Systems ───────────────────────────────────────────────────────────
+
+model CameraSystem {
+  id            String           @id @default(cuid())
+  clientId      String
+  assetId       String?          // NVR/DVR as asset
+  credentialId  String?          // admin credential in vault
+  name          String           // e.g. "Unifi Protect NVR", "Front Office DVR"
+  type          CameraSystemType
+  managementUrl String?
+  retentionDays Int?
+  storageNote   String?          // e.g. "2TB HDD, ~30 days at 1080p"
+  notes         String?
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset         Asset?           @relation("AssetCameraSystem", fields: [assetId], references: [id])
+  credential    Credential?      @relation("CredentialCameraSystem", fields: [credentialId], references: [id])
+  cameras       Camera[]
+}
+
+model Camera {
+  id          String       @id @default(cuid())
+  systemId    String
+  assetId     String?      // Unifi camera linked as an asset
+  name        String       // e.g. "Front Door", "Parking Lot NE"
+  type        CameraType   @default(IP_POE)
+  make        String?
+  model       String?
+  ipAddress   String?
+  macAddress  String?
+  resolution  String?      // e.g. "4MP", "1080p"
+  location    String?      // physical description
+  notes       String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  system      CameraSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  asset       Asset?       @relation("AssetCamera", fields: [assetId], references: [id])
+}
+
+enum CameraSystemType {
+  UNIFI_NVR
+  HIKVISION_DVR
+  DAHUA_DVR
+  ANALOG_DVR
+  CLOUD_MANAGED
+  OTHER
+}
+
+enum CameraType {
+  IP_POE
+  ANALOG
+  WIRELESS
+  FISHEYE
+  PTZ
 }

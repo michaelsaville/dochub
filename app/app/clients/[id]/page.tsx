@@ -6,6 +6,8 @@ import RackDiagram from "@/components/RackDiagram"
 import DocumentsPanel from "@/components/DocumentsPanel"
 import FileSharesPanel from "@/components/FileSharesPanel"
 import VpnPanel from "@/components/VpnPanel"
+import PhonePanel from "@/components/PhonePanel"
+import CameraPanel from "@/components/CameraPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -80,7 +82,7 @@ type Asset = {
 
 type AssetType = { id: string; name: string }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Documents", "SOPs", "Activity"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Activity"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -288,6 +290,11 @@ export default function ClientDetailPage() {
   const [vpnVendors, setVpnVendors] = useState<any[]>([])
   const [vpnStaffUsers, setVpnStaffUsers] = useState<any[]>([])
   const [vpnCredentials, setVpnCredentials] = useState<any[]>([])
+  const [phoneSystems, setPhoneSystems] = useState<any[]>([])
+  const [loadingPhone, setLoadingPhone] = useState(false)
+  const [phoneCredentials, setPhoneCredentials] = useState<any[]>([])
+  const [cameraSystems, setCameraSystems] = useState<any[]>([])
+  const [loadingCameras, setLoadingCameras] = useState(false)
   const [dashboardData, setDashboardData] = useState<{ favoritedAssets: any[]; favoritedCredentials: any[] } | null>(null)
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [dashRevealedPasswords, setDashRevealedPasswords] = useState<Record<string, string>>({})
@@ -317,6 +324,14 @@ export default function ClientDetailPage() {
       if (vpnGateways.length === 0) fetchVpn()
       if (assets.length === 0) fetchAssets()
       if (networkDevices.length === 0) fetchNetworkDevices()
+    }
+    if (activeTab === "Phone System") {
+      if (phoneSystems.length === 0) fetchPhoneSystems()
+      if (assets.length === 0) fetchAssets()
+    }
+    if (activeTab === "Cameras") {
+      if (cameraSystems.length === 0) fetchCameraSystems()
+      if (assets.length === 0) fetchAssets()
     }
     if (activeTab === "Documents" && clientDocs.length === 0) fetchClientDocs()
     if (activeTab === "SOPs" && clientRunbooks.length === 0) fetchClientRunbooks()
@@ -679,6 +694,38 @@ export default function ClientDetailPage() {
       }
     } catch {}
     finally { setLoadingVpn(false) }
+  }
+
+  async function fetchPhoneSystems() {
+    setLoadingPhone(true)
+    try {
+      const [sysRes, credsRes] = await Promise.all([
+        fetch(`/api/clients/${id}/phone-systems`),
+        fetch(`/api/clients/${id}/credentials`),
+      ])
+      if (sysRes.ok) setPhoneSystems(await sysRes.json())
+      if (credsRes.ok) {
+        const creds = await credsRes.json()
+        setPhoneCredentials(creds.map((c: any) => ({ id: c.id, label: c.label })))
+      }
+    } catch {}
+    finally { setLoadingPhone(false) }
+  }
+
+  async function fetchCameraSystems() {
+    setLoadingCameras(true)
+    try {
+      const [sysRes, credsRes] = await Promise.all([
+        fetch(`/api/clients/${id}/camera-systems`),
+        fetch(`/api/clients/${id}/credentials`),
+      ])
+      if (sysRes.ok) setCameraSystems(await sysRes.json())
+      if (credsRes.ok) {
+        const creds = await credsRes.json()
+        setPhoneCredentials(prev => prev.length ? prev : creds.map((c: any) => ({ id: c.id, label: c.label })))
+      }
+    } catch {}
+    finally { setLoadingCameras(false) }
   }
 
   async function fetchApplications() {
@@ -2806,6 +2853,39 @@ export default function ClientDetailPage() {
                 credentials={vpnCredentials}
                 clientId={id as string}
                 onGatewaysChange={setVpnGateways}
+              />
+            )}
+          </div>
+        )}
+
+        {activeTab === "Phone System" && (
+          <div style={{ maxWidth: "960px" }}>
+            {loadingPhone ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : (
+              <PhonePanel
+                systems={phoneSystems}
+                assets={assets}
+                clientUsers={client.users}
+                credentials={phoneCredentials}
+                clientId={id as string}
+                onSystemsChange={setPhoneSystems}
+              />
+            )}
+          </div>
+        )}
+
+        {activeTab === "Cameras" && (
+          <div style={{ maxWidth: "960px" }}>
+            {loadingCameras ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+            ) : (
+              <CameraPanel
+                systems={cameraSystems}
+                assets={assets}
+                credentials={phoneCredentials}
+                clientId={id as string}
+                onSystemsChange={setCameraSystems}
               />
             )}
           </div>
