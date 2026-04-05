@@ -62,6 +62,8 @@ type Asset = {
   status: string
   managementUrl: string | null
   warrantyExpiry: string | null
+  syncroAssetId: string | null
+  dataSource: string | null
   notes: string | null
 }
 
@@ -89,6 +91,26 @@ const statusColor: Record<string, string> = {
   ACTIVE: "#22c55e",
   RETIRING: "#f59e0b",
   SUNSET: "#94a3b8",
+}
+
+const SOURCE_META: Record<string, { label: string; color: string; bg: string }> = {
+  MANUAL:    { label: "Manual",    color: "#64748b", bg: "#64748b18" },
+  SYNCRO:    { label: "Syncro",    color: "#3b82f6", bg: "#3b82f618" },
+  UNIFI:     { label: "Unifi",     color: "#8b5cf6", bg: "#8b5cf618" },
+  ITFLOW:    { label: "ITFlow",    color: "#f97316", bg: "#f9731618" },
+  PAX8:      { label: "Pax8",      color: "#10b981", bg: "#10b98118" },
+  PULSEWAY:  { label: "Pulseway",  color: "#ec4899", bg: "#ec489918" },
+}
+
+function sourceTag(dataSource?: string | null, fallbackSyncroId?: string | null, fallbackPax8Id?: string | null) {
+  const src = dataSource || (fallbackSyncroId ? "SYNCRO" : fallbackPax8Id ? "PAX8" : "MANUAL")
+  if (src === "MANUAL") return null  // don't show badge for manual — it's the default
+  const m = SOURCE_META[src] ?? { label: src, color: "#64748b", bg: "#64748b18" }
+  return (
+    <span title={`Source: ${m.label}`} style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: m.bg, color: m.color, border: `1px solid ${m.color}44`, fontWeight: 600, letterSpacing: "0.01em", flexShrink: 0 }}>
+      {m.label}
+    </span>
+  )
 }
 
 export default function ClientDetailPage() {
@@ -1203,7 +1225,10 @@ export default function ClientDetailPage() {
                         alignItems: "center",
                       }}>
                         <div>
-                          <div style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "14px", fontWeight: 500 }}>{asset.name}</span>
+                            {sourceTag(asset.dataSource, asset.syncroAssetId)}
+                          </div>
                           {asset.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{asset.notes}</div>}
                         </div>
                         <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
@@ -1517,6 +1542,7 @@ export default function ClientDetailPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
+                    {sourceTag(cred.dataSource)}
                     {cred.user && (
                       <span onClick={() => { setActiveTab("Users"); selectUser(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
                         {cred.user.name}
@@ -1707,7 +1733,10 @@ export default function ClientDetailPage() {
                   <div key={lic.id} style={{ padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 80px 100px 100px 80px", alignItems: "center", marginBottom: lic.licenseKey ? "8px" : 0 }}>
                       <div>
-                        <div style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</span>
+                          {sourceTag(lic.dataSource, null, lic.pax8Id)}
+                        </div>
                         {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
                       </div>
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.vendorRef?.name ?? lic.vendor ?? "—"}</div>
@@ -2156,7 +2185,10 @@ export default function ClientDetailPage() {
                 ) : (
                   <div key={dev.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "12px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{dev.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{dev.name}</span>
+                        {sourceTag(dev.dataSource)}
+                      </div>
                       {(dev.make || dev.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[dev.make, dev.model].filter(Boolean).join(" ")}</div>}
                       {dev.serial && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>S/N: {dev.serial}</div>}
                     </div>

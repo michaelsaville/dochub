@@ -227,6 +227,7 @@ model Asset {
   warrantyExpiry DateTime?
   room           String?
   syncroAssetId  String?       @unique
+  dataSource     String        @default("MANUAL")
   notes          String?
   successorId    String?       @unique
   createdAt      DateTime      @default(now())
@@ -266,6 +267,7 @@ model Credential {
   username          String?
   encryptedPassword String
   url               String?
+  dataSource        String    @default("MANUAL")
   notes             String?
   isRetired         Boolean   @default(false)
   lastRotated       DateTime?
@@ -295,6 +297,7 @@ model License {
   renewalDate    DateTime?
   cost           Float?
   pax8Id         String?
+  dataSource     String    @default("MANUAL")
   notes          String?
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
@@ -591,6 +594,7 @@ model NetworkDevice {
   serial          String?
   firmwareVersion String?
   managementUrl   String?
+  dataSource      String            @default("MANUAL")
   notes           String?
   isActive        Boolean           @default(true)
   createdAt       DateTime          @default(now())

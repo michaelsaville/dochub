@@ -130,6 +130,7 @@ export async function POST(req: Request) {
               serial: serial?.trim() || null,
               ipAddress: ipAddress?.trim() || null,
               macAddress: macAddress?.trim() || null,
+              dataSource: "ITFLOW",
               notes: notes?.trim() || null,
             },
           })
@@ -155,6 +156,7 @@ export async function POST(req: Request) {
               username: username?.trim() || null,
               encryptedPassword,
               url: url?.trim() || null,
+              dataSource: "ITFLOW",
               notes: notes?.trim() || null,
             },
           })
@@ -179,6 +181,7 @@ export async function POST(req: Request) {
               licenseKey: licenseKey?.trim() || null,
               seats: seats ? parseInt(seats) || null : null,
               renewalDate: parseDate(renewalDate),
+              dataSource: "ITFLOW",
               notes: notes?.trim() || null,
             },
           })
