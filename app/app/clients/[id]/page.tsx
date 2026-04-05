@@ -798,6 +798,12 @@ export default function ClientDetailPage() {
           }}>
             {client.type === "BUSINESS" ? "Business" : "Residential"}
           </span>
+          <button
+            onClick={() => router.push(`/clients/${id}/runbook`)}
+            style={{ marginLeft: "auto", fontSize: "13px", padding: "6px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}
+          >
+            📋 Runbook
+          </button>
         </div>
 
         <div style={{ display: "flex", marginBottom: "24px", borderBottom: "1px solid var(--border)", overflow: "auto" }}>
