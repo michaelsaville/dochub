@@ -126,7 +126,7 @@ export async function GET(
   if (modules.includes("websites")) {
     data.websites = await prisma.website.findMany({
       where: { clientId: id },
-      orderBy: { url: "asc" },
+      orderBy: { domain: "asc" },
     })
   }
 
