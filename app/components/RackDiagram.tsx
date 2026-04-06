@@ -27,6 +27,7 @@ type Rack = {
   name: string
   totalU: number
   notes: string | null
+  photoStorageName: string | null
   location: { id: string; name: string }
   slots: RackSlot[]
 }
@@ -98,6 +99,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
   const [editingSlot, setEditingSlot] = useState<string | null>(null)
   const [slotEditForm, setSlotEditForm] = useState<any>({})
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null)
+  const [uploadingPhotoFor, setUploadingPhotoFor] = useState<string | null>(null)
 
   async function saveRack() {
     if (!rackForm.name.trim() || !rackForm.locationId) return
@@ -243,6 +245,26 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
 
   function handleDragEnd() {
     setDraggingSlotId(null); setDragOverSlotId(null); setDragOverSide(null)
+  }
+
+  async function uploadRackPhoto(rackId: string, file: File) {
+    setUploadingPhotoFor(rackId)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch(`/api/racks/${rackId}/photo`, { method: "POST", body: fd })
+      if (res.ok) {
+        const data = await res.json()
+        onRacksChange(racks.map(r => r.id === rackId ? { ...r, photoStorageName: data.photoStorageName } : r))
+      }
+    } finally {
+      setUploadingPhotoFor(null)
+    }
+  }
+
+  async function removeRackPhoto(rackId: string) {
+    await fetch(`/api/racks/${rackId}/photo`, { method: "DELETE" })
+    onRacksChange(racks.map(r => r.id === rackId ? { ...r, photoStorageName: null } : r))
   }
 
   function renderSlotItem(slot: RackSlot, rackId: string, rowSlots: RackSlot[], rowHeight: number, isShelf: boolean) {
@@ -402,6 +424,38 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                   style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Delete</button>
               </div>
             </>
+          )}
+        </div>
+
+        {/* Rack photo */}
+        <div style={{ maxWidth: "680px", marginBottom: "12px" }}>
+          {rack.photoStorageName ? (
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <img
+                src={`/api/racks/${rack.id}/photo`}
+                alt="Rack photo"
+                style={{ maxWidth: "100%", maxHeight: "320px", borderRadius: "8px", border: "1px solid #334155", display: "block" }}
+              />
+              <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "6px" }}>
+                <label style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", background: "rgba(0,0,0,0.7)", color: "#e2e8f0", cursor: "pointer", border: "1px solid #475569" }}>
+                  Replace
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadRackPhoto(rack.id, f); e.target.value = "" }} />
+                </label>
+                <button onClick={() => removeRackPhoto(rack.id)} style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", background: "rgba(0,0,0,0.7)", color: "#fca5a5", cursor: "pointer", border: "1px solid #7f1d1d" }}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label style={{
+              display: "inline-flex", alignItems: "center", gap: "6px",
+              fontSize: "12px", color: "#64748b", cursor: "pointer",
+              padding: "5px 10px", borderRadius: "6px", border: "1px dashed #334155",
+              background: "transparent",
+            }}>
+              {uploadingPhotoFor === rack.id ? "Uploading..." : "+ Add rack photo"}
+              <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingPhotoFor === rack.id} onChange={e => { const f = e.target.files?.[0]; if (f) uploadRackPhoto(rack.id, f); e.target.value = "" }} />
+            </label>
           )}
         </div>
 

@@ -11,7 +11,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, type, assetId, make, model, ipAddress, macAddress, resolution, location, notes, isActive } = body
+    const { name, type, assetId, make, model, ipAddress, macAddress, resolution, location, recordingSchedule, coverageNotes, notes, isActive } = body
     if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 })
     const camera = await prisma.camera.update({
       where: { id },
@@ -25,6 +25,8 @@ export async function PUT(
         macAddress: macAddress?.trim() || null,
         resolution: resolution?.trim() || null,
         location: location?.trim() || null,
+        recordingSchedule: recordingSchedule || null,
+        coverageNotes: coverageNotes?.trim() || null,
         notes: notes?.trim() || null,
         isActive: isActive ?? true,
       },

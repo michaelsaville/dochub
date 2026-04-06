@@ -124,6 +124,9 @@ export default function SettingsPage() {
   const [domainThreshold, setDomainThreshold] = useState(30)
   const [thresholdInput, setThresholdInput] = useState("30")
   const [savingThreshold, setSavingThreshold] = useState(false)
+  const [logoExists, setLogoExists] = useState(false)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoVersion, setLogoVersion] = useState(0) // bump to force img reload
 
   // --- Asset Types ---
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
@@ -201,6 +204,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchAssetTypes()
     fetch("/api/settings/domain-threshold").then(r => r.json()).then(d => { setDomainThreshold(d.days); setThresholdInput(String(d.days)) }).catch(() => {})
+    fetch("/api/settings/logo").then(r => setLogoExists(r.ok)).catch(() => {})
     fetch("/api/settings/source-colors").then(r => r.json()).then(setSourceColors).catch(() => {})
     fetch("/api/settings/integrations").then(r => r.json()).then((d: Record<string, string>) => {
       setIntegrationConfig(d)
@@ -228,6 +232,22 @@ export default function SettingsPage() {
         body: JSON.stringify(body),
       })
     } finally { setSavingIntegration(false) }
+  }
+
+  // Logo
+  async function uploadLogo(file: File) {
+    setLogoUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch("/api/settings/logo", { method: "POST", body: fd })
+      if (res.ok) { setLogoExists(true); setLogoVersion(v => v + 1) }
+    } finally { setLogoUploading(false) }
+  }
+  async function removeLogo() {
+    await fetch("/api/settings/logo", { method: "DELETE" })
+    setLogoExists(false)
+    setLogoVersion(v => v + 1)
   }
 
   // Platform
@@ -479,6 +499,31 @@ export default function SettingsPage() {
             {/* ── Platform ── */}
             {activeSection === "platform" && (
               <>
+                <SectionCard title="Company Logo" description="Shown in the sidebar and on printed reports. PNG or SVG recommended.">
+                  {logoExists ? (
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", flexWrap: "wrap" }}>
+                      <img
+                        src={`/api/settings/logo?v=${logoVersion}`}
+                        alt="Company logo"
+                        style={{ maxHeight: "80px", maxWidth: "240px", objectFit: "contain", borderRadius: "6px", border: "0.5px solid var(--color-border-tertiary)", padding: "8px", background: "var(--color-background-primary)" }}
+                      />
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <label style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)", display: "inline-block" }}>
+                          {logoUploading ? "Uploading..." : "Replace logo"}
+                          <input type="file" accept="image/*" style={{ display: "none" }} disabled={logoUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = "" }} />
+                        </label>
+                        <button onClick={removeLogo} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "none", background: "transparent", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", textAlign: "left" }}>
+                          Remove logo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", padding: "8px 16px", borderRadius: "8px", border: "0.5px dashed var(--color-border-secondary)", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                      {logoUploading ? "Uploading..." : "+ Upload logo"}
+                      <input type="file" accept="image/*" style={{ display: "none" }} disabled={logoUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = "" }} />
+                    </label>
+                  )}
+                </SectionCard>
                 <SectionCard title="Appearance">
                   <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>DocHub uses the PCC dark theme. Single dark mode — no light mode.</div>
                 </SectionCard>
@@ -880,6 +925,11 @@ export default function SettingsPage() {
             {/* ── Pax8 ── */}
             {activeSection === "data-management" && (
               <>
+                <SectionCard title="ITFlow Import" description="Import clients, contacts, assets, passwords, and licenses from an ITFlow CSV export.">
+                  <a href="/import" style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", textDecoration: "none", fontWeight: 500 }}>
+                    Open Import Wizard →
+                  </a>
+                </SectionCard>
                 <SectionCard
                   title="Merge Clients"
                   description="Move all records from a duplicate client into the correct client, then mark the duplicate inactive. This cannot be undone."

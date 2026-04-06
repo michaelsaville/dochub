@@ -57,6 +57,15 @@ type PhoneExtension = {
   voicemailCred: { id: string; label: string } | null
 }
 
+type SipTrunk = {
+  id: string
+  carrier: string
+  accountNumber: string | null
+  supportPhone: string | null
+  didRange: string | null
+  notes: string | null
+}
+
 type PhoneSystem = {
   id: string
   name: string
@@ -68,6 +77,7 @@ type PhoneSystem = {
   asset: { id: string; name: string; friendlyName: string | null } | null
   credential: { id: string; label: string } | null
   extensions: PhoneExtension[]
+  sipTrunks: SipTrunk[]
 }
 
 type Props = {
@@ -184,6 +194,82 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
   function startEditExt(e: PhoneExtension) {
     setExtForm({ extension: e.extension, displayName: e.displayName, type: e.type, clientUserId: e.clientUser?.id || "", assetId: e.asset?.id || "", credentialId: e.credential?.id || "", voicemailCredId: e.voicemailCred?.id || "", did: e.did || "", voicemailEnabled: e.voicemailEnabled, notes: e.notes || "" })
     setEditingExtId(e.id)
+  }
+
+  // ── SIP Trunks ────────────────────────────────────────────────────────────
+
+  const [addingTrunkFor, setAddingTrunkFor] = useState<string | null>(null)
+  const [editingTrunkId, setEditingTrunkId] = useState<string | null>(null)
+  const emptyTrunk = { carrier: "", accountNumber: "", supportPhone: "", didRange: "", notes: "" }
+  const [trunkForm, setTrunkForm] = useState({ ...emptyTrunk })
+
+  async function addTrunk(systemId: string) {
+    setError(""); setSaving(true)
+    try {
+      const res = await fetch(`/api/phone-systems/${systemId}/sip-trunks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(trunkForm),
+      })
+      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
+      const created = await res.json()
+      onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: [...(s.sipTrunks || []), created].sort((a, b) => a.carrier.localeCompare(b.carrier)) } : s))
+      setAddingTrunkFor(null)
+      setTrunkForm({ ...emptyTrunk })
+    } finally { setSaving(false) }
+  }
+
+  async function updateTrunk(trunkId: string, systemId: string) {
+    setError(""); setSaving(true)
+    try {
+      const res = await fetch(`/api/sip-trunks/${trunkId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(trunkForm),
+      })
+      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
+      const updated = await res.json()
+      onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: s.sipTrunks.map(t => t.id === trunkId ? updated : t) } : s))
+      setEditingTrunkId(null)
+    } finally { setSaving(false) }
+  }
+
+  async function deleteTrunk(trunkId: string, systemId: string) {
+    if (!confirm("Delete this SIP trunk?")) return
+    const res = await fetch(`/api/sip-trunks/${trunkId}`, { method: "DELETE" })
+    if (res.ok) onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: s.sipTrunks.filter(t => t.id !== trunkId) } : s))
+  }
+
+  function TrunkForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", padding: "12px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", marginTop: "8px" }}>
+        <div>
+          <label style={lbl}>Carrier / Provider *</label>
+          <input style={inp} value={trunkForm.carrier} onChange={e => setTrunkForm(f => ({ ...f, carrier: e.target.value }))} placeholder="Twilio, VoIP.ms, Vonage…" />
+        </div>
+        <div>
+          <label style={lbl}>Account Number</label>
+          <input style={inp} value={trunkForm.accountNumber} onChange={e => setTrunkForm(f => ({ ...f, accountNumber: e.target.value }))} />
+        </div>
+        <div>
+          <label style={lbl}>Support Phone</label>
+          <input style={inp} value={trunkForm.supportPhone} onChange={e => setTrunkForm(f => ({ ...f, supportPhone: e.target.value }))} placeholder="1-800-…" />
+        </div>
+        <div style={{ gridColumn: "1 / 3" }}>
+          <label style={lbl}>DID Range / Numbers</label>
+          <input style={inp} value={trunkForm.didRange} onChange={e => setTrunkForm(f => ({ ...f, didRange: e.target.value }))} placeholder="304-555-0100 to 0199, or individual DIDs" />
+        </div>
+        <div>
+          <label style={lbl}>Notes</label>
+          <input style={inp} value={trunkForm.notes} onChange={e => setTrunkForm(f => ({ ...f, notes: e.target.value }))} />
+        </div>
+        {error && <div style={{ gridColumn: "1 / -1", color: "#ef4444", fontSize: "13px" }}>{error}</div>}
+        <div style={{ gridColumn: "1 / -1", display: "flex", gap: "8px" }}>
+          <button style={btn("primary")} onClick={onSubmit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          <button style={btn("ghost")} onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    )
   }
 
   // ── System Form ───────────────────────────────────────────────────────────
@@ -423,6 +509,47 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
               {addingExtFor === system.id && (
                 <ExtForm onSubmit={() => addExtension(system.id)} onCancel={() => { setAddingExtFor(null); setError("") }} />
               )}
+
+              {/* SIP Trunks section */}
+              <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text-secondary)" }}>SIP Trunks / Carrier</span>
+                  {addingTrunkFor !== system.id && (
+                    <button style={btn("ghost")} onClick={() => { setAddingTrunkFor(system.id); setTrunkForm({ ...emptyTrunk }) }}>+ Add Trunk</button>
+                  )}
+                </div>
+                {(system.sipTrunks?.length ?? 0) === 0 && addingTrunkFor !== system.id && (
+                  <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>No SIP trunks documented yet.</div>
+                )}
+                {system.sipTrunks?.map(trunk => (
+                  <div key={trunk.id}>
+                    {editingTrunkId === trunk.id ? (
+                      <TrunkForm onSubmit={() => updateTrunk(trunk.id, system.id)} onCancel={() => { setEditingTrunkId(null); setError("") }} />
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 12px", borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", gap: "10px" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "13px", fontWeight: 600 }}>{trunk.carrier}</span>
+                            {trunk.accountNumber && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Acct: {trunk.accountNumber}</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: "14px", marginTop: "3px", flexWrap: "wrap" }}>
+                            {trunk.supportPhone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Support: {trunk.supportPhone}</span>}
+                            {trunk.didRange && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>DIDs: {trunk.didRange}</span>}
+                            {trunk.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{trunk.notes}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                          <button style={btn("ghost")} onClick={() => { setTrunkForm({ carrier: trunk.carrier, accountNumber: trunk.accountNumber || "", supportPhone: trunk.supportPhone || "", didRange: trunk.didRange || "", notes: trunk.notes || "" }); setEditingTrunkId(trunk.id) }}>Edit</button>
+                          <button style={btn("danger")} onClick={() => deleteTrunk(trunk.id, system.id)}>Del</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {addingTrunkFor === system.id && (
+                  <TrunkForm onSubmit={() => addTrunk(system.id)} onCancel={() => { setAddingTrunkFor(null); setError("") }} />
+                )}
+              </div>
 
               {system.notes && (
                 <div style={{ marginTop: "12px", fontSize: "13px", color: "var(--color-text-secondary)", borderTop: "0.5px solid var(--color-border-secondary)", paddingTop: "12px" }}>

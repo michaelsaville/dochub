@@ -26,6 +26,7 @@ type SwitchPort = {
   portNumber: number
   label: string | null
   isUplink: boolean
+  isPoe: boolean
   vlanId: string | null
   notes: string | null
   vlan: Vlan | null
@@ -61,7 +62,7 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
   const [loading, setLoading] = useState(true)
 
   const [selectedPort, setSelectedPort] = useState<number | null>(null)
-  const [portForm, setPortForm] = useState({ label: "", isUplink: false, vlanId: "", notes: "" })
+  const [portForm, setPortForm] = useState({ label: "", isUplink: false, isPoe: false, vlanId: "", notes: "" })
   const [portSaving, setPortSaving] = useState(false)
 
   // Interface assignment within port modal
@@ -106,6 +107,7 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
     setPortForm({
       label: p?.label ?? "",
       isUplink: p?.isUplink ?? false,
+      isPoe: p?.isPoe ?? false,
       vlanId: p?.vlanId ?? "",
       notes: p?.notes ?? "",
     })
@@ -127,6 +129,7 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
         body: JSON.stringify({
           label: portForm.label,
           isUplink: portForm.isUplink,
+          isPoe: portForm.isPoe,
           vlanId: portForm.vlanId || null,
           notes: portForm.notes,
         }),
@@ -296,10 +299,11 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
 
   function portColor(num: number): string {
     const p = getPort(num)
-    if (!p) return "var(--color-background-hover)"
+    if (!p) return "#111827"
+    if (p.interfaces.length > 0) return "#166534"  // in use → dark green
     if (p.isUplink) return "#374151"
-    if (p.vlan) return p.vlan.color + "cc"
-    return "var(--color-background-hover)"
+    if (p.vlan) return p.vlan.color + "44"          // configured but empty → dim VLAN tint
+    return "#111827"                                 // unknown / unused → dark
   }
 
   function portLabel(num: number): string {
@@ -314,6 +318,7 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
     const parts: string[] = [`Port ${num}`]
     if (p?.label) parts.push(p.label)
     if (p?.isUplink) parts.push("Uplink")
+    if (p?.isPoe) parts.push("PoE")
     if (p?.vlan) parts.push(`VLAN ${p.vlan.vlanNumber} – ${p.vlan.name}`)
     if (p?.interfaces.length) {
       parts.push(p.interfaces.map(i => i.asset.friendlyName || i.asset.name).join(", "))
@@ -500,41 +505,45 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
             <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: totalPorts > 24 ? "640px" : undefined }}>
               {/* Top row */}
               <div style={{ display: "flex", gap: "4px" }}>
-                {topPorts.map(num => (
-                  <button key={num} title={portTooltip(num)} onClick={() => openPort(num)} style={{
-                    width: "36px", height: "36px", borderRadius: "4px", border: selectedPort === num ? "2px solid white" : "1.5px solid #4b5563",
-                    background: portColor(num), cursor: "pointer", fontSize: "9px", fontWeight: 600,
-                    color: getPort(num)?.vlan ? "white" : "#9ca3af",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexDirection: "column", gap: "1px", padding: "2px",
-                    flexShrink: 0,
-                    position: "relative",
-                  }}>
-                    <span>{portLabel(num)}</span>
-                    {getPort(num)?.interfaces.length ? (
-                      <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#22c55e", display: "block" }} />
-                    ) : null}
-                  </button>
-                ))}
+                {topPorts.map(num => {
+                  const p = getPort(num)
+                  const inUse = (p?.interfaces.length ?? 0) > 0
+                  return (
+                    <button key={num} title={portTooltip(num)} onClick={() => openPort(num)} style={{
+                      width: "36px", height: "36px", borderRadius: "4px",
+                      border: selectedPort === num ? "2px solid white" : "1.5px solid #4b5563",
+                      background: portColor(num), cursor: "pointer", fontSize: "9px", fontWeight: 600,
+                      color: inUse ? "#bbf7d0" : (p?.vlan ? "white" : "#9ca3af"),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexDirection: "column", gap: "1px", padding: "2px",
+                      flexShrink: 0, position: "relative",
+                    }}>
+                      <span>{portLabel(num)}</span>
+                      {p?.isPoe ? <span style={{ fontSize: "8px", lineHeight: 1 }}>⚡</span> : null}
+                    </button>
+                  )
+                })}
               </div>
               {/* Bottom row */}
               <div style={{ display: "flex", gap: "4px" }}>
-                {bottomPorts.map(num => (
-                  <button key={num} title={portTooltip(num)} onClick={() => openPort(num)} style={{
-                    width: "36px", height: "36px", borderRadius: "4px", border: selectedPort === num ? "2px solid white" : "1.5px solid #4b5563",
-                    background: portColor(num), cursor: "pointer", fontSize: "9px", fontWeight: 600,
-                    color: getPort(num)?.vlan ? "white" : "#9ca3af",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexDirection: "column", gap: "1px", padding: "2px",
-                    flexShrink: 0,
-                    position: "relative",
-                  }}>
-                    <span>{portLabel(num)}</span>
-                    {getPort(num)?.interfaces.length ? (
-                      <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#22c55e", display: "block" }} />
-                    ) : null}
-                  </button>
-                ))}
+                {bottomPorts.map(num => {
+                  const p = getPort(num)
+                  const inUse = (p?.interfaces.length ?? 0) > 0
+                  return (
+                    <button key={num} title={portTooltip(num)} onClick={() => openPort(num)} style={{
+                      width: "36px", height: "36px", borderRadius: "4px",
+                      border: selectedPort === num ? "2px solid white" : "1.5px solid #4b5563",
+                      background: portColor(num), cursor: "pointer", fontSize: "9px", fontWeight: 600,
+                      color: inUse ? "#bbf7d0" : (p?.vlan ? "white" : "#9ca3af"),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexDirection: "column", gap: "1px", padding: "2px",
+                      flexShrink: 0, position: "relative",
+                    }}>
+                      <span>{portLabel(num)}</span>
+                      {p?.isPoe ? <span style={{ fontSize: "8px", lineHeight: 1 }}>⚡</span> : null}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -561,10 +570,14 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
                   {vlans.map(v => <option key={v.id} value={v.id}>VLAN {v.vlanNumber} – {v.name}</option>)}
                 </select>
               </div>
-              <div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
                   <input type="checkbox" checked={portForm.isUplink} onChange={e => setPortForm(f => ({ ...f, isUplink: e.target.checked }))} />
                   Uplink port
+                </label>
+                <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={portForm.isPoe} onChange={e => setPortForm(f => ({ ...f, isPoe: e.target.checked }))} />
+                  PoE enabled
                 </label>
               </div>
               <div style={{ gridColumn: "1 / -1" }}>

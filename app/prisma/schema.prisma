@@ -571,6 +571,7 @@ model SwitchPort {
   portNumber      Int
   label           String?
   isUplink        Boolean          @default(false)
+  isPoe           Boolean          @default(false)
   vlanId          String?
   notes           String?
   createdAt       DateTime         @default(now())
@@ -600,15 +601,16 @@ model AssetInterface {
 }
 
 model Rack {
-  id         String     @id @default(cuid())
-  locationId String
-  name       String
-  totalU     Int        @default(42)
-  notes      String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  slots      RackSlot[]
+  id                String     @id @default(cuid())
+  locationId        String
+  name              String
+  totalU            Int        @default(42)
+  notes             String?
+  photoStorageName  String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  location          Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  slots             RackSlot[]
 }
 
 model RackSlot {
@@ -928,6 +930,20 @@ model PhoneSystem {
   asset         Asset?           @relation("AssetPhoneSystem", fields: [assetId], references: [id])
   credential    Credential?      @relation("CredentialPhoneSystem", fields: [credentialId], references: [id])
   extensions    PhoneExtension[]
+  sipTrunks     SipTrunk[]
+}
+
+model SipTrunk {
+  id            String      @id @default(cuid())
+  systemId      String
+  carrier       String      // e.g. "Twilio", "VoIP.ms", "Vonage"
+  accountNumber String?
+  supportPhone  String?
+  didRange      String?     // e.g. "304-555-0100 to 0199"
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  system        PhoneSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
 }
 
 model PhoneExtension {
@@ -997,23 +1013,26 @@ model CameraSystem {
 }
 
 model Camera {
-  id          String       @id @default(cuid())
-  systemId    String
-  assetId     String?      // Unifi camera linked as an asset
-  name        String       // e.g. "Front Door", "Parking Lot NE"
-  type        CameraType   @default(IP_POE)
-  make        String?
-  model       String?
-  ipAddress   String?
-  macAddress  String?
-  resolution  String?      // e.g. "4MP", "1080p"
-  location    String?      // physical description
-  notes       String?
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  system      CameraSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  asset       Asset?       @relation("AssetCamera", fields: [assetId], references: [id])
+  id                String       @id @default(cuid())
+  systemId          String
+  assetId           String?      // Unifi camera linked as an asset
+  name              String       // e.g. "Front Door", "Parking Lot NE"
+  type              CameraType   @default(IP_POE)
+  make              String?
+  model             String?
+  ipAddress         String?
+  macAddress        String?
+  resolution        String?      // e.g. "4MP", "1080p"
+  location          String?      // physical description
+  recordingSchedule String?      // "24_7", "MOTION", "SCHEDULE", "NONE"
+  coverageNotes     String?      // description of what the camera covers
+  photoStorageName  String?      // field-of-view reference photo
+  notes             String?
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  system            CameraSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  asset             Asset?       @relation("AssetCamera", fields: [assetId], references: [id])
 }
 
 enum CameraSystemType {

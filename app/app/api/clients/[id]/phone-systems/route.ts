@@ -24,6 +24,7 @@ export async function GET(
           },
           orderBy: { extension: "asc" },
         },
+        sipTrunks: { orderBy: { carrier: "asc" } },
       },
       orderBy: { name: "asc" },
     })
@@ -60,6 +61,7 @@ export async function POST(
         asset: { select: { id: true, name: true, friendlyName: true } },
         credential: { select: { id: true, label: true } },
         extensions: true,
+        sipTrunks: true,
       },
     })
     return NextResponse.json(system, { status: 201 })

@@ -37,6 +37,13 @@ const CAMERA_TYPES: Record<string, string> = {
   PTZ: "PTZ",
 }
 
+const RECORDING_SCHEDULES: Record<string, string> = {
+  "24_7": "24/7 Continuous",
+  MOTION: "Motion Only",
+  SCHEDULE: "Scheduled",
+  NONE: "Not Recording",
+}
+
 type Camera = {
   id: string
   name: string
@@ -47,6 +54,9 @@ type Camera = {
   macAddress: string | null
   resolution: string | null
   location: string | null
+  recordingSchedule: string | null
+  coverageNotes: string | null
+  photoStorageName: string | null
   isActive: boolean
   notes: string | null
   asset: { id: string; name: string; friendlyName: string | null } | null
@@ -75,7 +85,7 @@ type Props = {
 }
 
 const emptySystem = { name: "", type: "UNIFI_NVR", assetId: "", credentialId: "", managementUrl: "", retentionDays: "", storageNote: "", notes: "" }
-const emptyCamera = { name: "", type: "IP_POE", assetId: "", make: "", model: "", ipAddress: "", macAddress: "", resolution: "", location: "", notes: "" }
+const emptyCamera = { name: "", type: "IP_POE", assetId: "", make: "", model: "", ipAddress: "", macAddress: "", resolution: "", location: "", recordingSchedule: "24_7", coverageNotes: "", notes: "" }
 
 export default function CameraPanel({ systems, assets, credentials, clientId, onSystemsChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -87,6 +97,31 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
   const [camForm, setCamForm] = useState({ ...emptyCamera })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [uploadingPhotoFor, setUploadingPhotoFor] = useState<string | null>(null)
+
+  async function uploadCameraPhoto(camId: string, systemId: string, file: File) {
+    setUploadingPhotoFor(camId)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch(`/api/cameras/${camId}/photo`, { method: "POST", body: fd })
+      if (res.ok) {
+        const data = await res.json()
+        onSystemsChange(systems.map(s => s.id === systemId
+          ? { ...s, cameras: s.cameras.map(c => c.id === camId ? { ...c, photoStorageName: data.photoStorageName } : c) }
+          : s
+        ))
+      }
+    } finally { setUploadingPhotoFor(null) }
+  }
+
+  async function removeCameraPhoto(camId: string, systemId: string) {
+    await fetch(`/api/cameras/${camId}/photo`, { method: "DELETE" })
+    onSystemsChange(systems.map(s => s.id === systemId
+      ? { ...s, cameras: s.cameras.map(c => c.id === camId ? { ...c, photoStorageName: null } : c) }
+      : s
+    ))
+  }
 
   function assetLabel(a: { name: string; friendlyName: string | null }) {
     return a.friendlyName ? `${a.friendlyName} (${a.name})` : a.name
@@ -177,7 +212,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
   }
 
   function startEditCam(c: Camera) {
-    setCamForm({ name: c.name, type: c.type, assetId: c.asset?.id || "", make: c.make || "", model: c.model || "", ipAddress: c.ipAddress || "", macAddress: c.macAddress || "", resolution: c.resolution || "", location: c.location || "", notes: c.notes || "" })
+    setCamForm({ name: c.name, type: c.type, assetId: c.asset?.id || "", make: c.make || "", model: c.model || "", ipAddress: c.ipAddress || "", macAddress: c.macAddress || "", resolution: c.resolution || "", location: c.location || "", recordingSchedule: c.recordingSchedule || "24_7", coverageNotes: c.coverageNotes || "", notes: c.notes || "" })
     setEditingCamId(c.id)
   }
 
@@ -282,12 +317,24 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
             <input style={inp} value={camForm.location} onChange={e => setCamForm(f => ({ ...f, location: e.target.value }))} placeholder="Parking lot NE corner" />
           </div>
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div>
+            <label style={lbl}>Recording Schedule</label>
+            <select style={inp} value={camForm.recordingSchedule} onChange={e => setCamForm(f => ({ ...f, recordingSchedule: e.target.value }))}>
+              {Object.entries(RECORDING_SCHEDULES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Linked Asset</label>
+            <select style={inp} value={camForm.assetId} onChange={e => setCamForm(f => ({ ...f, assetId: e.target.value }))}>
+              <option value="">— None —</option>
+              {assets.map(a => <option key={a.id} value={a.id}>{assetLabel(a)}</option>)}
+            </select>
+          </div>
+        </div>
         <div>
-          <label style={lbl}>Linked Asset (Unifi cameras)</label>
-          <select style={inp} value={camForm.assetId} onChange={e => setCamForm(f => ({ ...f, assetId: e.target.value }))}>
-            <option value="">— None —</option>
-            {assets.map(a => <option key={a.id} value={a.id}>{assetLabel(a)}</option>)}
-          </select>
+          <label style={lbl}>Coverage / Field of View</label>
+          <textarea style={{ ...inp, minHeight: "60px", resize: "vertical" }} value={camForm.coverageNotes} onChange={e => setCamForm(f => ({ ...f, coverageNotes: e.target.value }))} placeholder="Covers front entrance, 180° view, reaches to the far gate…" />
         </div>
         <div>
           <label style={lbl}>Notes</label>
@@ -382,26 +429,54 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                   {editingCamId === cam.id ? (
                     <CameraForm onSubmit={() => updateCamera(cam.id, system.id)} onCancel={() => { setEditingCamId(null); setError("") }} />
                   ) : (
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", gap: "10px" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                          <span style={{ fontSize: "14px", fontWeight: 600 }}>{cam.name}</span>
-                          <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#6b728022", color: "#9ca3af", border: "1px solid #6b728044" }}>{CAMERA_TYPES[cam.type] || cam.type}</span>
-                          {cam.resolution && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{cam.resolution}</span>}
-                          {!cam.isActive && <span style={{ fontSize: "11px", color: "#ef4444" }}>Inactive</span>}
+                    <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", overflow: "hidden" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", gap: "10px" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "14px", fontWeight: 600 }}>{cam.name}</span>
+                            <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#6b728022", color: "#9ca3af", border: "1px solid #6b728044" }}>{CAMERA_TYPES[cam.type] || cam.type}</span>
+                            {cam.resolution && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{cam.resolution}</span>}
+                            {cam.recordingSchedule && <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: cam.recordingSchedule === "NONE" ? "#ef444422" : "#22c55e22", color: cam.recordingSchedule === "NONE" ? "#ef4444" : "#22c55e", border: `1px solid ${cam.recordingSchedule === "NONE" ? "#ef444444" : "#22c55e44"}` }}>{RECORDING_SCHEDULES[cam.recordingSchedule] || cam.recordingSchedule}</span>}
+                            {!cam.isActive && <span style={{ fontSize: "11px", color: "#ef4444" }}>Inactive</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: "14px", marginTop: "4px", flexWrap: "wrap" }}>
+                            {(cam.make || cam.model) && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{[cam.make, cam.model].filter(Boolean).join(" ")}</span>}
+                            {cam.ipAddress && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>IP: {cam.ipAddress}</span>}
+                            {cam.macAddress && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>MAC: {cam.macAddress}</span>}
+                            {cam.location && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{cam.location}</span>}
+                            {cam.asset && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Asset: {cam.asset.friendlyName || cam.asset.name}</span>}
+                            {cam.coverageNotes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontStyle: "italic" }}>{cam.coverageNotes}</span>}
+                            {cam.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{cam.notes}</span>}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: "14px", marginTop: "4px", flexWrap: "wrap" }}>
-                          {(cam.make || cam.model) && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{[cam.make, cam.model].filter(Boolean).join(" ")}</span>}
-                          {cam.ipAddress && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>IP: {cam.ipAddress}</span>}
-                          {cam.macAddress && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>MAC: {cam.macAddress}</span>}
-                          {cam.location && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{cam.location}</span>}
-                          {cam.asset && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Asset: {cam.asset.friendlyName || cam.asset.name}</span>}
-                          {cam.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{cam.notes}</span>}
+                        <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                          <button style={btn("ghost")} onClick={() => startEditCam(cam)}>Edit</button>
+                          <button style={btn("danger")} onClick={() => deleteCamera(cam.id, system.id)}>Del</button>
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
-                        <button style={btn("ghost")} onClick={() => startEditCam(cam)}>Edit</button>
-                        <button style={btn("danger")} onClick={() => deleteCamera(cam.id, system.id)}>Del</button>
+                      {/* Field-of-view photo */}
+                      <div style={{ padding: "0 12px 10px" }}>
+                        {cam.photoStorageName ? (
+                          <div style={{ position: "relative", display: "inline-block" }}>
+                            <img
+                              src={`/api/cameras/${cam.id}/photo`}
+                              alt={`${cam.name} field of view`}
+                              style={{ maxWidth: "100%", maxHeight: "240px", borderRadius: "6px", border: "1px solid var(--color-border-tertiary)", display: "block" }}
+                            />
+                            <div style={{ position: "absolute", top: "6px", right: "6px", display: "flex", gap: "4px" }}>
+                              <label style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: "rgba(0,0,0,0.7)", color: "#e2e8f0", cursor: "pointer", border: "1px solid #475569" }}>
+                                Replace
+                                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCameraPhoto(cam.id, system.id, f); e.target.value = "" }} />
+                              </label>
+                              <button onClick={() => removeCameraPhoto(cam.id, system.id)} style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: "rgba(0,0,0,0.7)", color: "#fca5a5", cursor: "pointer", border: "1px solid #7f1d1d" }}>Remove</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--color-text-muted)", cursor: "pointer", padding: "4px 8px", borderRadius: "5px", border: "1px dashed var(--color-border-secondary)" }}>
+                            {uploadingPhotoFor === cam.id ? "Uploading..." : "📷 Add field-of-view photo"}
+                            <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingPhotoFor === cam.id} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCameraPhoto(cam.id, system.id, f); e.target.value = "" }} />
+                          </label>
+                        )}
                       </div>
                     </div>
                   )}

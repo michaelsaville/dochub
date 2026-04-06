@@ -37,6 +37,7 @@ export async function PUT(
           },
           orderBy: { extension: "asc" },
         },
+        sipTrunks: { orderBy: { carrier: "asc" } },
       },
     })
     return NextResponse.json(system)

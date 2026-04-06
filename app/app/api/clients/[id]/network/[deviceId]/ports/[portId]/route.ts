@@ -13,13 +13,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (isNaN(portNumber)) return NextResponse.json({ error: "Invalid port number" }, { status: 400 })
 
     const body = await req.json()
-    const { label, isUplink, vlanId, notes } = body
+    const { label, isUplink, isPoe, vlanId, notes } = body
 
     const port = await prisma.switchPort.upsert({
       where: { networkDeviceId_portNumber: { networkDeviceId: deviceId, portNumber } },
       update: {
         ...(label !== undefined && { label: label?.trim() || null }),
         ...(isUplink !== undefined && { isUplink }),
+        ...(isPoe !== undefined && { isPoe }),
         ...(vlanId !== undefined && { vlanId: vlanId || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
       },
@@ -28,6 +29,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         portNumber,
         label: label?.trim() || null,
         isUplink: isUplink ?? false,
+        isPoe: isPoe ?? false,
         vlanId: vlanId || null,
         notes: notes?.trim() || null,
       },
