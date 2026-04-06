@@ -35,12 +35,13 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "asset-types" | "data-sources" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8"
+type Section = "platform" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
   { id: "asset-types", label: "Asset Types" },
   { id: "data-sources", label: "Data Sources" },
+  { id: "data-management", label: "Data Management" },
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
@@ -155,6 +156,15 @@ export default function SettingsPage() {
 
   // --- Shared clients list for mapping ---
   const [clientsList, setClientsList] = useState<{ id: string; name: string }[]>([])
+
+  // --- Data Management / Merge ---
+  const [mergeSourceId, setMergeSourceId] = useState("")
+  const [mergeTargetId, setMergeTargetId] = useState("")
+  const [mergePreview, setMergePreview] = useState<{ source: string; target: string; counts: Record<string, number> } | null>(null)
+  const [mergePreviewing, setMergePreviewing] = useState(false)
+  const [mergeDoing, setMergeDoing] = useState(false)
+  const [mergeResult, setMergeResult] = useState<{ success: boolean; source?: string; target?: string; error?: string } | null>(null)
+  const [mergeConfirm, setMergeConfirm] = useState(false)
 
   useEffect(() => {
     fetchAssetTypes()
@@ -325,6 +335,41 @@ export default function SettingsPage() {
   async function runSonicwallSync() {
     setSonicwallSyncing(true); setSonicwallSyncResult(null)
     try { const r = await fetch("/api/integrations/sonicwall/sync", { method: "POST" }); setSonicwallSyncResult(await r.json()) } finally { setSonicwallSyncing(false) }
+  }
+
+  // Merge
+  async function previewMerge() {
+    if (!mergeSourceId || !mergeTargetId) return
+    setMergePreviewing(true); setMergePreview(null); setMergeResult(null); setMergeConfirm(false)
+    try {
+      const res = await fetch("/api/clients/merge", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceId: mergeSourceId, targetId: mergeTargetId, preview: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setMergeResult({ success: false, error: data.error }); return }
+      setMergePreview(data)
+    } finally { setMergePreviewing(false) }
+  }
+
+  async function executeMerge() {
+    if (!mergeSourceId || !mergeTargetId) return
+    setMergeDoing(true); setMergeResult(null)
+    try {
+      const res = await fetch("/api/clients/merge", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceId: mergeSourceId, targetId: mergeTargetId, preview: false }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMergeResult({ success: true, source: data.source, target: data.target })
+        setMergePreview(null); setMergeConfirm(false); setMergeSourceId(""); setMergeTargetId("")
+        // Refresh clients list so the merged client disappears
+        fetch("/api/clients").then(r => r.json()).then(d => setClientsList(d.map((c: any) => ({ id: c.id, name: c.name })))).catch(() => {})
+      } else {
+        setMergeResult({ success: false, error: data.error })
+      }
+    } finally { setMergeDoing(false) }
   }
 
   // Pax8
@@ -801,6 +846,113 @@ export default function SettingsPage() {
             )}
 
             {/* ── Pax8 ── */}
+            {activeSection === "data-management" && (
+              <>
+                <SectionCard
+                  title="Merge Clients"
+                  description="Move all records from a duplicate client into the correct client, then mark the duplicate inactive. This cannot be undone."
+                >
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                    <div>
+                      <label style={lbl}>Source (duplicate to remove)</label>
+                      <select
+                        value={mergeSourceId}
+                        onChange={e => { setMergeSourceId(e.target.value); setMergePreview(null); setMergeConfirm(false); setMergeResult(null) }}
+                        style={inp}
+                      >
+                        <option value="">— select client —</option>
+                        {clientsList.filter(c => c.id !== mergeTargetId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={lbl}>Target (correct client to keep)</label>
+                      <select
+                        value={mergeTargetId}
+                        onChange={e => { setMergeTargetId(e.target.value); setMergePreview(null); setMergeConfirm(false); setMergeResult(null) }}
+                        style={inp}
+                      >
+                        <option value="">— select client —</option>
+                        {clientsList.filter(c => c.id !== mergeSourceId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={previewMerge}
+                    disabled={!mergeSourceId || !mergeTargetId || mergePreviewing}
+                    style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)", opacity: (!mergeSourceId || !mergeTargetId) ? 0.4 : 1 }}
+                  >
+                    {mergePreviewing ? "Checking..." : "Preview merge"}
+                  </button>
+
+                  {mergePreview && (
+                    <div style={{ marginTop: "16px", padding: "16px", borderRadius: "8px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>
+                        Moving all records from <span style={{ color: "#ef4444" }}>{mergePreview.source}</span> → <span style={{ color: "#22c55e" }}>{mergePreview.target}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", marginBottom: "14px" }}>
+                        {Object.entries(mergePreview.counts).filter(([, v]) => v > 0).map(([key, val]) => (
+                          <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: "13px" }}>
+                            <span style={{ color: "var(--color-text-secondary)", textTransform: "capitalize" }}>{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                            <span style={{ fontWeight: 500 }}>{val}</span>
+                          </div>
+                        ))}
+                        {Object.values(mergePreview.counts).every(v => v === 0) && (
+                          <div style={{ fontSize: "13px", color: "var(--color-text-muted)", gridColumn: "1 / -1" }}>Source client has no records to move.</div>
+                        )}
+                      </div>
+
+                      {!mergeConfirm ? (
+                        <button
+                          onClick={() => setMergeConfirm(true)}
+                          style={{ fontSize: "14px", fontWeight: 500, padding: "8px 18px", borderRadius: "8px", border: "none", background: "#ef4444", color: "white", cursor: "pointer" }}
+                        >
+                          Merge clients
+                        </button>
+                      ) : (
+                        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.08)", border: "0.5px solid #ef444466", borderRadius: "8px" }}>
+                          <div style={{ fontSize: "14px", fontWeight: 500, color: "#ef4444", marginBottom: "8px" }}>
+                            Are you sure? This cannot be undone.
+                          </div>
+                          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>
+                            <strong>{mergePreview.source}</strong> will be marked inactive and all its records will be permanently reassigned to <strong>{mergePreview.target}</strong>.
+                          </div>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <button
+                              onClick={executeMerge}
+                              disabled={mergeDoing}
+                              style={{ fontSize: "14px", fontWeight: 500, padding: "7px 18px", borderRadius: "8px", border: "none", background: "#ef4444", color: "white", cursor: "pointer", opacity: mergeDoing ? 0.6 : 1 }}
+                            >
+                              {mergeDoing ? "Merging..." : "Yes, merge now"}
+                            </button>
+                            <button
+                              onClick={() => setMergeConfirm(false)}
+                              style={{ fontSize: "14px", padding: "7px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {mergeResult && (
+                    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: mergeResult.success ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)", border: `0.5px solid ${mergeResult.success ? "#22c55e44" : "#ef444444"}`, fontSize: "13px" }}>
+                      {mergeResult.success ? (
+                        <div>
+                          <div style={{ fontWeight: 500, color: "#22c55e", marginBottom: "4px" }}>Merge complete</div>
+                          <div style={{ color: "var(--color-text-secondary)" }}>All records from <strong>{mergeResult.source}</strong> have been moved to <strong>{mergeResult.target}</strong>. The source client has been marked inactive.</div>
+                        </div>
+                      ) : (
+                        <div style={{ color: "#ef4444" }}>Error: {mergeResult.error}</div>
+                      )}
+                    </div>
+                  )}
+                </SectionCard>
+              </>
+            )}
+
             {activeSection === "pax8" && (
               <>
                 <SectionCard title="Pax8 Credentials" description="OAuth2 client credentials from your Pax8 Partner Portal (Admin → API credentials).">
