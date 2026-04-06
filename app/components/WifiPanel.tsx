@@ -156,8 +156,9 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(ctrlForm),
       })
-      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
-      onControllersChange(controllers.map(c => c.id === id ? { ...await res.json() } : c))
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Failed"); return }
+      onControllersChange(controllers.map(c => c.id === id ? { ...data } : c))
       setEditingCtrlId(null)
     } finally { setSaving(false) }
   }

@@ -30,7 +30,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, type, make, model, ipAddress, macAddress, serial, firmwareVersion, managementUrl, locationId, notes } = body
+    const { name, type, make, model, ipAddress, macAddress, serial, firmwareVersion, managementUrl, locationId, notes, portCount } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
@@ -48,6 +48,7 @@ export async function POST(
         managementUrl: managementUrl?.trim() || null,
         locationId: locationId || null,
         notes: notes?.trim() || null,
+        portCount: portCount ? Number(portCount) : null,
       },
       include: { location: { select: { id: true, name: true } } },
     })

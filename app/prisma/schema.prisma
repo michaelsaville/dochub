@@ -42,6 +42,7 @@ model Client {
   networkDevices NetworkDevice[]
   runbooks       Runbook[]
   subnets        Subnet[]
+  vlans          Vlan[]
   websites       Website[]
   vendors        Vendor[]           @relation("ClientVendors")
   adDomains      AdDomain[]
@@ -166,6 +167,7 @@ model Asset {
   ipAssignments  IpAssignment[]  @relation("AssetIpAssignment")
   rackSlots      RackSlot[]      @relation("AssetRackSlot")
   networkShares    NetworkShare[]   @relation("AssetNetworkShare")
+  interfaces       AssetInterface[]
   vpnGateways      VpnGateway[]     @relation("AssetVpnGateway")
   phoneSystems     PhoneSystem[]    @relation("AssetPhoneSystem")
   phoneExtensions  PhoneExtension[] @relation("AssetPhoneExtension")
@@ -519,6 +521,7 @@ model NetworkDevice {
   firmwareVersion String?
   managementUrl    String?
   notes            String?
+  portCount        Int?              // number of physical ports (switches)
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -530,8 +533,59 @@ model NetworkDevice {
   client           Client            @relation(fields: [clientId], references: [id])
   location         Location?         @relation(fields: [locationId], references: [id])
   rackSlots        RackSlot[]
+  switchPorts      SwitchPort[]
   vpnGateways      VpnGateway[]      @relation("NetworkDeviceVpnGateway")
   wifiControllers  WifiController[]  @relation("NetworkDeviceWifiController")
+}
+
+model Vlan {
+  id          String           @id @default(cuid())
+  clientId    String
+  vlanNumber  Int
+  name        String
+  color       String           @default("#6366f1")
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  client      Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  switchPorts SwitchPort[]
+  interfaces  AssetInterface[]
+
+  @@unique([clientId, vlanNumber])
+}
+
+model SwitchPort {
+  id              String           @id @default(cuid())
+  networkDeviceId String
+  portNumber      Int
+  label           String?
+  isUplink        Boolean          @default(false)
+  vlanId          String?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  networkDevice   NetworkDevice    @relation(fields: [networkDeviceId], references: [id], onDelete: Cascade)
+  vlan            Vlan?            @relation(fields: [vlanId], references: [id])
+  interfaces      AssetInterface[]
+
+  @@unique([networkDeviceId, portNumber])
+}
+
+model AssetInterface {
+  id           String      @id @default(cuid())
+  assetId      String
+  name         String      // e.g. "eth0", "NIC 1", "Management", "iDRAC"
+  macAddress   String?
+  ipAddress    String?
+  vlanId       String?
+  switchPortId String?
+  isPrimary    Boolean     @default(false)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  asset        Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  vlan         Vlan?       @relation(fields: [vlanId], references: [id])
+  switchPort   SwitchPort? @relation(fields: [switchPortId], references: [id])
 }
 
 model Rack {

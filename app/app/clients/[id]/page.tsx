@@ -9,6 +9,7 @@ import VpnPanel from "@/components/VpnPanel"
 import PhonePanel from "@/components/PhonePanel"
 import CameraPanel from "@/components/CameraPanel"
 import WifiPanel from "@/components/WifiPanel"
+import SwitchPanel from "@/components/SwitchPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -270,10 +271,12 @@ export default function ClientDetailPage() {
   const [networkDevices, setNetworkDevices] = useState<any[]>([])
   const [loadingNetwork, setLoadingNetwork] = useState(false)
   const [showAddDevice, setShowAddDevice] = useState(false)
-  const [deviceForm, setDeviceForm] = useState({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "" })
+  const [deviceForm, setDeviceForm] = useState({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "", portCount: "" })
   const [savingDevice, setSavingDevice] = useState(false)
   const [editingDevice, setEditingDevice] = useState<string | null>(null)
   const [deviceEditForm, setDeviceEditForm] = useState<any>({})
+  const [vlans, setVlans] = useState<any[]>([])
+  const [switchPanelDevice, setSwitchPanelDevice] = useState<{ id: string; name: string } | null>(null)
   const [clientDocs, setClientDocs] = useState<any[]>([])
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
@@ -322,7 +325,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Subscriptions" && subscriptions.length === 0) fetchSubscriptions()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
-    if (activeTab === "Network" && networkDevices.length === 0) fetchNetworkDevices()
+    if (activeTab === "Network" && networkDevices.length === 0) { fetchNetworkDevices(); if (vlans.length === 0) fetchVlans() }
     if (activeTab === "Remote Access") {
       if (vpnGateways.length === 0) fetchVpn()
       if (assets.length === 0) fetchAssets()
@@ -595,18 +598,25 @@ export default function ClientDetailPage() {
     finally { setLoadingNetwork(false) }
   }
 
+  async function fetchVlans() {
+    try {
+      const res = await fetch(`/api/clients/${id}/vlans`)
+      if (res.ok) setVlans(await res.json())
+    } catch {}
+  }
+
   async function saveNetworkDevice() {
     if (!deviceForm.name.trim()) return
     setSavingDevice(true)
     try {
       const res = await fetch(`/api/clients/${id}/network`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(deviceForm),
+        body: JSON.stringify({ ...deviceForm, portCount: deviceForm.portCount ? Number(deviceForm.portCount) : null }),
       })
       if (res.ok) {
         const d = await res.json()
         setNetworkDevices(n => [...n, d])
-        setDeviceForm({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "" })
+        setDeviceForm({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "", portCount: "" })
         setShowAddDevice(false)
       }
     } catch {}
@@ -617,7 +627,7 @@ export default function ClientDetailPage() {
     try {
       const res = await fetch(`/api/clients/${id}/network/${deviceId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(deviceEditForm),
+        body: JSON.stringify({ ...deviceEditForm, portCount: deviceEditForm.portCount !== undefined ? (deviceEditForm.portCount ? Number(deviceEditForm.portCount) : null) : undefined }),
       })
       if (res.ok) {
         const updated = await res.json()
@@ -2698,6 +2708,13 @@ export default function ClientDetailPage() {
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                     </div>
                   ))}
+                  {deviceForm.type === "SWITCH" && (
+                    <div>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Port count</label>
+                      <input type="number" value={deviceForm.portCount} onChange={e => setDeviceForm(f => ({ ...f, portCount: e.target.value }))} placeholder="e.g. 24"
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  )}
                   <div style={{ gridColumn: "1 / -1" }}>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
                     <input value={deviceForm.notes} onChange={e => setDeviceForm(f => ({ ...f, notes: e.target.value }))}
@@ -2756,6 +2773,13 @@ export default function ClientDetailPage() {
                           {client.locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
                         </select>
                       </div>
+                      {(deviceEditForm.type === "SWITCH" || dev.type === "SWITCH") && (
+                        <div>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Port count</label>
+                          <input type="number" value={deviceEditForm.portCount ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, portCount: e.target.value }))} placeholder="e.g. 24"
+                            style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      )}
                       <div style={{ gridColumn: "1 / -1" }}>
                         <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
                         <input value={deviceEditForm.notes ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, notes: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
@@ -2794,8 +2818,14 @@ export default function ClientDetailPage() {
                         <a href={dev.managementUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-secondary)" }}>Open ↗</a>
                       ) : "—"}
                     </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingDevice(dev.id); setDeviceEditForm({ ...dev, locationId: dev.location?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {dev.type === "SWITCH" && (
+                        <button onClick={() => { setSwitchPanelDevice({ id: dev.id, name: dev.name }); if (vlans.length === 0) fetchVlans(); if (assets.length === 0) fetchAssets() }}
+                          style={{ fontSize: "12px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                          Ports{dev.portCount ? ` (${dev.portCount})` : ""}
+                        </button>
+                      )}
+                      <button onClick={() => { setEditingDevice(dev.id); setDeviceEditForm({ ...dev, locationId: dev.location?.id ?? "", portCount: dev.portCount ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>
@@ -2877,6 +2907,19 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Switch port panel overlay */}
+        {switchPanelDevice && (
+          <SwitchPanel
+            clientId={id as string}
+            deviceId={switchPanelDevice.id}
+            deviceName={switchPanelDevice.name}
+            vlans={vlans}
+            onVlansChange={setVlans}
+            assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName, category: a.category, interfaces: [] }))}
+            onClose={() => setSwitchPanelDevice(null)}
+          />
         )}
 
         {activeTab === "Remote Access" && (

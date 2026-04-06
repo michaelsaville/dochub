@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     const { deviceId } = await params
     const body = await req.json()
-    const { name, type, make, model, ipAddress, macAddress, serial, firmwareVersion, managementUrl, locationId, notes } = body
+    const { name, type, make, model, ipAddress, macAddress, serial, firmwareVersion, managementUrl, locationId, notes, portCount } = body
     const device = await prisma.networkDevice.update({
       where: { id: deviceId },
       data: {
@@ -26,6 +26,7 @@ export async function PATCH(
         ...(managementUrl !== undefined && { managementUrl: managementUrl?.trim() || null }),
         ...(locationId !== undefined && { locationId: locationId || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
+        ...(portCount !== undefined && { portCount: portCount ? Number(portCount) : null }),
       },
       include: { location: { select: { id: true, name: true } } },
     })

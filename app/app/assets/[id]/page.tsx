@@ -12,6 +12,22 @@ type Credential = {
   hasPassword: boolean
 }
 
+type AssetInterface = {
+  id: string
+  name: string
+  macAddress: string | null
+  ipAddress: string | null
+  isPrimary: boolean
+  notes: string | null
+  vlan: { id: string; vlanNumber: number; name: string; color: string } | null
+  switchPort: {
+    id: string
+    portNumber: number
+    label: string | null
+    networkDevice: { id: string; name: string }
+  } | null
+}
+
 type Asset = {
   id: string
   name: string
@@ -134,6 +150,14 @@ export default function AssetDetailPage() {
   const [asset, setAsset] = useState<Asset | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [interfaces, setInterfaces] = useState<AssetInterface[]>([])
+  const [loadingIfaces, setLoadingIfaces] = useState(false)
+  const [showAddIface, setShowAddIface] = useState(false)
+  const [ifaceForm, setIfaceForm] = useState({ name: "eth0", macAddress: "", ipAddress: "", notes: "" })
+  const [savingIface, setSavingIface] = useState(false)
+  const [editingIface, setEditingIface] = useState<string | null>(null)
+  const [ifaceEditForm, setIfaceEditForm] = useState<any>({})
+
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealingId, setRevealingId] = useState<string | null>(null)
 
@@ -144,12 +168,67 @@ export default function AssetDetailPage() {
   const [driverEditing, setDriverEditing] = useState(false)
 
   useEffect(() => {
-    if (id) fetch("/api/assets/" + id)
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(setAsset)
-      .catch(() => router.back())
-      .finally(() => setLoading(false))
+    if (id) {
+      fetch("/api/assets/" + id)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(setAsset)
+        .catch(() => router.back())
+        .finally(() => setLoading(false))
+      fetchInterfaces()
+    }
   }, [id])
+
+  async function fetchInterfaces() {
+    setLoadingIfaces(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/interfaces`)
+      if (res.ok) setInterfaces(await res.json())
+    } finally {
+      setLoadingIfaces(false)
+    }
+  }
+
+  async function addInterface() {
+    if (!ifaceForm.name.trim()) return
+    setSavingIface(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/interfaces`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ifaceForm, isPrimary: interfaces.length === 0 }),
+      })
+      if (res.ok) {
+        const iface = await res.json()
+        setInterfaces(prev => [...prev, iface])
+        setIfaceForm({ name: "eth0", macAddress: "", ipAddress: "", notes: "" })
+        setShowAddIface(false)
+      }
+    } finally {
+      setSavingIface(false)
+    }
+  }
+
+  async function updateInterface(ifaceId: string) {
+    setSavingIface(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/interfaces/${ifaceId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ifaceEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setInterfaces(prev => prev.map(i => i.id === ifaceId ? updated : i))
+        setEditingIface(null)
+      }
+    } finally {
+      setSavingIface(false)
+    }
+  }
+
+  async function deleteInterface(ifaceId: string) {
+    if (!confirm("Remove this interface?")) return
+    const res = await fetch(`/api/assets/${id}/interfaces/${ifaceId}`, { method: "DELETE" })
+    if (res.ok) setInterfaces(prev => prev.filter(i => i.id !== ifaceId))
+  }
 
   async function revealPassword(credId: string) {
     if (revealedPasswords[credId] !== undefined) {
@@ -371,6 +450,99 @@ export default function AssetDetailPage() {
 
           {/* ── Right: relations sidebar ── */}
           <div style={{ width: "272px", flexShrink: 0 }}>
+
+            {/* Network Interfaces */}
+            <div style={card}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div style={cardTitle}>Network Interfaces</div>
+                <button onClick={() => setShowAddIface(v => !v)} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                  {showAddIface ? "Cancel" : "+ Add"}
+                </button>
+              </div>
+              {showAddIface && (
+                <div style={{ marginBottom: "12px", padding: "10px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
+                  {[
+                    { key: "name", label: "Name", placeholder: "eth0" },
+                    { key: "ipAddress", label: "IP address", placeholder: "192.168.1.10" },
+                    { key: "macAddress", label: "MAC address", placeholder: "aa:bb:cc:dd:ee:ff" },
+                    { key: "notes", label: "Notes", placeholder: "" },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} style={{ marginBottom: "6px" }}>
+                      <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{label}</label>
+                      <input value={(ifaceForm as any)[key]} onChange={e => setIfaceForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                        style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  ))}
+                  <button onClick={addInterface} disabled={savingIface || !ifaceForm.name.trim()}
+                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    {savingIface ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              )}
+              {loadingIfaces ? (
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Loading...</div>
+              ) : interfaces.length === 0 ? (
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>No interfaces recorded.</div>
+              ) : (
+                interfaces.map((iface, i) => editingIface === iface.id ? (
+                  <div key={iface.id} style={{ padding: "8px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", marginBottom: "8px" }}>
+                    {[
+                      { key: "name", label: "Name" },
+                      { key: "ipAddress", label: "IP address" },
+                      { key: "macAddress", label: "MAC address" },
+                      { key: "notes", label: "Notes" },
+                    ].map(({ key, label }) => (
+                      <div key={key} style={{ marginBottom: "5px" }}>
+                        <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{label}</label>
+                        <input value={ifaceEditForm[key] ?? ""} onChange={e => setIfaceEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                          style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                      <button onClick={() => updateInterface(iface.id)} disabled={savingIface}
+                        style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "5px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                      <button onClick={() => setEditingIface(null)}
+                        style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={iface.id} style={{ paddingBottom: "10px", marginBottom: "10px", borderBottom: i < interfaces.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 500 }}>{iface.name}</span>
+                        {iface.isPrimary && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>primary</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", notes: iface.notes ?? "" }) }}
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }}>Edit</button>
+                        <button onClick={() => deleteInterface(iface.id)}
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: 0 }}>×</button>
+                      </div>
+                    </div>
+                    {iface.ipAddress && (
+                      <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{iface.ipAddress}</div>
+                    )}
+                    {iface.macAddress && (
+                      <div style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>{iface.macAddress}</div>
+                    )}
+                    {iface.vlan && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "3px" }}>
+                        <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: iface.vlan.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>VLAN {iface.vlan.vlanNumber} – {iface.vlan.name}</span>
+                      </div>
+                    )}
+                    {iface.switchPort && (
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                        {iface.switchPort.networkDevice.name} · Port {iface.switchPort.portNumber}{iface.switchPort.label ? ` (${iface.switchPort.label})` : ""}
+                      </div>
+                    )}
+                    {iface.notes && (
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px", fontStyle: "italic" }}>{iface.notes}</div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
 
             {/* Primary user */}
             {asset.primaryUser && (
