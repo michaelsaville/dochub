@@ -35,13 +35,14 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8"
+type Section = "platform" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8" | "api-keys"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
   { id: "asset-types", label: "Asset Types" },
   { id: "data-sources", label: "Data Sources" },
   { id: "data-management", label: "Data Management" },
+  { id: "api-keys", label: "API Keys" },
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
@@ -87,6 +88,37 @@ function SyncResult({ result }: { result: any }) {
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>("platform")
+
+  // --- API Keys ---
+  type ApiKeyMeta = { id: string; name: string; lastUsedAt: string | null; createdAt: string }
+  const [apiKeys, setApiKeys] = useState<ApiKeyMeta[]>([])
+  const [newKeyName, setNewKeyName] = useState("")
+  const [createdKey, setCreatedKey] = useState<string | null>(null)
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null)
+  const [keyLoading, setKeyLoading] = useState(false)
+
+  const loadApiKeys = async () => {
+    const res = await fetch("/api/v1/keys")
+    if (res.ok) { const d = await res.json(); setApiKeys(d.keys) }
+  }
+
+  useEffect(() => { if (activeSection === "api-keys") loadApiKeys() }, [activeSection])
+
+  const generateKey = async () => {
+    if (!newKeyName.trim()) return
+    setKeyLoading(true); setApiKeyError(null); setCreatedKey(null)
+    const res = await fetch("/api/v1/keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newKeyName.trim() }) })
+    setKeyLoading(false)
+    if (res.ok) { const d = await res.json(); setCreatedKey(d.key); setNewKeyName(""); loadApiKeys() }
+    else { const d = await res.json(); setApiKeyError(d.error ?? "Failed to generate key") }
+  }
+
+  const revokeKey = async (id: string) => {
+    if (!confirm("Revoke this API key? Any apps using it will stop working.")) return
+    await fetch(`/api/v1/keys/${id}`, { method: "DELETE" })
+    loadApiKeys()
+    if (createdKey) setCreatedKey(null)
+  }
 
   // --- Platform ---
   const [domainThreshold, setDomainThreshold] = useState(30)
@@ -1016,6 +1048,68 @@ export default function SettingsPage() {
                 <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
                   Subscriptions are synced into each client&apos;s Subscriptions tab. Cancelled and terminated subscriptions are skipped. User assignments are preserved on re-sync.
                 </div>
+              </>
+            )}
+
+            {activeSection === "api-keys" && (
+              <>
+                <SectionCard title="API Keys" description="Generate keys for the DocHub REST API — used by browser extensions, scripts, or integrations. Keys are shown once at creation.">
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                    <input
+                      value={newKeyName}
+                      onChange={e => setNewKeyName(e.target.value)}
+                      placeholder="Key name (e.g. Browser Extension)"
+                      style={{ ...inp, flex: 1 }}
+                      onKeyDown={e => e.key === "Enter" && generateKey()}
+                    />
+                    <button
+                      onClick={generateKey}
+                      disabled={keyLoading || !newKeyName.trim()}
+                      style={{ fontSize: "13px", fontWeight: 500, padding: "6px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: keyLoading || !newKeyName.trim() ? "not-allowed" : "pointer", opacity: keyLoading || !newKeyName.trim() ? 0.5 : 1, whiteSpace: "nowrap" }}
+                    >
+                      {keyLoading ? "Generating..." : "Generate key"}
+                    </button>
+                  </div>
+
+                  {apiKeyError && <div style={{ fontSize: "13px", color: "var(--color-error, #e55)", marginBottom: "12px" }}>{apiKeyError}</div>}
+
+                  {createdKey && (
+                    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", padding: "12px 14px", marginBottom: "16px" }}>
+                      <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "6px" }}>Copy this key now — it will not be shown again.</div>
+                      <div style={{ fontFamily: "monospace", fontSize: "13px", wordBreak: "break-all", userSelect: "all", color: "var(--color-text-primary)" }}>{createdKey}</div>
+                      <button onClick={() => { navigator.clipboard.writeText(createdKey); }} style={{ marginTop: "8px", fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}>Copy</button>
+                    </div>
+                  )}
+
+                  {apiKeys.length === 0 ? (
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>No API keys yet.</div>
+                  ) : (
+                    <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 80px", padding: "8px 14px", background: "var(--color-background-hover)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                        {["Name", "Created", "Last used", ""].map((h, i) => (
+                          <div key={i} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
+                        ))}
+                      </div>
+                      {apiKeys.map((k, i) => (
+                        <div key={k.id} style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 80px", padding: "10px 14px", borderBottom: i < apiKeys.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center", background: "var(--color-background-primary)" }}>
+                          <div style={{ fontSize: "14px" }}>{k.name}</div>
+                          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{new Date(k.createdAt).toLocaleDateString()}</div>
+                          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never"}</div>
+                          <button onClick={() => revokeKey(k.id)} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-error, #e55)", cursor: "pointer" }}>Revoke</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+
+                <SectionCard title="API Reference" description="Base URL: https://dochub.pcc2k.com — authenticate with Authorization: Bearer <key>">
+                  <div style={{ fontFamily: "monospace", fontSize: "12px", color: "var(--color-text-secondary)", lineHeight: "1.8" }}>
+                    <div><span style={{ color: "var(--color-text-primary)" }}>GET</span>  /api/v1/credentials — list all credentials (no secrets)</div>
+                    <div><span style={{ color: "var(--color-text-primary)" }}>GET</span>  /api/v1/credentials?clientId=&#123;id&#125; — filter by client</div>
+                    <div><span style={{ color: "var(--color-text-primary)" }}>GET</span>  /api/v1/credentials/search?url=&#123;url&#125; — autofill match by hostname</div>
+                    <div><span style={{ color: "var(--color-text-primary)" }}>GET</span>  /api/v1/credentials/&#123;id&#125;/reveal — decrypt password + TOTP</div>
+                  </div>
+                </SectionCard>
               </>
             )}
 

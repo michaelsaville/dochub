@@ -18,6 +18,17 @@ model StaffUser {
   updatedAt      DateTime        @updatedAt
   activityEvents ActivityEvent[]
   vpnAccess      VpnAccessor[]   @relation("StaffUserVpnAccess")
+  apiKeys        ApiKey[]
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  staffUserId String
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
 }
 
 model Client {
