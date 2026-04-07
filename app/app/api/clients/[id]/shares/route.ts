@@ -37,7 +37,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, uncPath, shareType, domainId, assetId, purpose, notes } = body
+    const { name, uncPath, shareType, domainId, assetId, driveLetter, purpose, notes } = body
     if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 })
     if (!uncPath?.trim()) return NextResponse.json({ error: "UNC path is required" }, { status: 400 })
     const share = await prisma.networkShare.create({
@@ -48,6 +48,7 @@ export async function POST(
         shareType: shareType || "SMB",
         domainId: domainId || null,
         assetId: assetId || null,
+        driveLetter: driveLetter?.trim().replace(":", "").toUpperCase() || null,
         purpose: purpose?.trim() || null,
         notes: notes?.trim() || null,
       },

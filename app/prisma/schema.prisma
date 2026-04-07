@@ -824,15 +824,16 @@ model DomainGroup {
 }
 
 model NetworkShare {
-  id          String            @id @default(cuid())
-  clientId    String
-  domainId    String?
-  assetId     String?           // file server / NAS asset
-  name        String            // e.g. Finance
-  uncPath     String            // e.g. \\FS01\Finance
-  shareType   ShareType         @default(SMB)
-  purpose     String?
-  notes       String?
+  id            String            @id @default(cuid())
+  clientId      String
+  domainId      String?
+  assetId       String?           // file server / NAS asset
+  name          String            // e.g. Finance
+  uncPath       String            // e.g. \\FS01\Finance
+  shareType     ShareType         @default(SMB)
+  driveLetter   String?           // e.g. "F", "Z" — desired mapped drive letter
+  purpose       String?
+  notes         String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   client      Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)

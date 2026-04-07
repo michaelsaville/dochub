@@ -29,6 +29,7 @@ type NetworkShare = {
   name: string
   uncPath: string
   shareType: "SMB" | "DFS" | "NFS"
+  driveLetter: string | null
   purpose: string | null
   notes: string | null
   domainId: string | null
@@ -138,7 +139,7 @@ function SharesView({ shares, domains, assets, clientId, onSharesChange }: {
   onSharesChange: (s: NetworkShare[]) => void
 }) {
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ name: "", uncPath: "", shareType: "SMB", domainId: "", assetId: "", purpose: "", notes: "" })
+  const [form, setForm] = useState({ name: "", uncPath: "", shareType: "SMB", domainId: "", assetId: "", driveLetter: "", purpose: "", notes: "" })
   const [saving, setSaving] = useState(false)
   const [expandedShare, setExpandedShare] = useState<string | null>(null)
   const [editingShare, setEditingShare] = useState<string | null>(null)
@@ -159,7 +160,7 @@ function SharesView({ shares, domains, assets, clientId, onSharesChange }: {
       if (res.ok) {
         const created = await res.json()
         onSharesChange([...shares, created])
-        setForm({ name: "", uncPath: "", shareType: "SMB", domainId: "", assetId: "", purpose: "", notes: "" })
+        setForm({ name: "", uncPath: "", shareType: "SMB", domainId: "", assetId: "", driveLetter: "", purpose: "", notes: "" })
         setShowAdd(false)
       }
     } finally { setSaving(false) }
@@ -238,6 +239,13 @@ function SharesView({ shares, domains, assets, clientId, onSharesChange }: {
               </select>
             </div>
             <div>
+              <label style={lbl}>Drive letter</label>
+              <select value={form.driveLetter} onChange={e => setForm(f => ({ ...f, driveLetter: e.target.value }))} style={inp}>
+                <option value="">— none —</option>
+                {"DEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => <option key={l} value={l}>{l}:</option>)}
+              </select>
+            </div>
+            <div>
               <label style={lbl}>File server (asset)</label>
               <select value={form.assetId} onChange={e => setForm(f => ({ ...f, assetId: e.target.value }))} style={inp}>
                 <option value="">None</option>
@@ -296,6 +304,13 @@ function SharesView({ shares, domains, assets, clientId, onSharesChange }: {
                   </select>
                 </div>
                 <div>
+                  <label style={lbl}>Drive letter</label>
+                  <select value={editForm.driveLetter || ""} onChange={e => setEditForm((f: any) => ({ ...f, driveLetter: e.target.value || null }))} style={inp}>
+                    <option value="">— none —</option>
+                    {"DEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => <option key={l} value={l}>{l}:</option>)}
+                  </select>
+                </div>
+                <div>
                   <label style={lbl}>File server</label>
                   <select value={editForm.assetId || ""} onChange={e => setEditForm((f: any) => ({ ...f, assetId: e.target.value || null }))} style={inp}>
                     <option value="">None</option>
@@ -334,6 +349,12 @@ function SharesView({ shares, domains, assets, clientId, onSharesChange }: {
               <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 7px", borderRadius: "4px", background: "var(--color-background-secondary)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
                 {share.shareType}
               </span>
+              {/* Drive letter badge */}
+              {share.driveLetter && (
+                <span style={{ fontSize: "12px", fontWeight: 700, padding: "2px 8px", borderRadius: "4px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", border: "0.5px solid var(--color-border-secondary)", flexShrink: 0, fontFamily: "monospace" }}>
+                  {share.driveLetter}:
+                </span>
+              )}
               {/* Name + path */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{share.name}</div>

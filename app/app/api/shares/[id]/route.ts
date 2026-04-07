@@ -11,7 +11,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, uncPath, shareType, domainId, assetId, purpose, notes } = body
+    const { name, uncPath, shareType, domainId, assetId, driveLetter, purpose, notes } = body
     const share = await prisma.networkShare.update({
       where: { id },
       data: {
@@ -20,6 +20,7 @@ export async function PUT(
         shareType: shareType ?? undefined,
         domainId: domainId ?? null,
         assetId: assetId ?? null,
+        driveLetter: driveLetter !== undefined ? (driveLetter?.trim().replace(":", "").toUpperCase() || null) : undefined,
         purpose: purpose?.trim() ?? null,
         notes: notes?.trim() ?? null,
       },
