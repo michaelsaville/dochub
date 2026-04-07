@@ -11,16 +11,20 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { carrier, accountNumber, supportPhone, didRange, notes } = body
+    const { vendorId, carrier, accountNumber, supportPhone, notes } = body
     if (!carrier?.trim()) return NextResponse.json({ error: "Carrier is required" }, { status: 400 })
     const trunk = await prisma.sipTrunk.update({
       where: { id },
       data: {
+        ...(vendorId !== undefined && { vendorId: vendorId || null }),
         carrier: carrier.trim(),
         accountNumber: accountNumber?.trim() || null,
         supportPhone: supportPhone?.trim() || null,
-        didRange: didRange?.trim() || null,
         notes: notes?.trim() || null,
+      },
+      include: {
+        vendor: { select: { id: true, name: true, supportPhone: true } },
+        dids: { include: { extension: { select: { id: true, extension: true, displayName: true } } } },
       },
     })
     return NextResponse.json(trunk)

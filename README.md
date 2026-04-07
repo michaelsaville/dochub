@@ -1,6 +1,6 @@
 # DocHub
 
-**DocHub** is a self-hosted MSP documentation platform built and maintained by PCC2K. It centralises everything a managed service provider needs to know about its clients — hardware, credentials, licenses, contacts, network infrastructure, domains, and runbooks — into a single, dark-themed, fast web application.
+**DocHub** is a self-hosted MSP documentation platform built and maintained by PCC2K. It centralises everything a managed service provider needs to know about its clients — hardware, credentials, licenses, contacts, network infrastructure, phone systems, cameras, remote access, and runbooks — into a single, dark-themed, fast web application.
 
 DocHub is not a ticketing system or a PSA. It is purpose-built documentation: the single source of truth your technicians reach for when they need to know a client's network layout, a server's serial number, or the password to the firewall.
 
@@ -15,23 +15,47 @@ DocHub is not a ticketing system or a PSA. It is purpose-built documentation: th
 | **Users** | Client-side staff directory with M365 UPN, job title, location assignment |
 | **Assets** | Hardware/software inventory with make, model, serial, IP, RDP/VNC launch links, Splashtop integration, driver URL lookup |
 | **Contacts** | Vendor/escalation contacts per client |
-| **Credentials** | Encrypted password vault with per-user reveal, URL launch, favouriting |
+| **Credentials** | AES-256-GCM encrypted password vault with per-user reveal, URL launch, favouriting, TOTP, expiry tracking |
 | **Licenses** | Manual software license tracking with key vault and user assignment |
 | **Subscriptions** | Pax8-synced cloud subscriptions with per-subscription user assignment and monthly cost rollup |
 | **Applications** | Installed applications catalogue |
 | **Domains** | Domain expiry monitoring with configurable alert threshold and DNS record snapshot |
-| **Network** | Network devices (switches, APs, firewalls) with rack visualisation and IP address management (IPAM) |
+| **Network** | Network devices (switches, APs, firewalls, racks), VLANs, subnets, file shares with AD domain credentials and drive letter, wireless PTP bridge links |
+| **Remote Access** | VPN servers and client accessor records with user linking and credential vault integration |
+| **Phone System** | PBX systems, extensions, SIP trunks (vendor-linked, structured DID management), POTS lines (FX port mapping) |
+| **Cameras** | NVR/DVR systems with field-of-view thumbnails — manual upload or auto-synced from UniFi Protect |
 | **Documents** | Rich-text client documents and file attachments |
 | **SOPs** | Step-by-step runbooks, taggable and categorised, scoped global or per-client |
 | **Dashboard** | Per-client quick-access dashboard with favourited assets and credentials |
 | **Activity** | Audit log of all changes per client |
+
+### Network — detail
+
+- **Network Devices**: switches, APs, firewalls, servers, UPS, printers with rack visualisation and port documentation
+- **VLANs & Subnets**: per-client IPAM with VLAN ID, subnet CIDR, gateway
+- **File Shares**: SMB/NFS/DFS shares with AD domain join, mapped drive letter (D–Z), domain admin credentials stored in vault
+- **Wireless PTP Bridges**: side A/B endpoint details (IP, MAC, serial, signal dBm, tx power), link-level frequency/channel/distance, signal quality colour coding (green ≥ −60 dBm → red < −80 dBm)
+
+### Phone System — detail
+
+- **Extensions**: number, display name, type (User/Ring Group/IVR/FAX/Paging/Conference), DID, linked client user, handset asset, SIP credential, voicemail credential
+- **SIP Trunks**: optional vendor link (auto-fills carrier + support phone), account number, expandable DID list — each DID has number, designation, optional extension routing
+- **POTS Lines**: same vendor-linking pattern, carrier, account number, circuit/billing ID, per-number FX port label, designation, optional extension routing
+
+### Cameras — detail
+
+- Field-of-view thumbnails: manual upload or automatically pulled from UniFi Protect API
+- **UniFi Protect sync**: set `unifiCameraId` per camera; "Sync UniFi" button authenticates against the NVR and pulls a fresh JPEG snapshot for every configured camera
+- Self-signed certificate support (UniFi default — no extra config needed)
+- Monthly automated rotation via `GET /api/cron/camera-snapshots` (bearer-token protected)
+- Sync timestamp shown on thumbnail ("Synced Apr 2026")
 
 ### Integrations
 
 | Integration | What syncs |
 |---|---|
 | [SyncroMSP](docs/integrations/syncromsp.md) | Assets (with friendly name, Splashtop URL), contacts |
-| [Ubiquiti / Unifi](docs/integrations/unifi.md) | Network devices — APs, switches, gateways |
+| [Ubiquiti / UniFi](docs/integrations/unifi.md) | Network devices (APs, switches, gateways); camera snapshot thumbnails via Protect API |
 | [Cisco Meraki](docs/integrations/meraki.md) | Network devices with online/offline status |
 | [HP Instant On / Aruba](docs/integrations/hpinstanton.md) | Network devices |
 | [SonicWall](docs/integrations/sonicwall.md) | Firewall appliance info (model, serial, firmware) |
@@ -96,6 +120,7 @@ docker compose exec app npx prisma db push
 | `AZURE_AD_CLIENT_SECRET` | Entra ID app client secret |
 | `AZURE_AD_TENANT_ID` | Entra ID tenant ID |
 | `ENCRYPTION_KEY` | 32-byte hex key for credential encryption (use `openssl rand -hex 32`) |
+| `CRON_SECRET` | Bearer token for cron endpoints (`/api/cron/*`) — use `openssl rand -base64 32` |
 | `POSTGRES_USER` | Postgres username (used by the `db` service) |
 | `POSTGRES_PASSWORD` | Postgres password |
 | `POSTGRES_DB` | Postgres database name |
@@ -113,6 +138,25 @@ Caddy handles TLS automatically via Let's Encrypt.
 ### Updates
 
 Watchtower polls for new image versions every 30 seconds and restarts the `app` container automatically when a new image is published to GHCR. No action needed.
+
+---
+
+## Configuration
+
+### Monthly camera snapshot rotation (UniFi Protect)
+
+Add a system cron on the Docker host to hit the camera snapshot endpoint monthly:
+
+```bash
+# /etc/cron.d/dochub-camera-snapshots
+0 2 1 * * root curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://dochub.example.com/api/cron/camera-snapshots \
+  >> /var/log/dochub-camera-sync.log 2>&1
+```
+
+Response: `{ "ok": true, "synced": 5, "failed": 0, "timestamp": "..." }`
+
+Cameras must have their `unifiCameraId` field set (visible in UniFi Protect → Camera → device details). The camera system must have a management URL and linked credential configured.
 
 ---
 
@@ -144,7 +188,7 @@ The dev server runs on `http://localhost:3000`. The database must be reachable �
 ### Schema changes
 
 ```bash
-# After editing prisma/schema.prisma
+# After editing prisma/schema.prisma — run from host, not from inside the container
 DATABASE_URL="postgresql://user:pass@localhost:5432/dochub" npx prisma db push
 ```
 
@@ -155,7 +199,7 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/dochub" npx prisma db push
 - [Integrations overview](docs/integrations/)
 - [ITFlow migration guide](docs/integrations/itflow-import.md)
 - [SyncroMSP](docs/integrations/syncromsp.md)
-- [Unifi](docs/integrations/unifi.md)
+- [UniFi](docs/integrations/unifi.md)
 - [Cisco Meraki](docs/integrations/meraki.md)
 - [HP Instant On](docs/integrations/hpinstanton.md)
 - [SonicWall](docs/integrations/sonicwall.md)

@@ -57,13 +57,47 @@ type PhoneExtension = {
   voicemailCred: { id: string; label: string } | null
 }
 
+type SipDid = {
+  id: string
+  number: string
+  designation: string | null
+  extensionId: string | null
+  notes: string | null
+  extension: { id: string; extension: string; displayName: string } | null
+}
+
 type SipTrunk = {
   id: string
+  vendorId: string | null
   carrier: string
   accountNumber: string | null
   supportPhone: string | null
-  didRange: string | null
   notes: string | null
+  vendor: { id: string; name: string; supportPhone: string | null } | null
+  dids: SipDid[]
+}
+
+type PotsNumber = {
+  id: string
+  number: string
+  designation: string | null
+  port: string | null
+  extensionId: string | null
+  notes: string | null
+  extension: { id: string; extension: string; displayName: string } | null
+}
+
+type PotsLine = {
+  id: string
+  vendorId: string | null
+  carrier: string
+  accountNumber: string | null
+  supportPhone: string | null
+  circuitId: string | null
+  notes: string | null
+  isActive: boolean
+  vendor: { id: string; name: string; supportPhone: string | null } | null
+  numbers: PotsNumber[]
 }
 
 type PhoneSystem = {
@@ -78,6 +112,7 @@ type PhoneSystem = {
   credential: { id: string; label: string } | null
   extensions: PhoneExtension[]
   sipTrunks: SipTrunk[]
+  potsLines: PotsLine[]
 }
 
 type Props = {
@@ -85,6 +120,7 @@ type Props = {
   assets: { id: string; name: string; friendlyName: string | null; category: string }[]
   clientUsers: { id: string; name: string; email: string | null }[]
   credentials: { id: string; label: string }[]
+  vendors: { id: string; name: string; supportPhone: string | null }[]
   clientId: string
   onSystemsChange: (systems: PhoneSystem[]) => void
 }
@@ -92,7 +128,7 @@ type Props = {
 const emptySystem = { name: "", type: "GRANDSTREAM_UCM", assetId: "", credentialId: "", sipDomain: "", managementUrl: "", notes: "" }
 const emptyExt = { extension: "", displayName: "", type: "USER", clientUserId: "", assetId: "", credentialId: "", voicemailCredId: "", did: "", voicemailEnabled: false, notes: "" }
 
-export default function PhonePanel({ systems, assets, clientUsers, credentials, clientId, onSystemsChange }: Props) {
+export default function PhonePanel({ systems, assets, clientUsers, credentials, vendors, clientId, onSystemsChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAddSystem, setShowAddSystem] = useState(false)
   const [addingExtFor, setAddingExtFor] = useState<string | null>(null)
@@ -200,22 +236,24 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
 
   const [addingTrunkFor, setAddingTrunkFor] = useState<string | null>(null)
   const [editingTrunkId, setEditingTrunkId] = useState<string | null>(null)
-  const emptyTrunk = { carrier: "", accountNumber: "", supportPhone: "", didRange: "", notes: "" }
+  const [expandedTrunkId, setExpandedTrunkId] = useState<string | null>(null)
+  const emptyTrunk = { vendorId: "", carrier: "", accountNumber: "", supportPhone: "", notes: "" }
   const [trunkForm, setTrunkForm] = useState({ ...emptyTrunk })
+  const [addingDidFor, setAddingDidFor] = useState<string | null>(null)
+  const emptyDid = { number: "", designation: "", extensionId: "", notes: "" }
+  const [didForm, setDidForm] = useState({ ...emptyDid })
 
   async function addTrunk(systemId: string) {
     setError(""); setSaving(true)
     try {
       const res = await fetch(`/api/phone-systems/${systemId}/sip-trunks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trunkForm),
       })
       if (!res.ok) { setError((await res.json()).error || "Failed"); return }
       const created = await res.json()
       onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: [...(s.sipTrunks || []), created].sort((a, b) => a.carrier.localeCompare(b.carrier)) } : s))
-      setAddingTrunkFor(null)
-      setTrunkForm({ ...emptyTrunk })
+      setAddingTrunkFor(null); setTrunkForm({ ...emptyTrunk })
     } finally { setSaving(false) }
   }
 
@@ -223,8 +261,7 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
     setError(""); setSaving(true)
     try {
       const res = await fetch(`/api/sip-trunks/${trunkId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trunkForm),
       })
       if (!res.ok) { setError((await res.json()).error || "Failed"); return }
@@ -240,11 +277,43 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
     if (res.ok) onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: s.sipTrunks.filter(t => t.id !== trunkId) } : s))
   }
 
+  async function addDid(trunkId: string, systemId: string) {
+    setError(""); setSaving(true)
+    try {
+      const res = await fetch(`/api/sip-trunks/${trunkId}/dids`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(didForm),
+      })
+      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
+      const created = await res.json()
+      onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: s.sipTrunks.map(t => t.id === trunkId ? { ...t, dids: [...t.dids, created] } : t) } : s))
+      setAddingDidFor(null); setDidForm({ ...emptyDid })
+    } finally { setSaving(false) }
+  }
+
+  async function deleteDid(didId: string, trunkId: string, systemId: string) {
+    const res = await fetch(`/api/sip-trunks/${trunkId}/dids/${didId}`, { method: "DELETE" })
+    if (res.ok) onSystemsChange(systems.map(s => s.id === systemId ? { ...s, sipTrunks: s.sipTrunks.map(t => t.id === trunkId ? { ...t, dids: t.dids.filter(d => d.id !== didId) } : t) } : s))
+  }
+
   function TrunkForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
+    const selectedVendor = vendors.find(v => v.id === trunkForm.vendorId)
     return (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", padding: "12px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", marginTop: "8px" }}>
+        {vendors.length > 0 && (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={lbl}>Provider (from vendor list)</label>
+            <select style={inp} value={trunkForm.vendorId} onChange={e => {
+              const v = vendors.find(v => v.id === e.target.value)
+              setTrunkForm(f => ({ ...f, vendorId: e.target.value, carrier: v?.name || f.carrier, supportPhone: v?.supportPhone || f.supportPhone }))
+            }}>
+              <option value="">— select vendor or enter manually below —</option>
+              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+        )}
         <div>
-          <label style={lbl}>Carrier / Provider *</label>
+          <label style={lbl}>Carrier name *</label>
           <input style={inp} value={trunkForm.carrier} onChange={e => setTrunkForm(f => ({ ...f, carrier: e.target.value }))} placeholder="Twilio, VoIP.ms, Vonage…" />
         </div>
         <div>
@@ -255,13 +324,117 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
           <label style={lbl}>Support Phone</label>
           <input style={inp} value={trunkForm.supportPhone} onChange={e => setTrunkForm(f => ({ ...f, supportPhone: e.target.value }))} placeholder="1-800-…" />
         </div>
-        <div style={{ gridColumn: "1 / 3" }}>
-          <label style={lbl}>DID Range / Numbers</label>
-          <input style={inp} value={trunkForm.didRange} onChange={e => setTrunkForm(f => ({ ...f, didRange: e.target.value }))} placeholder="304-555-0100 to 0199, or individual DIDs" />
-        </div>
-        <div>
+        <div style={{ gridColumn: "1 / -1" }}>
           <label style={lbl}>Notes</label>
           <input style={inp} value={trunkForm.notes} onChange={e => setTrunkForm(f => ({ ...f, notes: e.target.value }))} />
+        </div>
+        {error && <div style={{ gridColumn: "1 / -1", color: "#ef4444", fontSize: "13px" }}>{error}</div>}
+        <div style={{ gridColumn: "1 / -1", display: "flex", gap: "8px" }}>
+          <button style={btn("primary")} onClick={onSubmit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          <button style={btn("ghost")} onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── POTS Lines ────────────────────────────────────────────────────────────
+
+  const [addingPotsFor, setAddingPotsFor] = useState<string | null>(null)
+  const [editingPotsId, setEditingPotsId] = useState<string | null>(null)
+  const [expandedPotsId, setExpandedPotsId] = useState<string | null>(null)
+  const emptyPots = { vendorId: "", carrier: "", accountNumber: "", supportPhone: "", circuitId: "", notes: "" }
+  const [potsForm, setPotsForm] = useState({ ...emptyPots })
+  const [addingPotsNumFor, setAddingPotsNumFor] = useState<string | null>(null)
+  const emptyPotsNum = { number: "", designation: "", port: "", extensionId: "", notes: "" }
+  const [potsNumForm, setPotsNumForm] = useState({ ...emptyPotsNum })
+
+  async function addPotsLine(systemId: string) {
+    setError(""); setSaving(true)
+    try {
+      const res = await fetch(`/api/phone-systems/${systemId}/pots-lines`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(potsForm),
+      })
+      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
+      const created = await res.json()
+      onSystemsChange(systems.map(s => s.id === systemId ? { ...s, potsLines: [...(s.potsLines || []), created] } : s))
+      setAddingPotsFor(null); setPotsForm({ ...emptyPots })
+    } finally { setSaving(false) }
+  }
+
+  async function updatePotsLine(lineId: string, systemId: string) {
+    setError(""); setSaving(true)
+    try {
+      const res = await fetch(`/api/pots-lines/${lineId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(potsForm),
+      })
+      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
+      const updated = await res.json()
+      onSystemsChange(systems.map(s => s.id === systemId ? { ...s, potsLines: s.potsLines.map(l => l.id === lineId ? updated : l) } : s))
+      setEditingPotsId(null)
+    } finally { setSaving(false) }
+  }
+
+  async function deletePotsLine(lineId: string, systemId: string) {
+    if (!confirm("Delete this POTS line?")) return
+    const res = await fetch(`/api/pots-lines/${lineId}`, { method: "DELETE" })
+    if (res.ok) onSystemsChange(systems.map(s => s.id === systemId ? { ...s, potsLines: s.potsLines.filter(l => l.id !== lineId) } : s))
+  }
+
+  async function addPotsNumber(lineId: string, systemId: string) {
+    setError(""); setSaving(true)
+    try {
+      const res = await fetch(`/api/pots-lines/${lineId}/numbers`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(potsNumForm),
+      })
+      if (!res.ok) { setError((await res.json()).error || "Failed"); return }
+      const created = await res.json()
+      onSystemsChange(systems.map(s => s.id === systemId ? { ...s, potsLines: s.potsLines.map(l => l.id === lineId ? { ...l, numbers: [...l.numbers, created] } : l) } : s))
+      setAddingPotsNumFor(null); setPotsNumForm({ ...emptyPotsNum })
+    } finally { setSaving(false) }
+  }
+
+  async function deletePotsNumber(numberId: string, lineId: string, systemId: string) {
+    const res = await fetch(`/api/pots-lines/${lineId}/numbers/${numberId}`, { method: "DELETE" })
+    if (res.ok) onSystemsChange(systems.map(s => s.id === systemId ? { ...s, potsLines: s.potsLines.map(l => l.id === lineId ? { ...l, numbers: l.numbers.filter(n => n.id !== numberId) } : l) } : s))
+  }
+
+  function PotsForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", padding: "12px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", marginTop: "8px" }}>
+        {vendors.length > 0 && (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={lbl}>Provider (from vendor list)</label>
+            <select style={inp} value={potsForm.vendorId} onChange={e => {
+              const v = vendors.find(v => v.id === e.target.value)
+              setPotsForm(f => ({ ...f, vendorId: e.target.value, carrier: v?.name || f.carrier, supportPhone: v?.supportPhone || f.supportPhone }))
+            }}>
+              <option value="">— select vendor or enter manually below —</option>
+              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+        )}
+        <div>
+          <label style={lbl}>Carrier name *</label>
+          <input style={inp} value={potsForm.carrier} onChange={e => setPotsForm(f => ({ ...f, carrier: e.target.value }))} placeholder="AT&T, Lumen, Windstream…" />
+        </div>
+        <div>
+          <label style={lbl}>Account Number</label>
+          <input style={inp} value={potsForm.accountNumber} onChange={e => setPotsForm(f => ({ ...f, accountNumber: e.target.value }))} />
+        </div>
+        <div>
+          <label style={lbl}>Support Phone</label>
+          <input style={inp} value={potsForm.supportPhone} onChange={e => setPotsForm(f => ({ ...f, supportPhone: e.target.value }))} placeholder="1-800-…" />
+        </div>
+        <div>
+          <label style={lbl}>Circuit / Billing ID</label>
+          <input style={inp} value={potsForm.circuitId} onChange={e => setPotsForm(f => ({ ...f, circuitId: e.target.value }))} placeholder="Circuit number from carrier" />
+        </div>
+        <div style={{ gridColumn: "2 / -1" }}>
+          <label style={lbl}>Notes</label>
+          <input style={inp} value={potsForm.notes} onChange={e => setPotsForm(f => ({ ...f, notes: e.target.value }))} />
         </div>
         {error && <div style={{ gridColumn: "1 / -1", color: "#ef4444", fontSize: "13px" }}>{error}</div>}
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: "8px" }}>
@@ -522,32 +695,206 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
                   <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>No SIP trunks documented yet.</div>
                 )}
                 {system.sipTrunks?.map(trunk => (
-                  <div key={trunk.id}>
+                  <div key={trunk.id} style={{ marginBottom: "8px" }}>
                     {editingTrunkId === trunk.id ? (
                       <TrunkForm onSubmit={() => updateTrunk(trunk.id, system.id)} onCancel={() => { setEditingTrunkId(null); setError("") }} />
                     ) : (
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 12px", borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", gap: "10px" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "13px", fontWeight: 600 }}>{trunk.carrier}</span>
-                            {trunk.accountNumber && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Acct: {trunk.accountNumber}</span>}
+                      <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)" }}>
+                        {/* Trunk header row */}
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 12px", gap: "10px" }}>
+                          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setExpandedTrunkId(expandedTrunkId === trunk.id ? null : trunk.id)}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 600 }}>{trunk.carrier}</span>
+                              {trunk.vendor && (
+                                <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#8b5cf622", color: "#8b5cf6", border: "1px solid #8b5cf644" }}>vendor linked</span>
+                              )}
+                              {trunk.accountNumber && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Acct: {trunk.accountNumber}</span>}
+                              <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{trunk.dids.length} DID{trunk.dids.length !== 1 ? "s" : ""}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: "14px", marginTop: "3px", flexWrap: "wrap" }}>
+                              {trunk.supportPhone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Support: {trunk.supportPhone}</span>}
+                              {trunk.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{trunk.notes}</span>}
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: "14px", marginTop: "3px", flexWrap: "wrap" }}>
-                            {trunk.supportPhone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Support: {trunk.supportPhone}</span>}
-                            {trunk.didRange && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>DIDs: {trunk.didRange}</span>}
-                            {trunk.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{trunk.notes}</span>}
+                          <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                            <button style={btn("ghost")} onClick={() => { setTrunkForm({ vendorId: trunk.vendorId || "", carrier: trunk.carrier, accountNumber: trunk.accountNumber || "", supportPhone: trunk.supportPhone || "", notes: trunk.notes || "" }); setEditingTrunkId(trunk.id) }}>Edit</button>
+                            <button style={btn("danger")} onClick={() => deleteTrunk(trunk.id, system.id)}>Del</button>
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
-                          <button style={btn("ghost")} onClick={() => { setTrunkForm({ carrier: trunk.carrier, accountNumber: trunk.accountNumber || "", supportPhone: trunk.supportPhone || "", didRange: trunk.didRange || "", notes: trunk.notes || "" }); setEditingTrunkId(trunk.id) }}>Edit</button>
-                          <button style={btn("danger")} onClick={() => deleteTrunk(trunk.id, system.id)}>Del</button>
-                        </div>
+
+                        {/* DID list (expanded) */}
+                        {expandedTrunkId === trunk.id && (
+                          <div style={{ padding: "0 12px 12px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "8px 0 6px" }}>
+                              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted)" }}>DID Numbers</span>
+                              {addingDidFor !== trunk.id && (
+                                <button style={{ ...btn("ghost"), fontSize: "12px", padding: "4px 10px" }} onClick={() => { setAddingDidFor(trunk.id); setDidForm({ ...emptyDid }) }}>+ Add DID</button>
+                              )}
+                            </div>
+                            {trunk.dids.length === 0 && addingDidFor !== trunk.id && (
+                              <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>No DIDs listed.</div>
+                            )}
+                            {trunk.dids.map(did => (
+                              <div key={did.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 8px", borderRadius: "6px", background: "var(--color-background-secondary)", marginBottom: "4px" }}>
+                                <span style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums", fontWeight: 500, minWidth: "130px" }}>{did.number}</span>
+                                {did.designation && (
+                                  <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#06b6d422", color: "#06b6d4", border: "1px solid #06b6d444" }}>{did.designation}</span>
+                                )}
+                                {did.extension && (
+                                  <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>→ Ext {did.extension.extension} {did.extension.displayName}</span>
+                                )}
+                                {did.notes && <span style={{ fontSize: "11px", color: "var(--color-text-muted)", marginLeft: "auto" }}>{did.notes}</span>}
+                                <button style={{ ...btn("danger"), marginLeft: "auto", fontSize: "11px", padding: "3px 8px" }} onClick={() => deleteDid(did.id, trunk.id, system.id)}>Del</button>
+                              </div>
+                            ))}
+                            {addingDidFor === trunk.id && (
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", padding: "10px", background: "var(--color-background-secondary)", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", marginTop: "6px" }}>
+                                <div>
+                                  <label style={lbl}>Number *</label>
+                                  <input style={inp} value={didForm.number} onChange={e => setDidForm(f => ({ ...f, number: e.target.value }))} placeholder="+15551234567" />
+                                </div>
+                                <div>
+                                  <label style={lbl}>Designation</label>
+                                  <input style={inp} value={didForm.designation} onChange={e => setDidForm(f => ({ ...f, designation: e.target.value }))} placeholder="Line 1, Fax, Main…" />
+                                </div>
+                                <div>
+                                  <label style={lbl}>Routed to Extension</label>
+                                  <select style={inp} value={didForm.extensionId} onChange={e => setDidForm(f => ({ ...f, extensionId: e.target.value }))}>
+                                    <option value="">— None —</option>
+                                    {system.extensions.map(e => <option key={e.id} value={e.id}>{e.extension} – {e.displayName}</option>)}
+                                  </select>
+                                </div>
+                                <div style={{ gridColumn: "1 / -1" }}>
+                                  <label style={lbl}>Notes</label>
+                                  <input style={inp} value={didForm.notes} onChange={e => setDidForm(f => ({ ...f, notes: e.target.value }))} />
+                                </div>
+                                {error && <div style={{ gridColumn: "1 / -1", color: "#ef4444", fontSize: "13px" }}>{error}</div>}
+                                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "8px" }}>
+                                  <button style={btn("primary")} onClick={() => addDid(trunk.id, system.id)} disabled={saving}>{saving ? "Saving…" : "Add DID"}</button>
+                                  <button style={btn("ghost")} onClick={() => { setAddingDidFor(null); setError("") }}>Cancel</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 ))}
                 {addingTrunkFor === system.id && (
                   <TrunkForm onSubmit={() => addTrunk(system.id)} onCancel={() => { setAddingTrunkFor(null); setError("") }} />
+                )}
+              </div>
+
+              {/* POTS Lines section */}
+              <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text-secondary)" }}>POTS Lines</span>
+                  {addingPotsFor !== system.id && (
+                    <button style={btn("ghost")} onClick={() => { setAddingPotsFor(system.id); setPotsForm({ ...emptyPots }) }}>+ Add POTS Line</button>
+                  )}
+                </div>
+                {(system.potsLines?.length ?? 0) === 0 && addingPotsFor !== system.id && (
+                  <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>No POTS lines documented yet.</div>
+                )}
+                {system.potsLines?.map(line => (
+                  <div key={line.id} style={{ marginBottom: "8px" }}>
+                    {editingPotsId === line.id ? (
+                      <PotsForm onSubmit={() => updatePotsLine(line.id, system.id)} onCancel={() => { setEditingPotsId(null); setError("") }} />
+                    ) : (
+                      <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)" }}>
+                        {/* Line header row */}
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 12px", gap: "10px" }}>
+                          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setExpandedPotsId(expandedPotsId === line.id ? null : line.id)}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 600 }}>{line.carrier}</span>
+                              {line.vendor && (
+                                <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#8b5cf622", color: "#8b5cf6", border: "1px solid #8b5cf644" }}>vendor linked</span>
+                              )}
+                              {!line.isActive && <span style={{ fontSize: "11px", color: "#ef4444" }}>Inactive</span>}
+                              {line.accountNumber && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Acct: {line.accountNumber}</span>}
+                              <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{line.numbers.length} number{line.numbers.length !== 1 ? "s" : ""}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: "14px", marginTop: "3px", flexWrap: "wrap" }}>
+                              {line.supportPhone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Support: {line.supportPhone}</span>}
+                              {line.circuitId && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Circuit: {line.circuitId}</span>}
+                              {line.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{line.notes}</span>}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                            <button style={btn("ghost")} onClick={() => { setPotsForm({ vendorId: line.vendorId || "", carrier: line.carrier, accountNumber: line.accountNumber || "", supportPhone: line.supportPhone || "", circuitId: line.circuitId || "", notes: line.notes || "" }); setEditingPotsId(line.id) }}>Edit</button>
+                            <button style={btn("danger")} onClick={() => deletePotsLine(line.id, system.id)}>Del</button>
+                          </div>
+                        </div>
+
+                        {/* Numbers list (expanded) */}
+                        {expandedPotsId === line.id && (
+                          <div style={{ padding: "0 12px 12px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "8px 0 6px" }}>
+                              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted)" }}>Phone Numbers</span>
+                              {addingPotsNumFor !== line.id && (
+                                <button style={{ ...btn("ghost"), fontSize: "12px", padding: "4px 10px" }} onClick={() => { setAddingPotsNumFor(line.id); setPotsNumForm({ ...emptyPotsNum }) }}>+ Add Number</button>
+                              )}
+                            </div>
+                            {line.numbers.length === 0 && addingPotsNumFor !== line.id && (
+                              <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>No numbers listed.</div>
+                            )}
+                            {line.numbers.map(num => (
+                              <div key={num.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 8px", borderRadius: "6px", background: "var(--color-background-secondary)", marginBottom: "4px" }}>
+                                <span style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums", fontWeight: 500, minWidth: "130px" }}>{num.number}</span>
+                                {num.designation && (
+                                  <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#10b98122", color: "#10b981", border: "1px solid #10b98144" }}>{num.designation}</span>
+                                )}
+                                {num.port && (
+                                  <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b44" }}>FXS: {num.port}</span>
+                                )}
+                                {num.extension && (
+                                  <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>→ Ext {num.extension.extension} {num.extension.displayName}</span>
+                                )}
+                                {num.notes && <span style={{ fontSize: "11px", color: "var(--color-text-muted)", marginLeft: "auto" }}>{num.notes}</span>}
+                                <button style={{ ...btn("danger"), marginLeft: "auto", fontSize: "11px", padding: "3px 8px" }} onClick={() => deletePotsNumber(num.id, line.id, system.id)}>Del</button>
+                              </div>
+                            ))}
+                            {addingPotsNumFor === line.id && (
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", padding: "10px", background: "var(--color-background-secondary)", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", marginTop: "6px" }}>
+                                <div>
+                                  <label style={lbl}>Number *</label>
+                                  <input style={inp} value={potsNumForm.number} onChange={e => setPotsNumForm(f => ({ ...f, number: e.target.value }))} placeholder="+15551234567" />
+                                </div>
+                                <div>
+                                  <label style={lbl}>Designation</label>
+                                  <input style={inp} value={potsNumForm.designation} onChange={e => setPotsNumForm(f => ({ ...f, designation: e.target.value }))} placeholder="Line 1, Line 2, Fax…" />
+                                </div>
+                                <div>
+                                  <label style={lbl}>FXS Port</label>
+                                  <input style={inp} value={potsNumForm.port} onChange={e => setPotsNumForm(f => ({ ...f, port: e.target.value }))} placeholder="FXS1, Port 3…" />
+                                </div>
+                                <div>
+                                  <label style={lbl}>Routed to Extension</label>
+                                  <select style={inp} value={potsNumForm.extensionId} onChange={e => setPotsNumForm(f => ({ ...f, extensionId: e.target.value }))}>
+                                    <option value="">— None —</option>
+                                    {system.extensions.map(e => <option key={e.id} value={e.id}>{e.extension} – {e.displayName}</option>)}
+                                  </select>
+                                </div>
+                                <div style={{ gridColumn: "2 / -1" }}>
+                                  <label style={lbl}>Notes</label>
+                                  <input style={inp} value={potsNumForm.notes} onChange={e => setPotsNumForm(f => ({ ...f, notes: e.target.value }))} />
+                                </div>
+                                {error && <div style={{ gridColumn: "1 / -1", color: "#ef4444", fontSize: "13px" }}>{error}</div>}
+                                <div style={{ gridColumn: "1 / -1", display: "flex", gap: "8px" }}>
+                                  <button style={btn("primary")} onClick={() => addPotsNumber(line.id, system.id)} disabled={saving}>{saving ? "Saving…" : "Add Number"}</button>
+                                  <button style={btn("ghost")} onClick={() => { setAddingPotsNumFor(null); setError("") }}>Cancel</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {addingPotsFor === system.id && (
+                  <PotsForm onSubmit={() => addPotsLine(system.id)} onCancel={() => { setAddingPotsFor(null); setError("") }} />
                 )}
               </div>
 

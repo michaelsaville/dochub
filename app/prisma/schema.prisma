@@ -426,6 +426,8 @@ model Vendor {
   contacts      VendorContact[]
   clients       Client[]        @relation("ClientVendors")
   vpnAccess     VpnAccessor[]   @relation("VendorVpnAccess")
+  sipTrunks     SipTrunk[]      @relation("VendorSipTrunks")
+  potsLines     PotsLine[]      @relation("VendorPotsLines")
 }
 
 model Website {
@@ -970,19 +972,66 @@ model PhoneSystem {
   credential    Credential?      @relation("CredentialPhoneSystem", fields: [credentialId], references: [id])
   extensions    PhoneExtension[]
   sipTrunks     SipTrunk[]
+  potsLines     PotsLine[]
 }
 
 model SipTrunk {
   id            String      @id @default(cuid())
   systemId      String
-  carrier       String      // e.g. "Twilio", "VoIP.ms", "Vonage"
+  vendorId      String?     // FK to Vendor (preferred)
+  carrier       String      // fallback name if vendor not in system
   accountNumber String?
   supportPhone  String?
-  didRange      String?     // e.g. "304-555-0100 to 0199"
   notes         String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   system        PhoneSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  vendor        Vendor?     @relation("VendorSipTrunks", fields: [vendorId], references: [id])
+  dids          SipDid[]
+}
+
+model SipDid {
+  id          String         @id @default(cuid())
+  trunkId     String
+  number      String         // e.g. "+13045550100"
+  designation String?        // e.g. "Line 1", "Main", "Fax", "Toll-Free"
+  extensionId String?        // optionally routed to an extension
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  trunk       SipTrunk       @relation(fields: [trunkId], references: [id], onDelete: Cascade)
+  extension   PhoneExtension? @relation("ExtensionSipDid", fields: [extensionId], references: [id])
+}
+
+model PotsLine {
+  id            String         @id @default(cuid())
+  systemId      String
+  vendorId      String?        // FK to Vendor (preferred)
+  carrier       String         // fallback carrier name e.g. "AT&T", "Lumen"
+  accountNumber String?
+  supportPhone  String?
+  circuitId     String?        // billing / circuit ID from the carrier
+  notes         String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  system        PhoneSystem    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  vendor        Vendor?        @relation("VendorPotsLines", fields: [vendorId], references: [id])
+  numbers       PotsNumber[]
+}
+
+model PotsNumber {
+  id          String         @id @default(cuid())
+  lineId      String
+  number      String         // e.g. "+13045550105"
+  designation String?        // e.g. "Line 1", "Line 2", "Fax"
+  port        String?        // physical port label e.g. "FXO 1", "Port 2"
+  extensionId String?        // optionally routed to an extension
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  line        PotsLine       @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  extension   PhoneExtension? @relation("ExtensionPotsNumber", fields: [extensionId], references: [id])
 }
 
 model PhoneExtension {
@@ -1006,6 +1055,8 @@ model PhoneExtension {
   asset            Asset?              @relation("AssetPhoneExtension", fields: [assetId], references: [id])
   credential       Credential?         @relation("CredentialPhoneExtension", fields: [credentialId], references: [id])
   voicemailCred    Credential?         @relation("CredentialVoicemail", fields: [voicemailCredId], references: [id])
+  sipDids          SipDid[]            @relation("ExtensionSipDid")
+  potsNumbers      PotsNumber[]        @relation("ExtensionPotsNumber")
 }
 
 enum PhoneSystemType {
@@ -1066,6 +1117,8 @@ model Camera {
   recordingSchedule String?      // "24_7", "MOTION", "SCHEDULE", "NONE"
   coverageNotes     String?      // description of what the camera covers
   photoStorageName  String?      // field-of-view reference photo
+  unifiCameraId     String?      // UniFi Protect camera ID for API snapshot sync
+  photoRefreshedAt  DateTime?    // last time thumbnail was auto-synced from NVR
   notes             String?
   isActive          Boolean      @default(true)
   createdAt         DateTime     @default(now())

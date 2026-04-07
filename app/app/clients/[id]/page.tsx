@@ -816,15 +816,17 @@ export default function ClientDetailPage() {
   async function fetchPhoneSystems() {
     setLoadingPhone(true)
     try {
-      const [sysRes, credsRes] = await Promise.all([
+      const [sysRes, credsRes, vendorsRes] = await Promise.all([
         fetch(`/api/clients/${id}/phone-systems`),
         fetch(`/api/clients/${id}/credentials`),
+        fetch(`/api/vendors`),
       ])
       if (sysRes.ok) setPhoneSystems(await sysRes.json())
       if (credsRes.ok) {
         const creds = await credsRes.json()
         setPhoneCredentials(creds.map((c: any) => ({ id: c.id, label: c.label })))
       }
+      if (vendorsRes.ok) setVpnVendors(await vendorsRes.json())
     } catch {}
     finally { setLoadingPhone(false) }
   }
@@ -3002,6 +3004,7 @@ export default function ClientDetailPage() {
                 assets={assets}
                 clientUsers={client.users}
                 credentials={phoneCredentials}
+                vendors={vpnVendors}
                 clientId={id as string}
                 onSystemsChange={setPhoneSystems}
               />

@@ -24,7 +24,26 @@ export async function GET(
           },
           orderBy: { extension: "asc" },
         },
-        sipTrunks: { orderBy: { carrier: "asc" } },
+        sipTrunks: {
+          include: {
+            vendor: { select: { id: true, name: true, supportPhone: true } },
+            dids: {
+              include: { extension: { select: { id: true, extension: true, displayName: true } } },
+              orderBy: { number: "asc" },
+            },
+          },
+          orderBy: { carrier: "asc" },
+        },
+        potsLines: {
+          include: {
+            vendor: { select: { id: true, name: true, supportPhone: true } },
+            numbers: {
+              include: { extension: { select: { id: true, extension: true, displayName: true } } },
+              orderBy: { number: "asc" },
+            },
+          },
+          orderBy: { carrier: "asc" },
+        },
       },
       orderBy: { name: "asc" },
     })
@@ -61,7 +80,8 @@ export async function POST(
         asset: { select: { id: true, name: true, friendlyName: true } },
         credential: { select: { id: true, label: true } },
         extensions: true,
-        sipTrunks: true,
+        sipTrunks: { include: { vendor: { select: { id: true, name: true, supportPhone: true } }, dids: true } },
+        potsLines: { include: { vendor: { select: { id: true, name: true, supportPhone: true } }, numbers: true } },
       },
     })
     return NextResponse.json(system, { status: 201 })

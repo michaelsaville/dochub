@@ -29,7 +29,7 @@ integrations. It is a self-hosted alternative to commercial MSP tools like IT Gl
 
 ## Stack
 
-- **Framework:** Next.js 14 (App Router) — currently targeting Next.js 14/16
+- **Framework:** Next.js 15+ (App Router)
 - **ORM:** Prisma 6
 - **Database:** PostgreSQL 16
 - **Auth:** NextAuth.js with Microsoft Azure AD SSO — JWT sessions with manual Prisma lookup
@@ -47,13 +47,13 @@ This applies to **both page components and API route handlers**.
 
 ```ts
 // ✅ Correct
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 }
 
 // ❌ Wrong — breaks in Next.js 15+
-export default async function Page({ params }: { params: { id: string } }) {
-  const { id } = params;
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const { id } = params
 }
 ```
 
@@ -74,32 +74,34 @@ load time. Module-level initialization causes build-time failures.
 ```ts
 // ✅ Correct
 function getKey() {
-  return Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
+  return Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
 }
 
 // ❌ Wrong — breaks at build time
-const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex')
 ```
 
 ### 4. Prisma Schema Changes
 
 Schema pushes must be run **from the host** with an explicit DATABASE_URL pointing to
-`localhost:5432`. Do NOT run from inside the app container.
+the DB IP. Do NOT run from inside the app container.
 
 ```bash
-DATABASE_URL="postgresql://user:pass@localhost:5432/dochub" npx prisma db push
+DATABASE_URL="postgresql://dochub:changeme_before_production@172.18.0.3:5432/dochub" npx prisma db push
 ```
 
-### 5. File Creation in Terminal
+### 5. Named Prisma Relations
 
-Use Python heredocs for all file creation to avoid terminal paste corruption:
+When a model has **multiple FK relationships to the same target model**, Prisma requires
+named relations on both sides. Example:
 
-```bash
-python3 -c "
-content = '''<file content here>'''
-with open('filename.ts', 'w') as f:
-    f.write(content)
-"
+```prisma
+model SipTrunk {
+  vendor   Vendor? @relation("VendorSipTrunks", fields: [vendorId], references: [id])
+}
+model Vendor {
+  sipTrunks SipTrunk[] @relation("VendorSipTrunks")
+}
 ```
 
 ### 6. Environment Variable Changes Require Container Restart
@@ -116,44 +118,68 @@ Local code change
     → git push to github.com/michaelsaville/dochub
     → GitHub Actions builds Docker image
     → Pushes to ghcr.io/michaelsaville/dochub:latest
-    → Watchtower on Linode detects new image
+    → Watchtower on Linode detects new image (polls every 30s)
     → Pulls and restarts container automatically
+```
+
+**After schema changes:** must also run `prisma db push` on the live database:
+```bash
+# From local machine with DB accessible
+DATABASE_URL="postgresql://dochub:changeme_before_production@172.18.0.3:5432/dochub" npx prisma db push
+# OR from the Linode host:
+docker compose exec app npx prisma db push
 ```
 
 ---
 
 ## Current Feature State
 
-### ✅ Completed
+### ✅ Completed & Shipped
 
 - Microsoft SSO (Azure AD) authentication
-- Navigation shell with sidebar (Dashboard / Clients / Runbooks / Alarms / Settings)
+- Navigation shell with sidebar
 - Client list with search and add form
 - Client detail page — tabbed interface:
-  - Overview / Locations / Users / Assets / Contacts / Credentials / Licenses / Activity
-- SyncroMSP sync engine (pulls clients, assets, contacts)
-- Asset detail page with Syncro and Splashtop remote access links
-- Credentials vault with AES-256-GCM encryption
-- Inline client and location editing
+  - Dashboard, Locations, Users, Assets, Contacts, Credentials, Licenses, Subscriptions, Applications, Domains, Network, Remote Access, Phone System, Cameras, Documents, SOPs, Activity
+- Credential vault — AES-256-GCM, per-user reveal, favouriting, TOTP, URL launch, expiry
+- Assets — hardware inventory, Splashtop/RDP links, Syncro integration
+- Domains — expiry monitoring, DNS snapshot
+- Network tab:
+  - Network devices with rack visualisation and port documentation
+  - VLANs, subnets (IPAM)
+  - File shares with mapped drive letter (D–Z), AD domain join, domain admin credential in vault
+  - Wireless PTP bridge links with side A/B endpoint details and signal quality colour coding
+- Remote Access:
+  - VPN servers with linked asset + credential
+  - VPN accessors with client user linking, credential vault integration (pick existing or create new)
+- Phone System:
+  - PBX systems (Grandstream UCM, FreePBX, 3CX, etc.)
+  - Extensions — type, DID, client user link, handset asset, SIP cred, voicemail cred
+  - SIP Trunks — optional vendor link (auto-fills carrier + support phone), account number, expandable DID list with number, designation, extension routing
+  - POTS Lines — vendor link, carrier, account number, circuit ID, per-number FX port label, designation, extension routing
+- Cameras:
+  - Camera systems (UniFi Protect NVR, Hikvision, Dahua, etc.)
+  - Per-camera field-of-view thumbnails (manual upload or UniFi Protect API sync)
+  - UniFi Protect snapshot sync — "Sync UniFi" button on system header, self-signed cert support
+  - Monthly cron endpoint: `GET /api/cron/camera-snapshots` (Bearer token auth via `CRON_SECRET`)
+- SyncroMSP sync engine (assets, contacts)
+- Unifi network device sync
+- Cisco Meraki network device sync
+- HP Instant On network device sync
+- SonicWall firewall info sync
+- Pax8 subscription sync
+- ITFlow one-time import
 - Nightly auto-sync cron endpoint (bearer token protected via `CRON_SECRET`)
+- Runbooks/SOPs — global and per-client, taggable
 
-### 🔄 In Progress / Known Issues
+### 📋 Roadmap
 
-- Cron auto-sync endpoint was returning empty responses — likely needed a container
-  restart to pick up `CRON_SECRET` env var. Verify this is resolved.
-
-### 📋 Roadmap (rough priority order)
-
-1. Vendor contacts model
-2. Pax8 integration
-3. Unifi integration
-4. RBAC middleware
-5. Client portal
-6. Microsoft Teams webhook alarms engine
-7. Runbooks build-out
-8. Synology backup integration
-9. Migration from Linode to Dell PowerEdge (close port 5432, production hardening)
-10. Add Michael Frye StaffUser record
+1. Migration from Linode to Dell PowerEdge (close port 5432, production hardening)
+2. RBAC middleware — restrict TECH users from sensitive credential fields
+3. Microsoft Teams webhook alarms engine (domain expiry, credential expiry)
+4. Client portal (read-only view for client staff)
+5. Synology backup monitoring integration
+6. Add Michael Frye StaffUser record (deferred until platform stable)
 
 ---
 
@@ -164,11 +190,12 @@ Local code change
 | SyncroMSP | ✅ Active | RMM/PSA — sync engine pulls clients, assets, contacts |
 | Splashtop | ✅ Active | Remote access links on asset detail pages |
 | Microsoft Azure AD | ✅ Active | SSO authentication |
-| Pax8 | 📋 Planned | Licensing distributor |
-| Unifi | 📋 Planned | Network device management |
-| Sonicwall | 📋 Planned | Firewall management |
-| HP Instant On | 📋 Planned | SMB networking gear |
-| Gmail | 📋 Planned | Email integration |
+| Unifi (network) | ✅ Active | Network device sync |
+| Unifi Protect (cameras) | ✅ Active | Camera snapshot thumbnail sync |
+| Cisco Meraki | ✅ Active | Network device sync |
+| HP Instant On | ✅ Active | Network device sync |
+| SonicWall | ✅ Active | Firewall info sync |
+| Pax8 | ✅ Active | Subscription sync |
 | Microsoft Teams | 📋 Planned | Webhook alarms engine |
 | Synology | 📋 Planned | Backup monitoring |
 
@@ -186,7 +213,7 @@ AZURE_AD_TENANT_ID
 ENCRYPTION_KEY          # 32-byte hex string, lazy-init only
 SYNCRO_API_KEY
 SYNCRO_SUBDOMAIN
-CRON_SECRET             # Bearer token for /api/cron/sync endpoint
+CRON_SECRET             # Bearer token for /api/cron/* endpoints
 ```
 
 ---
@@ -194,21 +221,31 @@ CRON_SECRET             # Bearer token for /api/cron/sync endpoint
 ## Key File Locations
 
 ```
-/app                    # Next.js app router pages and API routes
-/app/api                # API route handlers
-/app/clients            # Client list and detail pages
-/prisma/schema.prisma   # Database schema
-/lib                    # Shared utilities (auth, encryption, prisma client)
-/components             # Shared UI components
+app/                          Next.js app router pages and API routes
+app/api/                      API route handlers
+app/api/camera-systems/[id]/sync-unifi/route.ts   UniFi Protect snapshot sync
+app/api/cron/camera-snapshots/route.ts            Monthly camera snapshot cron
+app/clients/[id]/page.tsx     Main client detail page (all tabs)
+prisma/schema.prisma          Database schema
+lib/                          Shared utilities (auth, encryption, prisma client)
+lib/crypto.ts                 AES-256-GCM encrypt/decrypt
+components/                   Shared UI components
+components/CameraPanel.tsx    Camera system + UniFi sync UI
+components/PhonePanel.tsx     Phone system, SIP trunks, POTS lines UI
+components/PtpPanel.tsx       Wireless PTP bridge UI
+components/FileSharesPanel.tsx File shares + AD domain + drive letter UI
+components/VpnPanel.tsx       VPN gateway + accessor + user link UI
 ```
 
 ---
 
 ## Notes for Claude Code Sessions
 
-- Always check `params` handling when touching dynamic routes — must be awaited
+- Always `await params` in dynamic route handlers — Next.js 15+ requirement
 - Do not install or reference `@next-auth/prisma-adapter`
-- When adding new env vars, remind that a container restart is required on the server
-- Prisma schema changes: remind to run `db push` from host, not container
-- Keep encryption key usage inside functions, never at module scope
+- Encryption key must be inside functions, never at module scope
+- Schema changes: run `db push` from host, not container
+- Named Prisma relations required when model has multiple FKs to same target
+- When SIP trunk `didRange` is referenced anywhere old — it was removed; replaced with `SipDid` table
 - The second technician (mfrye) does not yet have a StaffUser record — do not add it yet
+- UniFi Protect camera sync uses Node `https` module directly (not fetch) to support self-signed certs

@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, type, assetId, make, model, ipAddress, macAddress, resolution, location, recordingSchedule, coverageNotes, notes } = body
+    const { name, type, assetId, make, model, ipAddress, macAddress, resolution, location, recordingSchedule, coverageNotes, unifiCameraId, notes } = body
     if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 })
     const camera = await prisma.camera.create({
       data: {
@@ -27,6 +27,7 @@ export async function POST(
         location: location?.trim() || null,
         recordingSchedule: recordingSchedule || null,
         coverageNotes: coverageNotes?.trim() || null,
+        unifiCameraId: unifiCameraId?.trim() || null,
         notes: notes?.trim() || null,
       },
       include: {

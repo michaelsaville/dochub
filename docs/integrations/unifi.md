@@ -75,3 +75,43 @@ POST /api/integrations/unifi/sync
 | "Auth failed" | Wrong username/password or controller URL |
 | Sites not loading | Wrong controller type selected (try switching between `network_application` and `unifi_os`) |
 | Devices appear under wrong client | Check site mapping in Settings |
+
+---
+
+## Camera Snapshot Sync (UniFi Protect)
+
+DocHub can pull field-of-view thumbnail snapshots directly from a UniFi Protect NVR and store them against each camera record.
+
+### Setup
+
+1. On the Camera System record, set:
+   - **Type**: `Unifi Protect NVR`
+   - **Management URL**: the NVR base URL (e.g. `https://192.168.1.1`)
+   - **Admin Credential**: a credential from the vault with username and password
+2. On each Camera record within that system, set the **UniFi Camera ID** — find this in UniFi Protect → select the camera → device info panel (a hex string like `6a1b2c3d4e5f...`)
+
+### Manual sync
+
+Click **Sync UniFi** on the camera system header. DocHub authenticates against the NVR, fetches a JPEG snapshot for every camera with a `unifiCameraId` set, saves it to `/uploads`, and updates the record. A "Synced Month Year" badge appears on each thumbnail.
+
+Self-signed TLS certificates are handled automatically.
+
+### Automated monthly rotation
+
+Call `GET /api/cron/camera-snapshots` with the `Authorization: Bearer <CRON_SECRET>` header from a system cron. See the main README for a ready-to-use cron entry.
+
+### API endpoints
+
+```
+POST /api/camera-systems/{id}/sync-unifi   — sync all cameras in one system
+GET  /api/cron/camera-snapshots            — sync all UniFi NVR systems (cron, bearer auth)
+```
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| "No credential configured" | Camera system has no linked credential |
+| "UniFi auth failed: HTTP 401" | Wrong username/password in the linked credential |
+| "UniFi snapshot failed: HTTP 404" | `unifiCameraId` is wrong or camera is offline |
+| Snapshot saved but image broken | Camera returned non-image data — verify the camera is active in Protect |

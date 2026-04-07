@@ -57,6 +57,8 @@ type Camera = {
   recordingSchedule: string | null
   coverageNotes: string | null
   photoStorageName: string | null
+  unifiCameraId: string | null
+  photoRefreshedAt: string | null
   isActive: boolean
   notes: string | null
   asset: { id: string; name: string; friendlyName: string | null } | null
@@ -85,7 +87,7 @@ type Props = {
 }
 
 const emptySystem = { name: "", type: "UNIFI_NVR", assetId: "", credentialId: "", managementUrl: "", retentionDays: "", storageNote: "", notes: "" }
-const emptyCamera = { name: "", type: "IP_POE", assetId: "", make: "", model: "", ipAddress: "", macAddress: "", resolution: "", location: "", recordingSchedule: "24_7", coverageNotes: "", notes: "" }
+const emptyCamera = { name: "", type: "IP_POE", assetId: "", make: "", model: "", ipAddress: "", macAddress: "", resolution: "", location: "", recordingSchedule: "24_7", coverageNotes: "", unifiCameraId: "", notes: "" }
 
 export default function CameraPanel({ systems, assets, credentials, clientId, onSystemsChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -98,6 +100,8 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [uploadingPhotoFor, setUploadingPhotoFor] = useState<string | null>(null)
+  const [syncingUnifiId, setSyncingUnifiId] = useState<string | null>(null)
+  const [syncResult, setSyncResult] = useState<Record<string, string>>({}) // systemId → message
 
   async function uploadCameraPhoto(camId: string, systemId: string, file: File) {
     setUploadingPhotoFor(camId)
@@ -121,6 +125,27 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
       ? { ...s, cameras: s.cameras.map(c => c.id === camId ? { ...c, photoStorageName: null } : c) }
       : s
     ))
+  }
+
+  async function syncUnifi(system: CameraSystem) {
+    setSyncingUnifiId(system.id)
+    setSyncResult(r => ({ ...r, [system.id]: "" }))
+    try {
+      const res = await fetch(`/api/camera-systems/${system.id}/sync-unifi`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        setSyncResult(r => ({ ...r, [system.id]: data.error || "Sync failed" }))
+        return
+      }
+      setSyncResult(r => ({ ...r, [system.id]: `Synced ${data.synced}/${data.total} cameras` }))
+      // Reload systems to get updated photoStorageName / photoRefreshedAt
+      const sysRes = await fetch(`/api/clients/${clientId}/camera-systems`)
+      if (sysRes.ok) onSystemsChange(await sysRes.json())
+    } catch {
+      setSyncResult(r => ({ ...r, [system.id]: "Network error" }))
+    } finally {
+      setSyncingUnifiId(null)
+    }
   }
 
   function assetLabel(a: { name: string; friendlyName: string | null }) {
@@ -212,7 +237,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
   }
 
   function startEditCam(c: Camera) {
-    setCamForm({ name: c.name, type: c.type, assetId: c.asset?.id || "", make: c.make || "", model: c.model || "", ipAddress: c.ipAddress || "", macAddress: c.macAddress || "", resolution: c.resolution || "", location: c.location || "", recordingSchedule: c.recordingSchedule || "24_7", coverageNotes: c.coverageNotes || "", notes: c.notes || "" })
+    setCamForm({ name: c.name, type: c.type, assetId: c.asset?.id || "", make: c.make || "", model: c.model || "", ipAddress: c.ipAddress || "", macAddress: c.macAddress || "", resolution: c.resolution || "", location: c.location || "", recordingSchedule: c.recordingSchedule || "24_7", coverageNotes: c.coverageNotes || "", unifiCameraId: c.unifiCameraId || "", notes: c.notes || "" })
     setEditingCamId(c.id)
   }
 
@@ -274,7 +299,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
 
   // ── Camera Form ───────────────────────────────────────────────────────────
 
-  function CameraForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
+  function CameraForm({ onSubmit, onCancel, systemType }: { onSubmit: () => void; onCancel: () => void; systemType: string }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "16px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", marginTop: "12px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
@@ -317,6 +342,12 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
             <input style={inp} value={camForm.location} onChange={e => setCamForm(f => ({ ...f, location: e.target.value }))} placeholder="Parking lot NE corner" />
           </div>
         </div>
+        {systemType === "UNIFI_NVR" && (
+          <div>
+            <label style={lbl}>UniFi Camera ID <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>(for auto-snapshot sync)</span></label>
+            <input style={inp} value={camForm.unifiCameraId} onChange={e => setCamForm(f => ({ ...f, unifiCameraId: e.target.value }))} placeholder="e.g. 6a1b2c3d4e5f6a7b (from UniFi Protect)" />
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
           <div>
             <label style={lbl}>Recording Schedule</label>
@@ -397,7 +428,22 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "center" }}>
+              {system.type === "UNIFI_NVR" && (
+                <>
+                  {syncResult[system.id] && (
+                    <span style={{ fontSize: "12px", color: syncResult[system.id].startsWith("Synced") ? "#22c55e" : "#ef4444" }}>{syncResult[system.id]}</span>
+                  )}
+                  <button
+                    style={btn("ghost")}
+                    onClick={() => syncUnifi(system)}
+                    disabled={syncingUnifiId === system.id}
+                    title="Pull latest snapshots from UniFi Protect"
+                  >
+                    {syncingUnifiId === system.id ? "Syncing…" : "Sync UniFi"}
+                  </button>
+                </>
+              )}
               <button style={btn("ghost")} onClick={() => { startEditSystem(system); setExpandedId(system.id) }}>Edit</button>
               <button style={btn("danger")} onClick={() => deleteSystem(system.id)}>Delete</button>
             </div>
@@ -427,7 +473,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
               {system.cameras.map(cam => (
                 <div key={cam.id}>
                   {editingCamId === cam.id ? (
-                    <CameraForm onSubmit={() => updateCamera(cam.id, system.id)} onCancel={() => { setEditingCamId(null); setError("") }} />
+                    <CameraForm onSubmit={() => updateCamera(cam.id, system.id)} onCancel={() => { setEditingCamId(null); setError("") }} systemType={system.type} />
                   ) : (
                     <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", overflow: "hidden" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", gap: "10px" }}>
@@ -459,7 +505,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                         {cam.photoStorageName ? (
                           <div style={{ position: "relative", display: "inline-block" }}>
                             <img
-                              src={`/api/cameras/${cam.id}/photo`}
+                              src={`/api/cameras/${cam.id}/photo?v=${cam.photoStorageName}`}
                               alt={`${cam.name} field of view`}
                               style={{ maxWidth: "100%", maxHeight: "240px", borderRadius: "6px", border: "1px solid var(--color-border-tertiary)", display: "block" }}
                             />
@@ -470,6 +516,11 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                               </label>
                               <button onClick={() => removeCameraPhoto(cam.id, system.id)} style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: "rgba(0,0,0,0.7)", color: "#fca5a5", cursor: "pointer", border: "1px solid #7f1d1d" }}>Remove</button>
                             </div>
+                            {cam.photoRefreshedAt && (
+                              <div style={{ position: "absolute", bottom: "6px", left: "6px", fontSize: "10px", padding: "1px 6px", borderRadius: "4px", background: "rgba(0,0,0,0.6)", color: "#94a3b8" }}>
+                                Synced {new Date(cam.photoRefreshedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <label style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--color-text-muted)", cursor: "pointer", padding: "4px 8px", borderRadius: "5px", border: "1px dashed var(--color-border-secondary)" }}>
@@ -484,7 +535,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
               ))}
 
               {addingCamFor === system.id && (
-                <CameraForm onSubmit={() => addCamera(system.id)} onCancel={() => { setAddingCamFor(null); setError("") }} />
+                <CameraForm onSubmit={() => addCamera(system.id)} onCancel={() => { setAddingCamFor(null); setError("") }} systemType={system.type} />
               )}
 
               {system.notes && (
