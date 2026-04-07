@@ -256,6 +256,7 @@ model Credential {
   wifiControllers      WifiController[] @relation("CredentialWifiController")
   wifiNetworks         WifiNetwork[]    @relation("CredentialWifiNetwork")
   ptpLinks             PtpLink[]        @relation("CredentialPtpLink")
+  adDomains            AdDomain[]       @relation("CredentialAdDomain")
 }
 
 model License {
@@ -798,10 +799,12 @@ model AdDomain {
   name            String         // e.g. corp.client.local
   netbiosName     String?        // e.g. CORP
   functionalLevel String?        // e.g. Windows Server 2019
+  credentialId    String?        // domain admin credential in vault
   notes           String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credential      Credential?    @relation("CredentialAdDomain", fields: [credentialId], references: [id])
   groups          DomainGroup[]
   shares          NetworkShare[]
 }

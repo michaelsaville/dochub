@@ -43,6 +43,8 @@ type AdDomain = {
   name: string
   netbiosName: string | null
   functionalLevel: string | null
+  credentialId: string | null
+  credential: { id: string; label: string; username: string | null } | null
   notes: string | null
   groups: DomainGroup[]
   shares: NetworkShare[]
@@ -520,7 +522,7 @@ function DomainsView({ domains, clientId, onDomainsChange }: {
   onDomainsChange: (d: AdDomain[]) => void
 }) {
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ name: "", netbiosName: "", functionalLevel: "", notes: "" })
+  const [form, setForm] = useState({ name: "", netbiosName: "", functionalLevel: "", notes: "", credLabel: "", credUsername: "", credPassword: "" })
   const [saving, setSaving] = useState(false)
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null)
   const [editingDomain, setEditingDomain] = useState<string | null>(null)
@@ -538,7 +540,7 @@ function DomainsView({ domains, clientId, onDomainsChange }: {
       if (res.ok) {
         const created = await res.json()
         onDomainsChange([...domains, created])
-        setForm({ name: "", netbiosName: "", functionalLevel: "", notes: "" })
+        setForm({ name: "", netbiosName: "", functionalLevel: "", notes: "", credLabel: "", credUsername: "", credPassword: "" })
         setShowAdd(false)
       }
     } finally { setSaving(false) }
@@ -577,7 +579,7 @@ function DomainsView({ domains, clientId, onDomainsChange }: {
       {showAdd && (
         <div style={card}>
           <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New AD domain</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
             <div>
               <label style={lbl}>Domain name (FQDN) *</label>
               <input autoFocus value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="corp.client.local" style={inp} />
@@ -595,6 +597,28 @@ function DomainsView({ domains, clientId, onDomainsChange }: {
               <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={inp} />
             </div>
           </div>
+
+          {/* Domain admin credential */}
+          <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "14px", marginBottom: "12px" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Domain admin credential <span style={{ fontWeight: 400, textTransform: "none", fontSize: "12px" }}>(saved to vault)</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={lbl}>Credential label</label>
+                <input value={form.credLabel} onChange={e => setForm(f => ({ ...f, credLabel: e.target.value }))} placeholder="Domain Admin" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Username</label>
+                <input value={form.credUsername} onChange={e => setForm(f => ({ ...f, credUsername: e.target.value }))} placeholder="administrator" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Password</label>
+                <input type="password" value={form.credPassword} onChange={e => setForm(f => ({ ...f, credPassword: e.target.value }))} placeholder="Leave blank to skip" style={inp} />
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: "8px" }}>
             <button onClick={saveDomain} disabled={saving} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
               {saving ? "Saving..." : "Save"}
@@ -631,6 +655,26 @@ function DomainsView({ domains, clientId, onDomainsChange }: {
                   <input value={editForm.notes || ""} onChange={e => setEditForm((f: any) => ({ ...f, notes: e.target.value }))} style={inp} />
                 </div>
               </div>
+              <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "12px", marginBottom: "12px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Domain admin credential
+                  {domain.credential && <span style={{ fontWeight: 400, textTransform: "none", marginLeft: "8px" }}>— currently: {domain.credential.label}</span>}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                  <div>
+                    <label style={lbl}>Credential label</label>
+                    <input value={editForm.credLabel || ""} onChange={e => setEditForm((f: any) => ({ ...f, credLabel: e.target.value }))} placeholder={domain.credential?.label || "Domain Admin"} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Username</label>
+                    <input value={editForm.credUsername || ""} onChange={e => setEditForm((f: any) => ({ ...f, credUsername: e.target.value }))} placeholder={domain.credential?.username || "administrator"} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>New password</label>
+                    <input type="password" value={editForm.credPassword || ""} onChange={e => setEditForm((f: any) => ({ ...f, credPassword: e.target.value }))} placeholder={domain.credential ? "Enter to replace" : "Leave blank to skip"} style={inp} />
+                  </div>
+                </div>
+              </div>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button onClick={() => updateDomain(domain.id)} disabled={saving} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
                 <button onClick={() => setEditingDomain(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer" }}>Cancel</button>
@@ -647,6 +691,11 @@ function DomainsView({ domains, clientId, onDomainsChange }: {
                   {[domain.netbiosName, domain.functionalLevel].filter(Boolean).join(" · ")}
                 </div>
               </div>
+              {domain.credential && (
+                <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "5px", padding: "2px 7px", flexShrink: 0 }}>
+                  🔑 {domain.credential.username || domain.credential.label}
+                </span>
+              )}
               <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
                 {domain.groups.length} {domain.groups.length === 1 ? "group" : "groups"}
               </span>
@@ -727,8 +776,17 @@ function GroupsPanel({ domain, onDomainChange }: {
 
   return (
     <div style={{ padding: "0 16px 16px", background: "var(--color-background-primary)", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
-      {domain.notes && (
-        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "10px 0 8px", fontStyle: "italic" }}>{domain.notes}</div>
+      {(domain.notes || domain.credential) && (
+        <div style={{ padding: "10px 0 8px", display: "flex", gap: "16px", alignItems: "flex-start", flexWrap: "wrap" }}>
+          {domain.credential && (
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "5px", padding: "3px 8px" }}>
+              🔑 {domain.credential.label}{domain.credential.username ? ` · ${domain.credential.username}` : ""}
+            </span>
+          )}
+          {domain.notes && (
+            <span style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontStyle: "italic" }}>{domain.notes}</span>
+          )}
+        </div>
       )}
 
       {domain.groups.length === 0 && !showAdd && (

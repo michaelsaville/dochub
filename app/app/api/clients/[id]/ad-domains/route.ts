@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { encrypt } from "@/lib/crypto"
 
 export async function GET(
   req: Request,
@@ -13,6 +14,7 @@ export async function GET(
     const domains = await prisma.adDomain.findMany({
       where: { clientId: id },
       include: {
+        credential: { select: { id: true, label: true, username: true } },
         groups: { orderBy: { name: "asc" } },
         shares: {
           include: {
@@ -42,17 +44,39 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, netbiosName, functionalLevel, notes } = body
+    const { name, netbiosName, functionalLevel, notes, credUsername, credPassword, credLabel } = body
     if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 })
+
+    // Optionally create a credential and link it
+    let credentialId: string | null = null
+    if (credPassword?.trim()) {
+      const label = credLabel?.trim() || `${name.trim()} – Domain Admin`
+      const cred = await prisma.credential.create({
+        data: {
+          clientId: id,
+          label,
+          username: credUsername?.trim() || null,
+          encryptedPassword: encrypt(credPassword.trim()),
+          url: null,
+        },
+      })
+      credentialId = cred.id
+    }
+
     const domain = await prisma.adDomain.create({
       data: {
         clientId: id,
         name: name.trim(),
         netbiosName: netbiosName?.trim() || null,
         functionalLevel: functionalLevel?.trim() || null,
+        credentialId,
         notes: notes?.trim() || null,
       },
-      include: { groups: true, shares: { include: { permissions: true } } },
+      include: {
+        credential: { select: { id: true, label: true, username: true } },
+        groups: true,
+        shares: { include: { permissions: true } },
+      },
     })
     return NextResponse.json(domain, { status: 201 })
   } catch (e) {
