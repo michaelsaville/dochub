@@ -677,6 +677,12 @@ enum AssetStatus {
   ACTIVE
   RETIRING
   SUNSET
+  RETIRED
+  IN_REPAIR
+  IN_STORAGE
+  STOLEN
+  LOST
+  DISPOSED
 }
 
 enum AssetCategory {
@@ -1132,4 +1138,20 @@ enum WifiPurpose {
   CAMERAS
   MANAGEMENT
   OTHER
+}
+
+// ─── Field History (audit trail) ──────────────────────────────────────────────
+
+model FieldHistory {
+  id          String   @id @default(cuid())
+  entityType  String   // "asset", "networkDevice", "license"
+  entityId    String
+  field       String   // e.g. "ipAddress", "status", "isActive"
+  oldValue    String?
+  newValue    String?
+  changedBy   String?  // staff user name
+  changedAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([changedAt])
 }

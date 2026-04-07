@@ -106,6 +106,24 @@ const statusColor: Record<string, string> = {
   ACTIVE: "#22c55e",
   RETIRING: "#f59e0b",
   SUNSET: "#94a3b8",
+  RETIRED: "#6b7280",
+  IN_REPAIR: "#3b82f6",
+  IN_STORAGE: "#8b5cf6",
+  STOLEN: "#ef4444",
+  LOST: "#f97316",
+  DISPOSED: "#374151",
+}
+
+const statusLabel: Record<string, string> = {
+  ACTIVE: "Active",
+  RETIRING: "Retiring",
+  SUNSET: "Sunset",
+  RETIRED: "Retired",
+  IN_REPAIR: "In Repair",
+  IN_STORAGE: "In Storage",
+  STOLEN: "Stolen",
+  LOST: "Lost",
+  DISPOSED: "Disposed",
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -305,6 +323,10 @@ export default function ClientDetailPage() {
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [dashRevealedPasswords, setDashRevealedPasswords] = useState<Record<string, string>>({})
   const [dashRevealedTotps, setDashRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
+  const [showArchivedDevices, setShowArchivedDevices] = useState(false)
+  const [showArchivedLicenses, setShowArchivedLicenses] = useState(false)
+  const [expandedAssetHistory, setExpandedAssetHistory] = useState<Record<string, any[] | null>>({})
+  const [loadingAssetHistory, setLoadingAssetHistory] = useState<Record<string, boolean>>({})
 
   const boundSourceTag = (ds?: string | null, si?: string | null, pi?: string | null) =>
     sourceTag(ds, si, pi, sourceColors)
@@ -531,10 +553,10 @@ export default function ClientDetailPage() {
     } catch {}
   }
 
-  async function fetchLicenses() {
+  async function fetchLicenses(includeInactive = false) {
     setLoadingLicenses(true)
     try {
-      const res = await fetch(`/api/clients/${id}/licenses`)
+      const res = await fetch(`/api/clients/${id}/licenses${includeInactive ? "?includeInactive=true" : ""}`)
       const all = await res.json()
       setLicenses(Array.isArray(all) ? all.filter((l: any) => l.dataSource !== "PAX8") : all)
     } catch {}
@@ -589,10 +611,10 @@ export default function ClientDetailPage() {
     finally { setRevealingKey(null) }
   }
 
-  async function fetchNetworkDevices() {
+  async function fetchNetworkDevices(includeInactive = false) {
     setLoadingNetwork(true)
     try {
-      const res = await fetch(`/api/clients/${id}/network`)
+      const res = await fetch(`/api/clients/${id}/network${includeInactive ? "?includeInactive=true" : ""}`)
       setNetworkDevices(await res.json())
     } catch {}
     finally { setLoadingNetwork(false) }
@@ -638,11 +660,39 @@ export default function ClientDetailPage() {
   }
 
   async function deleteNetworkDevice(deviceId: string) {
-    if (!confirm("Remove this device?")) return
+    if (!confirm("Archive this device? It will be hidden but not deleted.")) return
     try {
       await fetch(`/api/clients/${id}/network/${deviceId}`, { method: "DELETE" })
-      setNetworkDevices(n => n.filter(x => x.id !== deviceId))
+      if (showArchivedDevices) {
+        setNetworkDevices(n => n.map(x => x.id === deviceId ? { ...x, isActive: false } : x))
+      } else {
+        setNetworkDevices(n => n.filter(x => x.id !== deviceId))
+      }
     } catch {}
+  }
+
+  async function restoreNetworkDevice(deviceId: string) {
+    try {
+      await fetch(`/api/clients/${id}/network/${deviceId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) })
+      setNetworkDevices(n => n.map(x => x.id === deviceId ? { ...x, isActive: true } : x))
+    } catch {}
+  }
+
+  async function toggleAssetHistory(assetId: string) {
+    if (expandedAssetHistory[assetId] !== undefined) {
+      setExpandedAssetHistory(h => { const n = { ...h }; delete n[assetId]; return n })
+      return
+    }
+    setLoadingAssetHistory(l => ({ ...l, [assetId]: true }))
+    try {
+      const res = await fetch(`/api/assets/${assetId}/history`)
+      const data = await res.json()
+      setExpandedAssetHistory(h => ({ ...h, [assetId]: Array.isArray(data) ? data : [] }))
+    } catch {
+      setExpandedAssetHistory(h => ({ ...h, [assetId]: [] }))
+    } finally {
+      setLoadingAssetHistory(l => ({ ...l, [assetId]: false }))
+    }
   }
 
   async function fetchClientDocs() {
@@ -804,10 +854,21 @@ export default function ClientDetailPage() {
   }
 
   async function deleteLicense(licenseId: string) {
-    if (!confirm("Remove this license?")) return
+    if (!confirm("Archive this license? It will be hidden but not deleted.")) return
     try {
       await fetch(`/api/clients/${id}/licenses/${licenseId}`, { method: "DELETE" })
-      setLicenses(l => l.filter(x => x.id !== licenseId))
+      if (showArchivedLicenses) {
+        setLicenses(l => l.map(x => x.id === licenseId ? { ...x, isActive: false } : x))
+      } else {
+        setLicenses(l => l.filter(x => x.id !== licenseId))
+      }
+    } catch {}
+  }
+
+  async function restoreLicense(licenseId: string) {
+    try {
+      await fetch(`/api/clients/${id}/licenses/${licenseId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) })
+      setLicenses(l => l.map(x => x.id === licenseId ? { ...x, isActive: true } : x))
     } catch {}
   }
 
@@ -1655,6 +1716,12 @@ export default function ClientDetailPage() {
                               <option value="ACTIVE">Active</option>
                               <option value="RETIRING">Retiring</option>
                               <option value="SUNSET">Sunset</option>
+                              <option value="RETIRED">Retired</option>
+                              <option value="IN_REPAIR">In Repair</option>
+                              <option value="IN_STORAGE">In Storage</option>
+                              <option value="STOLEN">Stolen</option>
+                              <option value="LOST">Lost</option>
+                              <option value="DISPOSED">Disposed</option>
                             </select>
                           </div>
                           <div>
@@ -1678,10 +1745,11 @@ export default function ClientDetailPage() {
                         </div>
                       </div>
                     ) : (
-                      <div key={asset.id} style={{
+                      <div key={asset.id}>
+                      <div style={{
                         display: "grid", gridTemplateColumns: "1fr 160px 100px 120px 80px 1fr",
                         padding: "10px 16px", background: "var(--color-background-primary)",
-                        borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                        borderBottom: expandedAssetHistory[asset.id] !== undefined ? "none" : (i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none"),
                         alignItems: "center",
                       }}>
                         <div>
@@ -1720,7 +1788,7 @@ export default function ClientDetailPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", flexShrink: 0 }} />
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
-                            {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
+                            {statusLabel[asset.status] ?? asset.status}
                           </span>
                         </div>
                         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
@@ -1744,8 +1812,35 @@ export default function ClientDetailPage() {
                               VNC
                             </a>
                           )}
+                          {asset.managementUrl && (
+                            <a href={asset.managementUrl} target="_blank" rel="noopener noreferrer" title="Open Management UI" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none", whiteSpace: "nowrap" }}>
+                              Manage
+                            </a>
+                          )}
+                          <button onClick={() => toggleAssetHistory(asset.id)} style={{ fontSize: "12px", color: loadingAssetHistory[asset.id] ? "var(--color-text-muted)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                            {loadingAssetHistory[asset.id] ? "..." : expandedAssetHistory[asset.id] !== undefined ? "History ▲" : "History"}
+                          </button>
                           <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, primaryUserId: asset.primaryUserId ?? "", contactId: asset.contactId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                         </div>
+                      </div>
+                      {expandedAssetHistory[asset.id] !== undefined && (
+                        <div style={{ padding: "8px 16px 12px", borderTop: "0.5px solid var(--color-border-tertiary)", borderBottom: i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                          {expandedAssetHistory[asset.id]!.length === 0 ? (
+                            <div style={{ fontSize: "12px", color: "var(--color-text-muted)", fontStyle: "italic" }}>No history recorded yet.</div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              {expandedAssetHistory[asset.id]!.map((h: any) => (
+                                <div key={h.id} style={{ display: "flex", gap: "10px", fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                                  <span style={{ color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>{new Date(h.changedAt).toLocaleString()}</span>
+                                  <span style={{ fontWeight: 500, color: "var(--color-text-primary)" }}>{h.field}</span>
+                                  <span>{h.oldValue ?? "—"} → {h.newValue ?? "—"}</span>
+                                  {h.changedBy && <span style={{ color: "var(--color-text-muted)" }}>by {h.changedBy}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       </div>
                     ))}
                   </div>
@@ -2108,7 +2203,10 @@ export default function ClientDetailPage() {
 
         {activeTab === "Licenses" && (
           <div style={{ maxWidth: "900px" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <button onClick={() => { const next = !showArchivedLicenses; setShowArchivedLicenses(next); fetchLicenses(next) }} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: showArchivedLicenses ? "rgba(61,111,255,0.1)" : "transparent", cursor: "pointer", color: showArchivedLicenses ? "var(--accent)" : "var(--color-text-secondary)" }}>
+                {showArchivedLicenses ? "Hide archived" : "Show archived"}
+              </button>
               <button onClick={() => setShowAddLicense(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add license</button>
             </div>
             {showAddLicense && (
@@ -2250,11 +2348,12 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={lic.id} style={{ padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                  <div key={lic.id} style={{ padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: lic.isActive ? "var(--color-background-primary)" : "var(--color-background-secondary)", opacity: lic.isActive ? 1 : 0.65 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 80px 100px 100px 80px", alignItems: "center", marginBottom: lic.licenseKey ? "8px" : 0 }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</span>
+                          {!lic.isActive && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "#374151", color: "#9ca3af" }}>archived</span>}
                           {boundSourceTag(lic.dataSource, null, lic.pax8Id)}
                         </div>
                         {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
@@ -2268,8 +2367,14 @@ export default function ClientDetailPage() {
                       </div>
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.renewalDate ? new Date(lic.renewalDate).toLocaleDateString() : "—"}</div>
                       <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", purchaseDate: lic.purchaseDate ? lic.purchaseDate.slice(0, 10) : "", vendorId: lic.vendorRef?.id ?? "", assignedUserId: lic.assignedUser?.id ?? "", contactId: lic.contact?.id ?? "", newLicenseKey: "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
-                        <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                        {lic.isActive ? (
+                          <>
+                            <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", purchaseDate: lic.purchaseDate ? lic.purchaseDate.slice(0, 10) : "", vendorId: lic.vendorRef?.id ?? "", assignedUserId: lic.assignedUser?.id ?? "", contactId: lic.contact?.id ?? "", newLicenseKey: "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                            <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Archive</button>
+                          </>
+                        ) : (
+                          <button onClick={() => restoreLicense(lic.id)} style={{ fontSize: "12px", color: "#22c55e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
+                        )}
                       </div>
                     </div>
                     {lic.licenseKey && (
@@ -2665,7 +2770,10 @@ export default function ClientDetailPage() {
             {/* Devices sub-tab */}
             {networkSubTab === "devices" && (
             <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <button onClick={() => { const next = !showArchivedDevices; setShowArchivedDevices(next); fetchNetworkDevices(next) }} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: showArchivedDevices ? "rgba(61,111,255,0.1)" : "transparent", cursor: "pointer", color: showArchivedDevices ? "var(--accent)" : "var(--color-text-secondary)" }}>
+                {showArchivedDevices ? "Hide archived" : "Show archived"}
+              </button>
               <button onClick={() => setShowAddDevice(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add device</button>
             </div>
 
@@ -2791,10 +2899,11 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={dev.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "12px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                  <div key={dev.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "12px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: dev.isActive ? "var(--color-background-primary)" : "var(--color-background-secondary)", alignItems: "center", opacity: dev.isActive ? 1 : 0.6 }}>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{dev.name}</span>
+                        {!dev.isActive && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "#374151", color: "#9ca3af" }}>archived</span>}
                         {boundSourceTag(dev.dataSource)}
                       </div>
                       {(dev.make || dev.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[dev.make, dev.model].filter(Boolean).join(" ")}</div>}
@@ -2825,8 +2934,14 @@ export default function ClientDetailPage() {
                           Ports{dev.portCount ? ` (${dev.portCount})` : ""}
                         </button>
                       )}
-                      <button onClick={() => { setEditingDevice(dev.id); setDeviceEditForm({ ...dev, locationId: dev.location?.id ?? "", portCount: dev.portCount ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
-                      <button onClick={() => deleteNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                      {dev.isActive ? (
+                        <>
+                          <button onClick={() => { setEditingDevice(dev.id); setDeviceEditForm({ ...dev, locationId: dev.location?.id ?? "", portCount: dev.portCount ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                          <button onClick={() => deleteNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Archive</button>
+                        </>
+                      ) : (
+                        <button onClick={() => restoreNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "#22c55e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -12,8 +12,10 @@ export async function GET(
   if (error) return error
   try {
     const { id } = await params
+    const url = new URL(req.url)
+    const includeInactive = url.searchParams.get("includeInactive") === "true"
     const licenses = await prisma.license.findMany({
-      where: { clientId: id, isActive: true },
+      where: { clientId: id, ...(includeInactive ? {} : { isActive: true }) },
       orderBy: { name: "asc" },
       include: {
         assignedUser: { select: { id: true, name: true } },

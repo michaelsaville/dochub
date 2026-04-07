@@ -10,8 +10,10 @@ export async function GET(
   if (error) return error
   try {
     const { id } = await params
+    const url = new URL(req.url)
+    const includeInactive = url.searchParams.get("includeInactive") === "true"
     const devices = await prisma.networkDevice.findMany({
-      where: { clientId: id, isActive: true },
+      where: { clientId: id, ...(includeInactive ? {} : { isActive: true }) },
       include: { location: { select: { id: true, name: true } } },
       orderBy: [{ type: "asc" }, { name: "asc" }],
     })

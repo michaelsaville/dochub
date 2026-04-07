@@ -44,7 +44,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
@@ -57,6 +57,39 @@ export async function PATCH(
       purchaseDate, warrantyExpiry, room, notes,
       status, primaryUserId, contactId,
     } = body
+
+    // Fetch current values for audit trail
+    const current = await prisma.asset.findUnique({
+      where: { id },
+      select: { ipAddress: true, macAddress: true, status: true, primaryUserId: true, vlan: true, switchPort: true },
+    })
+
+    const changedBy = session?.user?.name ?? "unknown"
+    const historyEntries: { entityType: string; entityId: string; field: string; oldValue: string | null; newValue: string | null; changedBy: string }[] = []
+
+    if (current) {
+      const tracked: { field: string; oldVal: string | null | undefined; newVal: string | null | undefined }[] = [
+        { field: "ipAddress",    oldVal: current.ipAddress,    newVal: ipAddress    !== undefined ? (ipAddress?.trim() || null)    : undefined },
+        { field: "macAddress",   oldVal: current.macAddress,   newVal: macAddress   !== undefined ? (macAddress?.trim() || null)   : undefined },
+        { field: "status",       oldVal: current.status,       newVal: status       !== undefined ? status                         : undefined },
+        { field: "primaryUserId",oldVal: current.primaryUserId,newVal: primaryUserId!== undefined ? (primaryUserId || null)        : undefined },
+        { field: "vlan",         oldVal: current.vlan,         newVal: vlan         !== undefined ? (vlan?.trim() || null)         : undefined },
+        { field: "switchPort",   oldVal: current.switchPort,   newVal: switchPort   !== undefined ? (switchPort?.trim() || null)   : undefined },
+      ]
+      for (const t of tracked) {
+        if (t.newVal !== undefined && t.newVal !== t.oldVal) {
+          historyEntries.push({
+            entityType: "asset",
+            entityId: id,
+            field: t.field,
+            oldValue: t.oldVal ?? null,
+            newValue: t.newVal ?? null,
+            changedBy,
+          })
+        }
+      }
+    }
+
     const asset = await prisma.asset.update({
       where: { id },
       data: {
@@ -95,6 +128,11 @@ export async function PATCH(
         contact: { select: { id: true, name: true } },
       },
     })
+
+    if (historyEntries.length > 0) {
+      await prisma.fieldHistory.createMany({ data: historyEntries })
+    }
+
     return NextResponse.json(asset)
   } catch (e) {
     return NextResponse.json({ error: "Failed to update asset" }, { status: 500 })
