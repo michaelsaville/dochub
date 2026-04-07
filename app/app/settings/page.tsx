@@ -3,7 +3,42 @@
 import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
 
-type AssetType = { id: string; name: string; description: string | null; sortOrder: number }
+type AssetTypeTemplate = {
+  standardFields: string[]
+  showSwitchPanel: boolean
+  showCameraPhoto: boolean
+  customFieldDefs: { key: string; label: string; type: string; required: boolean }[]
+}
+type AssetType = { id: string; name: string; description: string | null; sortOrder: number; template: AssetTypeTemplate | null }
+
+const ALL_STANDARD_FIELDS = [
+  { key: "friendlyName",    label: "Friendly Name" },
+  { key: "make",            label: "Make" },
+  { key: "model",           label: "Model" },
+  { key: "serial",          label: "Serial Number" },
+  { key: "assetTag",        label: "Asset Tag" },
+  { key: "ipAddress",       label: "IP Address" },
+  { key: "macAddress",      label: "MAC Address" },
+  { key: "vlan",            label: "VLAN" },
+  { key: "switchPort",      label: "Switch Port" },
+  { key: "managementUrl",   label: "Management URL" },
+  { key: "splashtopUrl",    label: "Splashtop URL" },
+  { key: "driverUrl",       label: "Driver URL" },
+  { key: "rdpEnabled",      label: "RDP" },
+  { key: "vncEnabled",      label: "VNC" },
+  { key: "firmwareVersion", label: "Firmware Version" },
+  { key: "portCount",       label: "Port Count" },
+  { key: "os",              label: "Operating System" },
+  { key: "ram",             label: "RAM" },
+  { key: "cpu",             label: "CPU / Processor" },
+  { key: "storageCapacity", label: "Storage Capacity" },
+  { key: "purchaseDate",    label: "Purchase Date" },
+  { key: "warrantyExpiry",  label: "Warranty Expiry" },
+  { key: "room",            label: "Room / Location" },
+  { key: "primaryUserId",   label: "Primary User" },
+  { key: "contactId",       label: "Contact" },
+  { key: "notes",           label: "Notes" },
+]
 
 const inp = {
   width: "100%", padding: "8px 12px", fontSize: "14px",
@@ -137,6 +172,13 @@ export default function SettingsPage() {
   const [editingType, setEditingType] = useState<string | null>(null)
   const [typeEditForm, setTypeEditForm] = useState<any>({})
   const [seedingDefaults, setSeedingDefaults] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null)
+  const [templateForm, setTemplateForm] = useState<AssetTypeTemplate>({ standardFields: [], showSwitchPanel: false, showCameraPhoto: false, customFieldDefs: [] })
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [migrationPreview, setMigrationPreview] = useState<any[] | null>(null)
+  const [loadingMigration, setLoadingMigration] = useState(false)
+  const [runningMigration, setRunningMigration] = useState(false)
+  const [migrationResult, setMigrationResult] = useState<any | null>(null)
 
   // --- Data Sources ---
   const [sourceColors, setSourceColors] = useState<Record<string, string>>({
@@ -260,7 +302,7 @@ export default function SettingsPage() {
   }
 
   // Asset Types
-  async function fetchAssetTypes() { setLoadingTypes(true); try { const r = await fetch("/api/asset-types"); setAssetTypes(await r.json()) } catch {} finally { setLoadingTypes(false) } }
+  async function fetchAssetTypes() { setLoadingTypes(true); try { const r = await fetch("/api/admin/seed-asset-types"); if (r.ok) setAssetTypes(await r.json()) } catch {} finally { setLoadingTypes(false) } }
   async function saveType() {
     if (!typeForm.name.trim()) return
     setSavingType(true)
@@ -283,14 +325,39 @@ export default function SettingsPage() {
   async function seedDefaults() {
     setSeedingDefaults(true)
     try {
-      const existing = new Set(assetTypes.map(t => t.name.toLowerCase()))
-      const created: AssetType[] = []
-      for (const t of DEFAULT_TYPES.filter(d => !existing.has(d.name.toLowerCase()))) {
-        const r = await fetch("/api/asset-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) })
-        if (r.ok) created.push(await r.json())
-      }
-      setAssetTypes(prev => [...prev, ...created].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)))
+      const r = await fetch("/api/admin/seed-asset-types", { method: "POST" })
+      if (r.ok) await fetchAssetTypes()
     } finally { setSeedingDefaults(false) }
+  }
+  async function saveTemplate(assetTypeId: string) {
+    setSavingTemplate(true)
+    try {
+      const r = await fetch(`/api/asset-types/${assetTypeId}/template`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templateForm),
+      })
+      if (r.ok) {
+        const updated = await r.json()
+        setAssetTypes(prev => prev.map(t => t.id === assetTypeId ? { ...t, template: updated } : t))
+        setEditingTemplate(null)
+      }
+    } finally { setSavingTemplate(false) }
+  }
+  async function loadMigrationPreview() {
+    setLoadingMigration(true)
+    try {
+      const r = await fetch("/api/admin/migrate-network-devices")
+      if (r.ok) { const d = await r.json(); setMigrationPreview(d.preview) }
+    } finally { setLoadingMigration(false) }
+  }
+  async function runMigration() {
+    if (!confirm(`Migrate ${migrationPreview?.length} network device(s) to assets? This cannot be undone.`)) return
+    setRunningMigration(true)
+    try {
+      const r = await fetch("/api/admin/migrate-network-devices", { method: "POST" })
+      if (r.ok) { const d = await r.json(); setMigrationResult(d); setMigrationPreview(null) }
+    } finally { setRunningMigration(false) }
   }
 
   // Data Sources
@@ -577,29 +644,105 @@ export default function SettingsPage() {
                   <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>No asset types yet.</div>
                 ) : (
                   <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden" }}>
-                    {assetTypes.map((type, i) => editingType === type.id ? (
-                      <div key={type.id} style={{ padding: "12px 14px", borderBottom: i < assetTypes.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px", gap: "8px", marginBottom: "8px" }}>
-                          <div style={{ gridColumn: "1 / 3" }}><label style={lbl}>Name</label><input value={typeEditForm.name ?? ""} onChange={e => setTypeEditForm((f: any) => ({ ...f, name: e.target.value }))} style={inp} /></div>
-                          <div><label style={lbl}>Order</label><input type="number" value={typeEditForm.sortOrder ?? 0} onChange={e => setTypeEditForm((f: any) => ({ ...f, sortOrder: e.target.value }))} style={inp} /></div>
-                          <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Description</label><input value={typeEditForm.description ?? ""} onChange={e => setTypeEditForm((f: any) => ({ ...f, description: e.target.value }))} style={inp} /></div>
-                        </div>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button onClick={() => updateType(type.id)} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
-                          <button onClick={() => setEditingType(null)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div key={type.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < assetTypes.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
-                        <div>
-                          <div style={{ fontSize: "14px" }}>{type.name}</div>
-                          {type.description && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{type.description}</div>}
-                        </div>
-                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                          <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>#{type.sortOrder}</span>
-                          <button onClick={() => { setEditingType(type.id); setTypeEditForm({ ...type }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
-                          <button onClick={() => deleteType(type.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
-                        </div>
+                    {assetTypes.map((type, i) => (
+                      <div key={type.id}>
+                        {editingType === type.id ? (
+                          <div style={{ padding: "12px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px", gap: "8px", marginBottom: "8px" }}>
+                              <div style={{ gridColumn: "1 / 3" }}><label style={lbl}>Name</label><input value={typeEditForm.name ?? ""} onChange={e => setTypeEditForm((f: any) => ({ ...f, name: e.target.value }))} style={inp} /></div>
+                              <div><label style={lbl}>Order</label><input type="number" value={typeEditForm.sortOrder ?? 0} onChange={e => setTypeEditForm((f: any) => ({ ...f, sortOrder: e.target.value }))} style={inp} /></div>
+                              <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Description</label><input value={typeEditForm.description ?? ""} onChange={e => setTypeEditForm((f: any) => ({ ...f, description: e.target.value }))} style={inp} /></div>
+                            </div>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <button onClick={() => updateType(type.id)} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                              <button onClick={() => setEditingType(null)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : editingTemplate === type.id ? (
+                          <div style={{ padding: "14px 16px", borderBottom: i < assetTypes.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                            <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "10px" }}>{type.name} — Template Fields</div>
+                            <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>Select which fields appear on this asset type's add/edit form:</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", marginBottom: "12px" }}>
+                              {ALL_STANDARD_FIELDS.map(f => (
+                                <label key={f.key} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                                  <input type="checkbox"
+                                    checked={templateForm.standardFields.includes(f.key)}
+                                    onChange={e => setTemplateForm(tf => ({
+                                      ...tf,
+                                      standardFields: e.target.checked
+                                        ? [...tf.standardFields, f.key]
+                                        : tf.standardFields.filter(x => x !== f.key)
+                                    }))} />
+                                  {f.label}
+                                </label>
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                                <input type="checkbox" checked={templateForm.showSwitchPanel} onChange={e => setTemplateForm(tf => ({ ...tf, showSwitchPanel: e.target.checked }))} />
+                                Show Switch Port Diagram
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                                <input type="checkbox" checked={templateForm.showCameraPhoto} onChange={e => setTemplateForm(tf => ({ ...tf, showCameraPhoto: e.target.checked }))} />
+                                Show Camera FOV Photo
+                              </label>
+                            </div>
+                            <div style={{ marginBottom: "12px" }}>
+                              <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "6px" }}>Custom Fields</div>
+                              {templateForm.customFieldDefs.map((cd, ci) => (
+                                <div key={ci} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto", gap: "6px", marginBottom: "6px", alignItems: "center" }}>
+                                  <input value={cd.key} onChange={e => setTemplateForm(tf => ({ ...tf, customFieldDefs: tf.customFieldDefs.map((x, xi) => xi === ci ? { ...x, key: e.target.value } : x) }))} placeholder="field_key" style={{ ...inp, fontSize: "12px" }} />
+                                  <input value={cd.label} onChange={e => setTemplateForm(tf => ({ ...tf, customFieldDefs: tf.customFieldDefs.map((x, xi) => xi === ci ? { ...x, label: e.target.value } : x) }))} placeholder="Display Label" style={{ ...inp, fontSize: "12px" }} />
+                                  <select value={cd.type} onChange={e => setTemplateForm(tf => ({ ...tf, customFieldDefs: tf.customFieldDefs.map((x, xi) => xi === ci ? { ...x, type: e.target.value } : x) }))} style={{ ...inp, fontSize: "12px" }}>
+                                    <option value="text">Text</option>
+                                    <option value="number">Number</option>
+                                    <option value="date">Date</option>
+                                    <option value="url">URL</option>
+                                  </select>
+                                  <button onClick={() => setTemplateForm(tf => ({ ...tf, customFieldDefs: tf.customFieldDefs.filter((_, xi) => xi !== ci) }))} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>✕</button>
+                                </div>
+                              ))}
+                              <button onClick={() => setTemplateForm(tf => ({ ...tf, customFieldDefs: [...tf.customFieldDefs, { key: "", label: "", type: "text", required: false }] }))}
+                                style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                                + Add custom field
+                              </button>
+                            </div>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <button onClick={() => saveTemplate(type.id)} disabled={savingTemplate} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingTemplate ? "Saving..." : "Save template"}</button>
+                              <button onClick={() => setEditingTemplate(null)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={type.id} style={{ borderBottom: i < assetTypes.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px" }}>
+                              <div>
+                                <div style={{ fontSize: "14px" }}>{type.name}</div>
+                                {type.description && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{type.description}</div>}
+                                {type.template && (
+                                  <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "3px" }}>
+                                    {type.template.standardFields.length} fields configured
+                                    {type.template.showSwitchPanel ? " · Switch panel" : ""}
+                                    {type.template.customFieldDefs?.length ? ` · ${type.template.customFieldDefs.length} custom` : ""}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                                <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>#{type.sortOrder}</span>
+                                <button onClick={() => {
+                                  setEditingTemplate(type.id)
+                                  setTemplateForm({
+                                    standardFields: type.template?.standardFields ?? [],
+                                    showSwitchPanel: type.template?.showSwitchPanel ?? false,
+                                    showCameraPhoto: type.template?.showCameraPhoto ?? false,
+                                    customFieldDefs: (type.template?.customFieldDefs as any[]) ?? [],
+                                  })
+                                }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Template</button>
+                                <button onClick={() => { setEditingType(type.id); setTypeEditForm({ ...type }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                                <button onClick={() => deleteType(type.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -925,6 +1068,44 @@ export default function SettingsPage() {
             {/* ── Pax8 ── */}
             {activeSection === "data-management" && (
               <>
+                <SectionCard title="Migrate Network Devices to Assets" description="Convert legacy Network Device records into Assets with the correct type template. Switch port diagrams and links are preserved. This cannot be undone.">
+                  {migrationResult ? (
+                    <div>
+                      <div style={{ fontSize: "14px", color: "#22c55e", marginBottom: "8px" }}>Migration complete — {migrationResult.migrated} device(s) migrated.</div>
+                      {migrationResult.errors?.length > 0 && (
+                        <div style={{ fontSize: "13px", color: "var(--color-text-danger)" }}>
+                          {migrationResult.errors.length} error(s): {migrationResult.errors.map((e: any) => e.name).join(", ")}
+                        </div>
+                      )}
+                      <button onClick={() => setMigrationResult(null)} style={{ marginTop: "10px", fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Dismiss</button>
+                    </div>
+                  ) : migrationPreview ? (
+                    <div>
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>{migrationPreview.length} device(s) will be converted:</div>
+                      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden", marginBottom: "12px" }}>
+                        {migrationPreview.map((d: any, i: number) => (
+                          <div key={d.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 60px", padding: "8px 12px", fontSize: "12px", borderBottom: i < migrationPreview.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                            <span style={{ fontWeight: 500 }}>{d.name}</span>
+                            <span style={{ color: "var(--color-text-secondary)" }}>{d.type.replace(/_/g, " ")}</span>
+                            <span style={{ color: "var(--color-text-secondary)" }}>→ {d.targetAssetType}</span>
+                            {d.switchPorts > 0 && <span style={{ color: "var(--color-text-muted)" }}>{d.switchPorts} ports</span>}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={runMigration} disabled={runningMigration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "#ef4444", color: "white", cursor: "pointer" }}>
+                          {runningMigration ? "Migrating..." : `Migrate ${migrationPreview.length} device(s)`}
+                        </button>
+                        <button onClick={() => setMigrationPreview(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={loadMigrationPreview} disabled={loadingMigration} style={{ fontSize: "13px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+                      {loadingMigration ? "Loading..." : "Preview migration"}
+                    </button>
+                  )}
+                </SectionCard>
+
                 <SectionCard title="ITFlow Import" description="Import clients, contacts, assets, passwords, and licenses from an ITFlow CSV export.">
                   <a href="/import" style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", textDecoration: "none", fontWeight: 500 }}>
                     Open Import Wizard →

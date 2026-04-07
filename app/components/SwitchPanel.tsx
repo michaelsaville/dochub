@@ -43,7 +43,8 @@ type ClientAsset = {
 
 type Props = {
   clientId: string
-  deviceId: string
+  deviceId?: string   // legacy NetworkDevice id (kept for backward compat)
+  assetId?: string    // preferred: Asset id (set when switch is an Asset)
   deviceName: string
   vlans: Vlan[]
   onVlansChange: (vlans: Vlan[]) => void
@@ -56,7 +57,11 @@ const PRESET_COLORS = [
   "#ef4444", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316",
 ]
 
-export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onVlansChange, assets, onClose }: Props) {
+export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, vlans, onVlansChange, assets, onClose }: Props) {
+  // Resolve which API base URL to use
+  const portsBase = assetId
+    ? `/api/assets/${assetId}/ports`
+    : `/api/clients/${clientId}/network/${deviceId}/ports`
   const [portCount, setPortCount] = useState<number | null>(null)
   const [ports, setPorts] = useState<SwitchPort[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,12 +86,12 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
 
   useEffect(() => {
     fetchPorts()
-  }, [deviceId])
+  }, [assetId, deviceId])
 
   async function fetchPorts() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/clients/${clientId}/network/${deviceId}/ports`)
+      const res = await fetch(portsBase)
       if (res.ok) {
         const data = await res.json()
         setPortCount(data.portCount)
@@ -123,7 +128,7 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
     if (selectedPort === null) return
     setPortSaving(true)
     try {
-      const res = await fetch(`/api/clients/${clientId}/network/${deviceId}/ports/${selectedPort}`, {
+      const res = await fetch(`${portsBase}/${selectedPort}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -173,7 +178,7 @@ export default function SwitchPanel({ clientId, deviceId, deviceName, vlans, onV
         let portId = port?.id
         if (!portId) {
           // Need to save the port first
-          const pRes = await fetch(`/api/clients/${clientId}/network/${deviceId}/ports/${selectedPort}`, {
+          const pRes = await fetch(`${portsBase}/${selectedPort}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ label: portForm.label, isUplink: portForm.isUplink, vlanId: portForm.vlanId || null }),

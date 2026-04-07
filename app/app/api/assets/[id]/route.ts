@@ -16,7 +16,9 @@ export async function GET(
         location: {
           include: { client: { select: { id: true, name: true } } },
         },
-        assetType: { select: { id: true, name: true } },
+        assetType: {
+          select: { id: true, name: true, template: true },
+        },
         primaryUser: { select: { id: true, name: true, email: true, phone: true, m365Upn: true, jobTitle: true } },
         contact: { select: { id: true, name: true, role: true, email: true, phone: true } },
         credentials: {
@@ -56,12 +58,13 @@ export async function PATCH(
       rdpEnabled, rdpHost, rdpPort, vncEnabled, vncHost, vncPort,
       purchaseDate, warrantyExpiry, room, notes,
       status, primaryUserId, contactId,
+      firmwareVersion, portCount, os, ram, cpu, storageCapacity, customFields,
     } = body
 
     // Fetch current values for audit trail
     const current = await prisma.asset.findUnique({
       where: { id },
-      select: { ipAddress: true, macAddress: true, status: true, primaryUserId: true, vlan: true, switchPort: true },
+      select: { ipAddress: true, macAddress: true, status: true, primaryUserId: true, vlan: true, switchPort: true, firmwareVersion: true },
     })
 
     const changedBy = session?.user?.name ?? "unknown"
@@ -74,7 +77,8 @@ export async function PATCH(
         { field: "status",       oldVal: current.status,       newVal: status       !== undefined ? status                         : undefined },
         { field: "primaryUserId",oldVal: current.primaryUserId,newVal: primaryUserId!== undefined ? (primaryUserId || null)        : undefined },
         { field: "vlan",         oldVal: current.vlan,         newVal: vlan         !== undefined ? (vlan?.trim() || null)         : undefined },
-        { field: "switchPort",   oldVal: current.switchPort,   newVal: switchPort   !== undefined ? (switchPort?.trim() || null)   : undefined },
+        { field: "switchPort",      oldVal: current.switchPort,      newVal: switchPort      !== undefined ? (switchPort?.trim() || null)      : undefined },
+        { field: "firmwareVersion", oldVal: current.firmwareVersion, newVal: firmwareVersion !== undefined ? (firmwareVersion?.trim() || null) : undefined },
       ]
       for (const t of tracked) {
         if (t.newVal !== undefined && t.newVal !== t.oldVal) {
@@ -121,9 +125,16 @@ export async function PATCH(
         ...(notes !== undefined && { notes: notes?.trim() || null }),
         ...(status && { status }),
         ...(primaryUserId !== undefined && { primaryUserId: primaryUserId || null }),
+        ...(firmwareVersion !== undefined && { firmwareVersion: firmwareVersion?.trim() || null }),
+        ...(portCount !== undefined && { portCount: portCount !== null ? Number(portCount) : null }),
+        ...(os !== undefined && { os: os?.trim() || null }),
+        ...(ram !== undefined && { ram: ram?.trim() || null }),
+        ...(cpu !== undefined && { cpu: cpu?.trim() || null }),
+        ...(storageCapacity !== undefined && { storageCapacity: storageCapacity?.trim() || null }),
+        ...(customFields !== undefined && { customFields }),
       },
       include: {
-        assetType: { select: { id: true, name: true } },
+        assetType: { select: { id: true, name: true, template: true } },
         primaryUser: { select: { id: true, name: true } },
         contact: { select: { id: true, name: true } },
       },

@@ -56,7 +56,7 @@ type Asset = {
   friendlyName: string | null
   category: string
   assetTypeId: string | null
-  assetType: { id: string; name: string } | null
+  assetType: { id: string; name: string; template: AssetTypeTemplate | null } | null
   primaryUserId: string | null
   primaryUser: { id: string; name: string } | null
   contactId: string | null
@@ -80,9 +80,23 @@ type Asset = {
   syncroAssetId: string | null
   dataSource: string | null
   notes: string | null
+  firmwareVersion: string | null
+  portCount: number | null
+  os: string | null
+  ram: string | null
+  cpu: string | null
+  storageCapacity: string | null
+  customFields: Record<string, string> | null
 }
 
-type AssetType = { id: string; name: string }
+type AssetTypeTemplate = {
+  standardFields: string[]
+  showSwitchPanel: boolean
+  showCameraPhoto: boolean
+  customFieldDefs: { key: string; label: string; type: string; required: boolean }[]
+}
+
+type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
 const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Activity"]
 
@@ -130,6 +144,36 @@ const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual", SYNCRO: "Syncro", UNIFI: "Unifi",
   ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
   MERAKI: "Meraki", HPINSTANTON: "HP Instant On", SONICWALL: "SonicWall",
+}
+
+// Metadata for all standard asset fields
+const ASSET_FIELD_META: Record<string, { label: string; placeholder?: string; type?: string }> = {
+  friendlyName:    { label: "Friendly Name",     placeholder: "e.g. Reception Desk" },
+  make:            { label: "Make",               placeholder: "e.g. HP, Dell, Cisco" },
+  model:           { label: "Model",              placeholder: "" },
+  serial:          { label: "Serial Number",      placeholder: "" },
+  assetTag:        { label: "Asset Tag",          placeholder: "" },
+  ipAddress:       { label: "IP Address",         placeholder: "e.g. 192.168.1.10" },
+  macAddress:      { label: "MAC Address",        placeholder: "e.g. AA:BB:CC:DD:EE:FF" },
+  vlan:            { label: "VLAN",               placeholder: "e.g. 10" },
+  switchPort:      { label: "Switch Port",        placeholder: "e.g. Gi1/0/5" },
+  managementUrl:   { label: "Management URL",     placeholder: "https://" },
+  splashtopUrl:    { label: "Splashtop URL",      placeholder: "" },
+  driverUrl:       { label: "Driver / Download URL", placeholder: "https://" },
+  firmwareVersion: { label: "Firmware Version",   placeholder: "" },
+  portCount:       { label: "Port Count",         placeholder: "e.g. 24", type: "number" },
+  os:              { label: "Operating System",   placeholder: "e.g. Windows 11 Pro" },
+  ram:             { label: "RAM",                placeholder: "e.g. 16GB DDR5" },
+  cpu:             { label: "CPU / Processor",    placeholder: "e.g. Intel i7-13700" },
+  storageCapacity: { label: "Storage",            placeholder: "e.g. 512GB NVMe SSD" },
+  purchaseDate:    { label: "Purchase Date",      type: "date" },
+  warrantyExpiry:  { label: "Warranty Expiry",    type: "date" },
+  room:            { label: "Room / Location",    placeholder: "e.g. Server Room A" },
+  rdpEnabled:      { label: "RDP Enabled",        type: "checkbox" },
+  vncEnabled:      { label: "VNC Enabled",        type: "checkbox" },
+  notes:           { label: "Notes",              type: "textarea" },
+  primaryUserId:   { label: "Primary User",       type: "user-select" },
+  contactId:       { label: "Contact",            type: "contact-select" },
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
@@ -262,7 +306,7 @@ export default function ClientDetailPage() {
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
   const [showAddAsset, setShowAddAsset] = useState(false)
-  const [assetForm, setAssetForm] = useState({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", contactId: "", notes: "" })
+  const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", primaryUserId: "", contactId: "", notes: "", customFields: {} })
   const [savingAsset, setSavingAsset] = useState(false)
   const [editingAsset, setEditingAsset] = useState<string | null>(null)
   const [assetEditForm, setAssetEditForm] = useState<any>({})
@@ -295,11 +339,12 @@ export default function ClientDetailPage() {
   const [deviceEditForm, setDeviceEditForm] = useState<any>({})
   const [vlans, setVlans] = useState<any[]>([])
   const [switchPanelDevice, setSwitchPanelDevice] = useState<{ id: string; name: string } | null>(null)
+  const [switchPanelAsset, setSwitchPanelAsset] = useState<{ id: string; name: string } | null>(null)
   const [clientDocs, setClientDocs] = useState<any[]>([])
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"devices" | "ipam" | "racks" | "shares" | "wireless">("devices")
+  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "racks" | "shares" | "wireless">("ipam")
   const [subnets, setSubnets] = useState<any[]>([])
   const [loadingSubnets, setLoadingSubnets] = useState(false)
   const [racks, setRacks] = useState<any[]>([])
@@ -975,8 +1020,9 @@ export default function ClientDetailPage() {
 
   async function fetchAssetTypes() {
     try {
-      const res = await fetch("/api/asset-types")
-      setAssetTypes(await res.json())
+      // Use admin seed endpoint which includes templates; fall back to basic endpoint
+      const res = await fetch("/api/admin/seed-asset-types")
+      if (res.ok) setAssetTypes(await res.json())
     } catch {}
   }
 
@@ -1581,43 +1627,58 @@ export default function ClientDetailPage() {
                     </select>
                   </div>
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name *</label>
-                    <input value={assetForm.name} onChange={e => setAssetForm(f => ({ ...f, name: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} placeholder="e.g. HP LaserJet Pro M404dn" />
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name / Asset ID *</label>
+                    <input value={assetForm.name} onChange={e => setAssetForm((f: any) => ({ ...f, name: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} placeholder="e.g. DELL-WS-001 or HP LaserJet M404" />
                   </div>
-                  {[
-                    { key: "make", label: "Make", placeholder: "e.g. HP" },
-                    { key: "model", label: "Model", placeholder: "e.g. LaserJet Pro M404dn" },
-                    { key: "serial", label: "Serial", placeholder: "" },
-                    { key: "ipAddress", label: "IP Address", placeholder: "" },
-                    { key: "macAddress", label: "MAC Address", placeholder: "" },
-                    { key: "managementUrl", label: "Management URL", placeholder: "https://" },
-                    { key: "purchaseDate", label: "Purchase Date", type: "date", placeholder: "" },
-                    { key: "warrantyExpiry", label: "Warranty Expiry", type: "date", placeholder: "" },
-                  ].map(({ key, label, placeholder, type }) => (
-                    <div key={key}>
-                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                      <input type={type ?? "text"} value={assetForm[key as keyof typeof assetForm]} onChange={e => setAssetForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
-                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                    </div>
-                  ))}
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Primary User</label>
-                    <select value={assetForm.primaryUserId} onChange={e => setAssetForm(f => ({ ...f, primaryUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      <option value="">Unassigned</option>
-                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
-                    <select value={assetForm.contactId} onChange={e => setAssetForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      <option value="">None</option>
-                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
-                    <textarea rows={2} value={assetForm.notes} onChange={e => setAssetForm(f => ({ ...f, notes: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" as const }} />
-                  </div>
+                  {/* Template-driven fields */}
+                  {(() => {
+                    const tmpl = assetTypes.find(t => t.id === assetForm.assetTypeId)?.template
+                    const fields = tmpl?.standardFields ?? ["make", "model", "serial", "ipAddress", "macAddress", "managementUrl", "purchaseDate", "warrantyExpiry", "notes"]
+                    const inputStyle = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
+                    return fields.map((fk: string) => {
+                      const meta = ASSET_FIELD_META[fk]
+                      if (!meta) return null
+                      const isFullWidth = meta.type === "textarea" || meta.type === "user-select" || meta.type === "contact-select"
+                      return (
+                        <div key={fk} style={isFullWidth ? { gridColumn: "1 / -1" } : {}}>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{meta.label}</label>
+                          {meta.type === "textarea" ? (
+                            <textarea rows={2} value={assetForm[fk] ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, [fk]: e.target.value }))} style={{ ...inputStyle, resize: "vertical" as const }} />
+                          ) : meta.type === "checkbox" ? (
+                            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                              <input type="checkbox" checked={!!assetForm[fk]} onChange={e => setAssetForm((f: any) => ({ ...f, [fk]: e.target.checked }))} />
+                              {meta.label}
+                            </label>
+                          ) : meta.type === "user-select" ? (
+                            <select value={assetForm.primaryUserId ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, primaryUserId: e.target.value }))} style={inputStyle}>
+                              <option value="">Unassigned</option>
+                              {client.users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                          ) : meta.type === "contact-select" ? (
+                            <select value={assetForm.contactId ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, contactId: e.target.value }))} style={inputStyle}>
+                              <option value="">None</option>
+                              {client.contacts.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          ) : (
+                            <input type={meta.type ?? "text"} value={assetForm[fk] ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, [fk]: e.target.value }))} placeholder={meta.placeholder ?? ""} style={inputStyle} />
+                          )}
+                        </div>
+                      )
+                    })
+                  })()}
+                  {/* Custom fields from template */}
+                  {(() => {
+                    const tmpl = assetTypes.find(t => t.id === assetForm.assetTypeId)?.template
+                    if (!tmpl?.customFieldDefs?.length) return null
+                    return (tmpl.customFieldDefs as any[]).map((cd: any) => (
+                      <div key={cd.key}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{cd.label}{cd.required ? " *" : ""}</label>
+                        <input type={cd.type === "number" ? "number" : cd.type === "date" ? "date" : "text"} value={assetForm.customFields?.[cd.key] ?? ""}
+                          onChange={e => setAssetForm((f: any) => ({ ...f, customFields: { ...f.customFields, [cd.key]: e.target.value } }))}
+                          style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                      </div>
+                    ))
+                  })()}
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveAsset} disabled={savingAsset} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
@@ -1816,6 +1877,12 @@ export default function ClientDetailPage() {
                             <a href={asset.managementUrl} target="_blank" rel="noopener noreferrer" title="Open Management UI" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none", whiteSpace: "nowrap" }}>
                               Manage
                             </a>
+                          )}
+                          {asset.assetType?.template?.showSwitchPanel && (
+                            <button onClick={() => { setSwitchPanelAsset({ id: asset.id, name: asset.friendlyName || asset.name }); if (vlans.length === 0) fetchVlans() }}
+                              style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", background: "transparent", cursor: "pointer", whiteSpace: "nowrap" }}>
+                              Ports{asset.portCount ? ` (${asset.portCount})` : ""}
+                            </button>
                           )}
                           <button onClick={() => toggleAssetHistory(asset.id)} style={{ fontSize: "12px", color: loadingAssetHistory[asset.id] ? "var(--color-text-muted)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                             {loadingAssetHistory[asset.id] ? "..." : expandedAssetHistory[asset.id] !== undefined ? "History ▲" : "History"}
@@ -2754,7 +2821,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["devices", "ipam", "racks", "wireless", "shares"] as const).map(t => (
+              {(["ipam", "racks", "wireless", "shares"] as const).map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
@@ -2762,193 +2829,11 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "devices" ? "Devices" : t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : "File Shares"}
+                  {t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : "File Shares"}
                 </button>
               ))}
             </div>
 
-            {/* Devices sub-tab */}
-            {networkSubTab === "devices" && (
-            <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <button onClick={() => { const next = !showArchivedDevices; setShowArchivedDevices(next); fetchNetworkDevices(next) }} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: showArchivedDevices ? "rgba(61,111,255,0.1)" : "transparent", cursor: "pointer", color: showArchivedDevices ? "var(--accent)" : "var(--color-text-secondary)" }}>
-                {showArchivedDevices ? "Hide archived" : "Show archived"}
-              </button>
-              <button onClick={() => setShowAddDevice(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add device</button>
-            </div>
-
-            {showAddDevice && (
-              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
-                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New network device</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name *</label>
-                    <input autoFocus value={deviceForm.name} onChange={e => setDeviceForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Core Switch"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
-                    <select value={deviceForm.type} onChange={e => setDeviceForm(f => ({ ...f, type: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      {["SWITCH", "FIREWALL", "ROUTER", "ACCESS_POINT", "NAS", "UPS", "MODEM", "OTHER"].map(t => (
-                        <option key={t} value={t}>{t.replace("_", " ").charAt(0) + t.replace("_", " ").slice(1).toLowerCase()}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Location</label>
-                    <select value={deviceForm.locationId} onChange={e => setDeviceForm(f => ({ ...f, locationId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      <option value="">No location</option>
-                      {client.locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                    </select>
-                  </div>
-                  {[
-                    { key: "make", label: "Make", placeholder: "e.g. Ubiquiti" },
-                    { key: "model", label: "Model", placeholder: "e.g. USW-Pro-48" },
-                    { key: "ipAddress", label: "IP address", placeholder: "e.g. 192.168.1.1" },
-                    { key: "macAddress", label: "MAC address", placeholder: "" },
-                    { key: "serial", label: "Serial number", placeholder: "" },
-                    { key: "firmwareVersion", label: "Firmware", placeholder: "" },
-                    { key: "managementUrl", label: "Management URL", placeholder: "https://..." },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key}>
-                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                      <input value={deviceForm[key as keyof typeof deviceForm] as string} onChange={e => setDeviceForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
-                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                    </div>
-                  ))}
-                  {deviceForm.type === "SWITCH" && (
-                    <div>
-                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Port count</label>
-                      <input type="number" value={deviceForm.portCount} onChange={e => setDeviceForm(f => ({ ...f, portCount: e.target.value }))} placeholder="e.g. 24"
-                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                    </div>
-                  )}
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
-                    <input value={deviceForm.notes} onChange={e => setDeviceForm(f => ({ ...f, notes: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button onClick={saveNetworkDevice} disabled={savingDevice} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingDevice ? "Saving..." : "Save"}</button>
-                  <button onClick={() => setShowAddDevice(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
-                </div>
-              </div>
-            )}
-
-            {loadingNetwork ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
-            ) : networkDevices.length === 0 && !showAddDevice ? (
-              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No network devices yet.</div>
-            ) : (
-
-              <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                  {["Device", "Type", "IP address", "Location", "Management", ""].map(h => (
-                    <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
-                  ))}
-                </div>
-                {networkDevices.map((dev, i) => editingDevice === dev.id ? (
-                  <div key={dev.id} style={{ padding: "14px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                      <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Name</label>
-                        <input value={deviceEditForm.name ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, name: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
-                        <select value={deviceEditForm.type ?? "OTHER"} onChange={e => setDeviceEditForm((f: any) => ({ ...f, type: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                          {["SWITCH", "FIREWALL", "ROUTER", "ACCESS_POINT", "NAS", "UPS", "MODEM", "OTHER"].map(t => (
-                            <option key={t} value={t}>{t.replace("_", " ").charAt(0) + t.replace("_", " ").slice(1).toLowerCase()}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {[
-                        { key: "make", label: "Make" }, { key: "model", label: "Model" },
-                        { key: "ipAddress", label: "IP address" }, { key: "macAddress", label: "MAC address" },
-                        { key: "serial", label: "Serial" }, { key: "firmwareVersion", label: "Firmware" },
-                        { key: "managementUrl", label: "Management URL" },
-                      ].map(({ key, label }) => (
-                        <div key={key}>
-                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                          <input value={deviceEditForm[key] ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                        </div>
-                      ))}
-                      <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Location</label>
-                        <select value={deviceEditForm.locationId ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, locationId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                          <option value="">No location</option>
-                          {client.locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                      </div>
-                      {(deviceEditForm.type === "SWITCH" || dev.type === "SWITCH") && (
-                        <div>
-                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Port count</label>
-                          <input type="number" value={deviceEditForm.portCount ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, portCount: e.target.value }))} placeholder="e.g. 24"
-                            style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                        </div>
-                      )}
-                      <div style={{ gridColumn: "1 / -1" }}>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
-                        <input value={deviceEditForm.notes ?? ""} onChange={e => setDeviceEditForm((f: any) => ({ ...f, notes: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => updateNetworkDevice(dev.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
-                      <button onClick={() => setEditingDevice(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={dev.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 140px 130px 140px 80px", padding: "12px 16px", borderBottom: i < networkDevices.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: dev.isActive ? "var(--color-background-primary)" : "var(--color-background-secondary)", alignItems: "center", opacity: dev.isActive ? 1 : 0.6 }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{dev.name}</span>
-                        {!dev.isActive && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "#374151", color: "#9ca3af" }}>archived</span>}
-                        {boundSourceTag(dev.dataSource)}
-                      </div>
-                      {(dev.make || dev.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[dev.make, dev.model].filter(Boolean).join(" ")}</div>}
-                      {dev.serial && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>S/N: {dev.serial}</div>}
-                      {dev.firmwareVersion && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>FW: {dev.firmwareVersion}</div>}
-                      <div style={{ display: "flex", gap: "10px", marginTop: "3px", flexWrap: "wrap" }}>
-                        {dev.uptime != null && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>⏱ {formatUptime(dev.uptime)}</span>}
-                        {dev.connectedClients != null && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>👥 {dev.connectedClients} clients</span>}
-                        {dev.lastSeenAt && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Seen {new Date(dev.lastSeenAt).toLocaleDateString()}</span>}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                      <span style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", background: "var(--color-background-hover)" }}>
-                        {dev.type.replace("_", " ").charAt(0) + dev.type.replace("_", " ").slice(1).toLowerCase()}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{dev.ipAddress ?? "—"}</div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{dev.location?.name ?? "—"}</div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                      {dev.managementUrl ? (
-                        <a href={dev.managementUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-text-secondary)" }}>Open ↗</a>
-                      ) : "—"}
-                    </div>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      {dev.type === "SWITCH" && (
-                        <button onClick={() => { setSwitchPanelDevice({ id: dev.id, name: dev.name }); if (vlans.length === 0) fetchVlans(); if (assets.length === 0) fetchAssets() }}
-                          style={{ fontSize: "12px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
-                          Ports{dev.portCount ? ` (${dev.portCount})` : ""}
-                        </button>
-                      )}
-                      {dev.isActive ? (
-                        <>
-                          <button onClick={() => { setEditingDevice(dev.id); setDeviceEditForm({ ...dev, locationId: dev.location?.id ?? "", portCount: dev.portCount ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
-                          <button onClick={() => deleteNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Archive</button>
-                        </>
-                      ) : (
-                        <button onClick={() => restoreNetworkDevice(dev.id)} style={{ fontSize: "12px", color: "#22c55e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
-            )} {/* end devices sub-tab */}
 
             {/* IPAM sub-tab */}
             {networkSubTab === "ipam" && (
@@ -3024,7 +2909,20 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {/* Switch port panel overlay */}
+        {/* Switch port panel overlay — asset-based (new) */}
+        {switchPanelAsset && (
+          <SwitchPanel
+            clientId={id as string}
+            assetId={switchPanelAsset.id}
+            deviceName={switchPanelAsset.name}
+            vlans={vlans}
+            onVlansChange={setVlans}
+            assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName, category: a.category, interfaces: [] }))}
+            onClose={() => setSwitchPanelAsset(null)}
+          />
+        )}
+
+        {/* Switch port panel overlay — device-based (legacy NetworkDevices) */}
         {switchPanelDevice && (
           <SwitchPanel
             clientId={id as string}

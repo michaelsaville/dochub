@@ -120,14 +120,27 @@ model UserLocation {
 }
 
 model AssetType {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
   description String?
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean            @default(true)
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   assets      Asset[]
+  template    AssetTypeTemplate?
+}
+
+model AssetTypeTemplate {
+  id              String    @id @default(cuid())
+  assetTypeId     String    @unique
+  standardFields  String[]  // ordered list of standard field keys to surface in forms/cards
+  customFieldDefs Json      @default("[]") // [{ key, label, type, required }]
+  showSwitchPanel Boolean   @default(false)
+  showCameraPhoto Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  assetType       AssetType @relation(fields: [assetTypeId], references: [id], onDelete: Cascade)
 }
 
 model Asset {
@@ -167,6 +180,14 @@ model Asset {
   assetTypeId    String?
   contactId      String?
   dataSource     String         @default("MANUAL")
+  // Typed extended fields (surfaced based on AssetTypeTemplate.standardFields)
+  firmwareVersion  String?
+  portCount        Int?
+  os               String?      // e.g. "Windows 11 Pro", "Ubuntu 22.04"
+  ram              String?      // e.g. "16GB", "32GB DDR5"
+  cpu              String?      // e.g. "Intel i7-13700", "AMD Ryzen 9"
+  storageCapacity  String?      // e.g. "1TB NVMe SSD", "2x4TB RAID1"
+  customFields     Json?        // { [key: string]: string } from template custom field defs
   assetType      AssetType?     @relation(fields: [assetTypeId], references: [id])
   contact        Contact?       @relation("AssetContact", fields: [contactId], references: [id])
   location       Location       @relation(fields: [locationId], references: [id])
@@ -179,12 +200,14 @@ model Asset {
   rackSlots      RackSlot[]      @relation("AssetRackSlot")
   networkShares    NetworkShare[]   @relation("AssetNetworkShare")
   interfaces       AssetInterface[]
+  switchPorts      SwitchPort[]
   vpnGateways      VpnGateway[]     @relation("AssetVpnGateway")
   phoneSystems     PhoneSystem[]    @relation("AssetPhoneSystem")
   phoneExtensions  PhoneExtension[] @relation("AssetPhoneExtension")
   cameraSystems    CameraSystem[]   @relation("AssetCameraSystem")
   cameras          Camera[]         @relation("AssetCamera")
   wifiControllers  WifiController[] @relation("AssetWifiController")
+  networkDevice    NetworkDevice?   // if migrated from NetworkDevice
 }
 
 model ExitInterview {
@@ -522,6 +545,7 @@ model NetworkDevice {
   id              String            @id @default(cuid())
   clientId        String
   locationId      String?
+  assetId         String?           @unique // set after migrating to Asset
   name            String
   type            NetworkDeviceType @default(OTHER)
   make            String?
@@ -543,6 +567,7 @@ model NetworkDevice {
   connectedClients Int?              // number of connected clients (APs/switches)
   client           Client            @relation(fields: [clientId], references: [id])
   location         Location?         @relation(fields: [locationId], references: [id])
+  asset            Asset?            @relation(fields: [assetId], references: [id])
   rackSlots        RackSlot[]
   switchPorts      SwitchPort[]
   vpnGateways      VpnGateway[]      @relation("NetworkDeviceVpnGateway")
@@ -567,7 +592,8 @@ model Vlan {
 
 model SwitchPort {
   id              String           @id @default(cuid())
-  networkDeviceId String
+  networkDeviceId String?          // legacy — null once migrated to assetId
+  assetId         String?          // set when switch is an Asset
   portNumber      Int
   label           String?
   isUplink        Boolean          @default(false)
@@ -576,11 +602,10 @@ model SwitchPort {
   notes           String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  networkDevice   NetworkDevice    @relation(fields: [networkDeviceId], references: [id], onDelete: Cascade)
+  networkDevice   NetworkDevice?   @relation(fields: [networkDeviceId], references: [id], onDelete: Cascade)
+  asset           Asset?           @relation(fields: [assetId], references: [id], onDelete: Cascade)
   vlan            Vlan?            @relation(fields: [vlanId], references: [id])
   interfaces      AssetInterface[]
-
-  @@unique([networkDeviceId, portNumber])
 }
 
 model AssetInterface {

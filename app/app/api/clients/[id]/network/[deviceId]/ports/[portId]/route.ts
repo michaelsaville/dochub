@@ -15,31 +15,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json()
     const { label, isUplink, isPoe, vlanId, notes } = body
 
-    const port = await prisma.switchPort.upsert({
-      where: { networkDeviceId_portNumber: { networkDeviceId: deviceId, portNumber } },
-      update: {
-        ...(label !== undefined && { label: label?.trim() || null }),
-        ...(isUplink !== undefined && { isUplink }),
-        ...(isPoe !== undefined && { isPoe }),
-        ...(vlanId !== undefined && { vlanId: vlanId || null }),
-        ...(notes !== undefined && { notes: notes?.trim() || null }),
-      },
-      create: {
-        networkDeviceId: deviceId,
-        portNumber,
-        label: label?.trim() || null,
-        isUplink: isUplink ?? false,
-        isPoe: isPoe ?? false,
-        vlanId: vlanId || null,
-        notes: notes?.trim() || null,
-      },
-      include: {
-        vlan: true,
-        interfaces: {
-          include: { asset: { select: { id: true, name: true, friendlyName: true, category: true } } },
+    const existing = await prisma.switchPort.findFirst({ where: { networkDeviceId: deviceId, portNumber } })
+
+    let port
+    if (existing) {
+      port = await prisma.switchPort.update({
+        where: { id: existing.id },
+        data: {
+          ...(label !== undefined && { label: label?.trim() || null }),
+          ...(isUplink !== undefined && { isUplink }),
+          ...(isPoe !== undefined && { isPoe }),
+          ...(vlanId !== undefined && { vlanId: vlanId || null }),
+          ...(notes !== undefined && { notes: notes?.trim() || null }),
         },
-      },
-    })
+        include: { vlan: true, interfaces: { include: { asset: { select: { id: true, name: true, friendlyName: true, category: true } } } } },
+      })
+    } else {
+      port = await prisma.switchPort.create({
+        data: { networkDeviceId: deviceId, portNumber, label: label?.trim() || null, isUplink: isUplink ?? false, isPoe: isPoe ?? false, vlanId: vlanId || null, notes: notes?.trim() || null },
+        include: { vlan: true, interfaces: { include: { asset: { select: { id: true, name: true, friendlyName: true, category: true } } } } },
+      })
+    }
     return NextResponse.json(port)
   } catch {
     return NextResponse.json({ error: "Failed to update port" }, { status: 500 })
