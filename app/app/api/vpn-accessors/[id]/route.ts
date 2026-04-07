@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { encrypt } from "@/lib/crypto"
 
 export async function PUT(
   req: Request,
@@ -14,17 +15,46 @@ export async function PUT(
     const {
       accessorType, clientUserId, vendorId, staffUserId, contactId,
       thirdPartyName, credentialId, mfaEnabled, accessScope, certExpiry, notes, isActive,
+      credLabel, credUsername, credPassword,
     } = body
+
+    // Inline credential creation: look up clientId via gateway
+    let resolvedCredentialId = credentialId !== undefined ? (credentialId || null) : undefined
+    if (credPassword?.trim()) {
+      const existing = await prisma.vpnAccessor.findUnique({
+        where: { id },
+        select: { gateway: { select: { clientId: true } }, accessorType: true, clientUserId: true, contactId: true },
+      })
+      if (existing) {
+        const label = credLabel?.trim() || "VPN Credential"
+        const type = accessorType ?? existing.accessorType
+        const userId = (type === "CLIENT_USER" ? clientUserId ?? existing.clientUserId : null) || null
+        const contactIdForCred = (type === "CONTACT" ? contactId ?? existing.contactId : null) || null
+        const cred = await prisma.credential.create({
+          data: {
+            clientId: existing.gateway.clientId,
+            label,
+            username: credUsername?.trim() || null,
+            encryptedPassword: encrypt(credPassword.trim()),
+            userId,
+            contactId: contactIdForCred,
+            url: null,
+          },
+        })
+        resolvedCredentialId = cred.id
+      }
+    }
+
     const accessor = await prisma.vpnAccessor.update({
       where: { id },
       data: {
         accessorType: accessorType ?? undefined,
-        clientUserId: clientUserId ?? null,
-        vendorId: vendorId ?? null,
-        staffUserId: staffUserId ?? null,
-        contactId: contactId ?? null,
+        clientUserId: clientUserId !== undefined ? (clientUserId || null) : undefined,
+        vendorId: vendorId !== undefined ? (vendorId || null) : undefined,
+        staffUserId: staffUserId !== undefined ? (staffUserId || null) : undefined,
+        contactId: contactId !== undefined ? (contactId || null) : undefined,
         thirdPartyName: thirdPartyName?.trim() ?? null,
-        credentialId: credentialId ?? null,
+        credentialId: resolvedCredentialId,
         mfaEnabled: mfaEnabled ?? undefined,
         accessScope: accessScope?.trim() ?? null,
         certExpiry: certExpiry !== undefined ? (certExpiry ? new Date(certExpiry) : null) : undefined,

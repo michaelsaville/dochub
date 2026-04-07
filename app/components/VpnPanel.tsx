@@ -548,7 +548,7 @@ function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, c
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<any>({})
-  const emptyForm = { accessorType: "CLIENT_USER", clientUserId: "", vendorId: "", staffUserId: "", contactId: "", thirdPartyName: "", credentialId: "", mfaEnabled: false, accessScope: "", certExpiry: "", notes: "" }
+  const emptyForm = { accessorType: "CLIENT_USER", clientUserId: "", vendorId: "", staffUserId: "", contactId: "", thirdPartyName: "", credentialId: null, credMode: "none", credLabel: "", credUsername: "", credPassword: "", mfaEnabled: false, accessScope: "", certExpiry: "", notes: "" }
   const [form, setForm] = useState(emptyForm)
 
   async function save() {
@@ -610,7 +610,7 @@ function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, c
                 {accessor.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontStyle: "italic", marginTop: "2px" }}>{accessor.notes}</div>}
               </div>
               <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-                <button onClick={() => { setEditingId(accessor.id); setEditForm({ ...accessor, certExpiry: accessor.certExpiry ? accessor.certExpiry.slice(0, 10) : "" }) }}
+                <button onClick={() => { setEditingId(accessor.id); setEditForm({ ...accessor, certExpiry: accessor.certExpiry ? accessor.certExpiry.slice(0, 10) : "", credMode: accessor.credentialId ? "existing" : "none", credLabel: "", credUsername: "", credPassword: "" }) }}
                   style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                 <button onClick={() => onDelete(accessor.id)}
                   style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
@@ -651,6 +651,28 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
   contacts: { id: string; name: string; role: string | null }[]
   credentials: { id: string; label: string }[]
 }) {
+  // credMode: "none" | "existing" | "new"
+  const credMode: "none" | "existing" | "new" = form.credMode ?? "none"
+  const setCredMode = (m: "none" | "existing" | "new") =>
+    setForm(f => ({ ...f, credMode: m, credentialId: m === "existing" ? f.credentialId : null, credLabel: "", credUsername: "", credPassword: "" }))
+
+  // Auto-fill credential label from selected identity
+  function identityName(): string {
+    if (form.accessorType === "CLIENT_USER" && form.clientUserId) {
+      const u = clientUsers.find(u => u.id === form.clientUserId)
+      return u ? `${u.name} – VPN` : ""
+    }
+    if (form.accessorType === "CONTACT" && form.contactId) {
+      const c = contacts.find(c => c.id === form.contactId)
+      return c ? `${c.name} – VPN` : ""
+    }
+    if (form.accessorType === "VENDOR" && form.vendorId) {
+      const v = vendors.find(v => v.id === form.vendorId)
+      return v ? `${v.name} – VPN` : ""
+    }
+    return ""
+  }
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
       {/* Accessor type */}
@@ -667,13 +689,17 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
       </div>
 
       {/* Identity picker */}
-      {form.accessorType === "CLIENT_USER" && clientUsers.length > 0 && (
+      {form.accessorType === "CLIENT_USER" && (
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={lbl}>Client user</label>
-          <select value={form.clientUserId || ""} onChange={e => setForm(f => ({ ...f, clientUserId: e.target.value }))} style={inp}>
-            <option value="">Select user…</option>
-            {clientUsers.map(u => <option key={u.id} value={u.id}>{u.name}{u.email ? ` (${u.email})` : ""}</option>)}
-          </select>
+          {clientUsers.length > 0 ? (
+            <select value={form.clientUserId || ""} onChange={e => setForm(f => ({ ...f, clientUserId: e.target.value }))} style={inp}>
+              <option value="">Select user…</option>
+              {clientUsers.map(u => <option key={u.id} value={u.id}>{u.name}{u.email ? ` (${u.email})` : ""}</option>)}
+            </select>
+          ) : (
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "8px 0" }}>No users on this client yet.</div>
+          )}
         </div>
       )}
       {form.accessorType === "VENDOR" && vendors.length > 0 && (
@@ -710,16 +736,49 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
         </div>
       )}
 
-      {/* Credential */}
-      {credentials.length > 0 && (
-        <div>
-          <label style={lbl}>Their VPN credential</label>
+      {/* Credential section */}
+      <div style={{ gridColumn: "1 / -1", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", padding: "12px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "10px" }}>
+          VPN Credential <span style={{ fontWeight: 400, textTransform: "none", fontSize: "11px" }}>(saved to vault)</span>
+        </div>
+        <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
+          {(["none", "existing", "new"] as const).map(m => (
+            <button key={m} onClick={() => setCredMode(m)}
+              style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", cursor: "pointer", fontWeight: credMode === m ? 600 : 400, border: `0.5px solid ${credMode === m ? "var(--color-text-primary)" : "var(--color-border-secondary)"}`, background: credMode === m ? "var(--color-background-secondary)" : "transparent", color: credMode === m ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}>
+              {m === "none" ? "None" : m === "existing" ? "Pick existing" : "Create new"}
+            </button>
+          ))}
+        </div>
+
+        {credMode === "existing" && (
           <select value={form.credentialId || ""} onChange={e => setForm(f => ({ ...f, credentialId: e.target.value || null }))} style={inp}>
-            <option value="">None</option>
+            <option value="">Select credential…</option>
             {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
-        </div>
-      )}
+        )}
+
+        {credMode === "new" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+            <div>
+              <label style={lbl}>Label</label>
+              <input
+                value={form.credLabel ?? ""}
+                placeholder={identityName() || "e.g. John Smith – VPN"}
+                onChange={e => setForm(f => ({ ...f, credLabel: e.target.value }))}
+                style={inp}
+              />
+            </div>
+            <div>
+              <label style={lbl}>Username</label>
+              <input value={form.credUsername ?? ""} onChange={e => setForm(f => ({ ...f, credUsername: e.target.value }))} placeholder="jsmith" style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>Password *</label>
+              <input type="password" value={form.credPassword ?? ""} onChange={e => setForm(f => ({ ...f, credPassword: e.target.value }))} placeholder="Required" style={inp} />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Access scope */}
       <div>
