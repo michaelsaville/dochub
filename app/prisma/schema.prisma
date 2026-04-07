@@ -62,6 +62,7 @@ model Client {
   phoneSystems   PhoneSystem[]
   cameraSystems  CameraSystem[]
   wifiControllers WifiController[]
+  ptpLinks        PtpLink[]
 }
 
 model Location {
@@ -84,6 +85,8 @@ model Location {
   racks          Rack[]
   subnets        Subnet[]
   userLocations  UserLocation[]
+  ptpSideA       PtpLink[]      @relation("PtpSideA")
+  ptpSideB       PtpLink[]      @relation("PtpSideB")
 }
 
 model ClientUser {
@@ -252,6 +255,7 @@ model Credential {
   cameraSystems        CameraSystem[]   @relation("CredentialCameraSystem")
   wifiControllers      WifiController[] @relation("CredentialWifiController")
   wifiNetworks         WifiNetwork[]    @relation("CredentialWifiNetwork")
+  ptpLinks             PtpLink[]        @relation("CredentialPtpLink")
 }
 
 model License {
@@ -1163,6 +1167,48 @@ enum WifiPurpose {
   CAMERAS
   MANAGEMENT
   OTHER
+}
+
+// ─── Wireless PTP Bridges ─────────────────────────────────────────────────────
+
+model PtpLink {
+  id             String    @id @default(cuid())
+  clientId       String
+  credentialId   String?   // admin credential in vault
+  name           String    // e.g. "Main Office to Warehouse"
+  make           String?   // Ubiquiti, MikroTik, Cambium, etc.
+  model          String?   // e.g. "airMAX LiteBeam 5AC Gen2"
+  frequencyBand  String?   // e.g. "5.8 GHz", "60 GHz", "24 GHz"
+  channelWidth   String?   // e.g. "40 MHz", "80 MHz"
+  distanceFt     Int?      // link distance in feet
+  managementUrl  String?   // usually the master/AP-side URL
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Side A (local / near end)
+  sideAName      String?   // descriptive label e.g. "Main Office Rooftop"
+  sideALocationId String?  // link to a Location record
+  sideAIp        String?
+  sideAMac       String?
+  sideASerial    String?
+  sideASignalDbm Int?      // documented receive signal level in dBm
+  sideATxPower   String?   // e.g. "23 dBm", "Auto"
+
+  // Side B (remote / far end)
+  sideBName      String?
+  sideBLocationId String?
+  sideBIp        String?
+  sideBMac       String?
+  sideBSerial    String?
+  sideBSignalDbm Int?
+  sideBTxPower   String?
+
+  client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credential     Credential? @relation("CredentialPtpLink", fields: [credentialId], references: [id])
+  sideALocation  Location?   @relation("PtpSideA", fields: [sideALocationId], references: [id])
+  sideBLocation  Location?   @relation("PtpSideB", fields: [sideBLocationId], references: [id])
 }
 
 // ─── Field History (audit trail) ──────────────────────────────────────────────

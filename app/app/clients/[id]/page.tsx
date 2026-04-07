@@ -9,6 +9,7 @@ import VpnPanel from "@/components/VpnPanel"
 import PhonePanel from "@/components/PhonePanel"
 import CameraPanel from "@/components/CameraPanel"
 import WifiPanel from "@/components/WifiPanel"
+import PtpPanel from "@/components/PtpPanel"
 import SwitchPanel from "@/components/SwitchPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -344,7 +345,9 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "racks" | "shares" | "wireless">("ipam")
+  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "racks" | "shares" | "wireless" | "ptp">("ipam")
+  const [ptpLinks, setPtpLinks] = useState<any[]>([])
+  const [loadingPtp, setLoadingPtp] = useState(false)
   const [subnets, setSubnets] = useState<any[]>([])
   const [loadingSubnets, setLoadingSubnets] = useState(false)
   const [racks, setRacks] = useState<any[]>([])
@@ -424,6 +427,7 @@ export default function ClientDetailPage() {
       if (subnets.length === 0) fetchSubnets()
       if (assets.length === 0) fetchAssets()
     }
+    if (networkSubTab === "ptp" && ptpLinks.length === 0) fetchPtp()
   }, [networkSubTab, activeTab])
 
   async function fetchClient() {
@@ -855,6 +859,22 @@ export default function ClientDetailPage() {
       }
     } catch {}
     finally { setLoadingWifi(false) }
+  }
+
+  async function fetchPtp() {
+    setLoadingPtp(true)
+    try {
+      const [linksRes, credsRes] = await Promise.all([
+        fetch(`/api/clients/${id}/ptp`),
+        fetch(`/api/clients/${id}/credentials`),
+      ])
+      if (linksRes.ok) setPtpLinks(await linksRes.json())
+      if (credsRes.ok) {
+        const creds = await credsRes.json()
+        setPhoneCredentials(prev => prev.length ? prev : creds.map((c: any) => ({ id: c.id, label: c.label })))
+      }
+    } catch {}
+    finally { setLoadingPtp(false) }
   }
 
   async function fetchApplications() {
@@ -2821,7 +2841,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["ipam", "racks", "wireless", "shares"] as const).map(t => (
+              {(["ipam", "racks", "wireless", "ptp", "shares"] as const).map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
@@ -2829,7 +2849,7 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : "File Shares"}
+                  {t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : t === "ptp" ? "PTP Bridges" : "File Shares"}
                 </button>
               ))}
             </div>
@@ -2885,6 +2905,22 @@ export default function ClientDetailPage() {
                     credentials={phoneCredentials}
                     clientId={id as string}
                     onControllersChange={setWifiControllers}
+                  />
+                )}
+              </div>
+            )}
+
+            {networkSubTab === "ptp" && (
+              <div>
+                {loadingPtp ? (
+                  <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
+                ) : (
+                  <PtpPanel
+                    links={ptpLinks}
+                    locations={client.locations}
+                    credentials={phoneCredentials}
+                    clientId={id as string}
+                    onLinksChange={setPtpLinks}
                   />
                 )}
               </div>
