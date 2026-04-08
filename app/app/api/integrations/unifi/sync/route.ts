@@ -6,6 +6,18 @@ import {
   uiCloudGetDevices, uiCloudDeviceType,
 } from "@/lib/unifi"
 
+// Map UniFi device type → AssetType name
+const TYPE_MAP: Record<string, string> = {
+  SWITCH: "Switch",
+  FIREWALL: "Firewall",
+  ROUTER: "Router",
+  ACCESS_POINT: "Access Point",
+  NAS: "NAS",
+  UPS: "UPS",
+  MODEM: "Router",
+  OTHER: "Other",
+}
+
 export async function POST() {
   const { error } = await requireAuth()
   if (error) return error
@@ -32,8 +44,58 @@ export async function POST() {
       return NextResponse.json({ error: "No sites mapped to clients. Configure site mapping first." }, { status: 422 })
     }
 
+    // Load asset types once for type mapping
+    const assetTypes = await prisma.assetType.findMany({ select: { id: true, name: true } })
+    const typeByName = Object.fromEntries(assetTypes.map(t => [t.name, t.id]))
+
     let totalDevices = 0
     const errors: string[] = []
+
+    async function upsertDevice(clientId: string, locationId: string | null, mac: string | null, assetData: {
+      name: string
+      assetTypeId: string | null
+      make: string | null
+      model: string | null
+      ipAddress: string | null
+      macAddress: string | null
+      serial: string | null
+      firmwareVersion: string | null
+      managementUrl: string | null
+    }) {
+      // Find client's location IDs for scoped search
+      const clientLocations = await prisma.location.findMany({
+        where: { clientId },
+        select: { id: true },
+      })
+      const locationIds = clientLocations.map(l => l.id)
+
+      // Resolve locationId — prefer provided, fall back to first client location
+      const resolvedLocationId = locationId ?? clientLocations[0]?.id
+      if (!resolvedLocationId) throw new Error("No location found for client")
+
+      // Try to find existing asset by MAC within this client's locations
+      const existing = mac
+        ? await prisma.asset.findFirst({
+            where: { macAddress: mac, locationId: { in: locationIds } },
+          })
+        : null
+
+      if (existing) {
+        await prisma.asset.update({
+          where: { id: existing.id },
+          data: { ...assetData, dataSource: "UNIFI" },
+        })
+      } else {
+        await prisma.asset.create({
+          data: {
+            locationId: resolvedLocationId,
+            ...assetData,
+            dataSource: "UNIFI",
+            status: "ACTIVE",
+          },
+        })
+      }
+    }
 
     if (controllerType === "ui_cloud") {
       const apiKey = cfg["integration:unifi:apiKey"]?.trim()
@@ -54,14 +116,11 @@ export async function POST() {
             try {
               const mac = d.mac?.toLowerCase() || null
               const type = uiCloudDeviceType(d)
-              const name = d.name || d.model || d.mac || d.id || "Unknown Device"
-              const externalId = d.id || d.mac || null
+              const assetTypeName = TYPE_MAP[type] ?? "Other"
 
-              const upsertData = {
-                clientId,
-                locationId: client.locations[0]?.id || null,
-                name,
-                type: type as any,
+              await upsertDevice(clientId, client.locations[0]?.id || null, mac, {
+                name: d.name || d.model || d.mac || d.id || "Unknown Device",
+                assetTypeId: typeByName[assetTypeName] ?? null,
                 make: "Ubiquiti",
                 model: d.model || null,
                 ipAddress: d.ip || null,
@@ -69,28 +128,7 @@ export async function POST() {
                 serial: d.serial || null,
                 firmwareVersion: d.firmwareVersion || d.version || null,
                 managementUrl: d.ip ? `https://${d.ip}` : null,
-                dataSource: "UNIFI",
-                externalId,
-                lastSeenAt: new Date(),
-                uptime: typeof d.uptime === "number" ? d.uptime : null,
-                connectedClients: typeof d.connectedDevicesCount === "number" ? d.connectedDevicesCount : null,
-                isActive: true,
-              }
-
-              const existing = await prisma.networkDevice.findFirst({
-                where: {
-                  OR: [
-                    { externalId, clientId },
-                    ...(mac ? [{ macAddress: mac, clientId }] : []),
-                  ],
-                },
               })
-
-              if (existing) {
-                await prisma.networkDevice.update({ where: { id: existing.id }, data: upsertData })
-              } else {
-                await prisma.networkDevice.create({ data: upsertData })
-              }
               totalDevices++
             } catch (devErr: any) {
               errors.push(`Device ${d.id}: ${devErr.message}`)
@@ -127,14 +165,11 @@ export async function POST() {
             try {
               const mac = d.mac?.toLowerCase() || null
               const type = unifiDeviceType(d.type)
-              const name = d.name || d.model || d.mac || d._id || "Unknown Device"
-              const externalId = d._id || d.mac || null
+              const assetTypeName = TYPE_MAP[type] ?? "Other"
 
-              const upsertData = {
-                clientId,
-                locationId: client.locations[0]?.id || null,
-                name,
-                type: type as any,
+              await upsertDevice(clientId, client.locations[0]?.id || null, mac, {
+                name: d.name || d.model || d.mac || d._id || "Unknown Device",
+                assetTypeId: typeByName[assetTypeName] ?? null,
                 make: "Ubiquiti",
                 model: d.model || null,
                 ipAddress: d.ip || null,
@@ -142,28 +177,7 @@ export async function POST() {
                 serial: d.serial || null,
                 firmwareVersion: d.version || null,
                 managementUrl: d.ip ? `https://${d.ip}` : null,
-                dataSource: "UNIFI",
-                externalId,
-                lastSeenAt: new Date(),
-                uptime: typeof d.uptime === "number" ? d.uptime : null,
-                connectedClients: typeof d.num_sta === "number" ? d.num_sta : null,
-                isActive: true,
-              }
-
-              const existing = await prisma.networkDevice.findFirst({
-                where: {
-                  OR: [
-                    { externalId, clientId },
-                    ...(mac ? [{ macAddress: mac, clientId }] : []),
-                  ],
-                },
               })
-
-              if (existing) {
-                await prisma.networkDevice.update({ where: { id: existing.id }, data: upsertData })
-              } else {
-                await prisma.networkDevice.create({ data: upsertData })
-              }
               totalDevices++
             } catch (devErr: any) {
               errors.push(`Device ${d._id}: ${devErr.message}`)
