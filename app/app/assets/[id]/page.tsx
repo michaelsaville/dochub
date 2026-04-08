@@ -1,7 +1,8 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { QRCodeCanvas } from "qrcode.react"
 import { useParams, useRouter } from "next/navigation"
 
 type Credential = {
@@ -166,6 +167,46 @@ export default function AssetDetailPage() {
   const [driverSaving, setDriverSaving] = useState(false)
   const [driverEditUrl, setDriverEditUrl] = useState("")
   const [driverEditing, setDriverEditing] = useState(false)
+  const [showQR, setShowQR] = useState(false)
+  const qrRef = useRef<HTMLDivElement>(null)
+
+  function printLabel() {
+    const canvas = qrRef.current?.querySelector("canvas") as HTMLCanvasElement | null
+    if (!canvas || !asset) return
+    const qrDataUrl = canvas.toDataURL("image/png")
+    const name = asset.friendlyName || asset.name
+    const lines = [
+      asset.make || asset.model ? [asset.make, asset.model].filter(Boolean).join(" ") : null,
+      asset.serial ? `S/N: ${asset.serial}` : null,
+      asset.assetTag ? `Tag: ${asset.assetTag}` : null,
+      asset.location?.name ? `Location: ${asset.location.name}` : null,
+      `Client: ${asset.location?.client?.name ?? ""}`,
+    ].filter(Boolean) as string[]
+
+    const win = window.open("", "_blank", "width=560,height=420")
+    if (!win) return
+    win.document.write(`<!DOCTYPE html><html><head><title>Asset Label</title>
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fff;padding:20px}
+        .label{display:flex;align-items:center;gap:20px;padding:20px 24px;border:1.5px solid #111;border-radius:6px}
+        .qr img{width:150px;height:150px;display:block}
+        .name{font-size:17px;font-weight:700;margin-bottom:8px;line-height:1.2}
+        .line{font-size:12px;color:#444;margin-bottom:3px;font-family:monospace}
+        @media print{body{min-height:auto;padding:0}@page{margin:0.4cm;size:14cm 7cm}}
+      </style>
+    </head><body>
+      <div class="label">
+        <div class="qr"><img src="${qrDataUrl}"/></div>
+        <div class="info">
+          <div class="name">${name}</div>
+          ${lines.map(l => `<div class="line">${l}</div>`).join("")}
+        </div>
+      </div>
+      <script>window.onload=function(){window.print();setTimeout(function(){window.close()},500)}</script>
+    </body></html>`)
+    win.document.close()
+  }
 
   useEffect(() => {
     if (id) {
@@ -317,13 +358,51 @@ export default function AssetDetailPage() {
             {hostname && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", fontFamily: "monospace", marginTop: "4px" }}>{hostname}</div>}
             {(asset.make || asset.model) && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[asset.make, asset.model].filter(Boolean).join(" ")}</div>}
           </div>
-          <button
-            onClick={() => router.push(`/clients/${asset.location.client.id}?tab=Assets&edit=${asset.id}`)}
-            style={{ fontSize: "13px", padding: "7px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-secondary)", cursor: "pointer", flexShrink: 0 }}
-          >
-            Edit
-          </button>
+          <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+            <button
+              onClick={() => setShowQR(v => !v)}
+              title="QR code / print label"
+              style={{ fontSize: "13px", padding: "7px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: showQR ? "var(--color-background-secondary)" : "var(--color-background-primary)", color: "var(--color-text-secondary)", cursor: "pointer" }}
+            >
+              QR
+            </button>
+            <button
+              onClick={() => router.push(`/clients/${asset.location.client.id}?tab=Assets&edit=${asset.id}`)}
+              style={{ fontSize: "13px", padding: "7px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-secondary)", cursor: "pointer" }}
+            >
+              Edit
+            </button>
+          </div>
         </div>
+
+        {/* QR panel */}
+        {showQR && (
+          <div style={{ display: "flex", alignItems: "center", gap: "20px", padding: "16px 20px", marginBottom: "20px", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px" }}>
+            <div ref={qrRef} style={{ flexShrink: 0, background: "#fff", padding: "8px", borderRadius: "6px" }}>
+              <QRCodeCanvas
+                value={`https://dochub.pcc2k.com/assets/${asset.id}`}
+                size={120}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "4px" }}>{asset.friendlyName || asset.name}</div>
+              {(asset.make || asset.model) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "2px" }}>{[asset.make, asset.model].filter(Boolean).join(" ")}</div>}
+              {asset.serial && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>S/N: {asset.serial}</div>}
+              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "4px", fontFamily: "monospace", wordBreak: "break-all" }}>
+                dochub.pcc2k.com/assets/{asset.id}
+              </div>
+            </div>
+            <button
+              onClick={printLabel}
+              style={{ fontSize: "13px", fontWeight: 500, padding: "8px 16px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", flexShrink: 0 }}
+            >
+              Print label
+            </button>
+          </div>
+        )}
 
         {/* Quick-launch bar */}
         {hasRemoteAccess && (
