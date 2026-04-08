@@ -54,8 +54,8 @@ export async function POST() {
             try {
               const mac = d.mac?.toLowerCase() || null
               const type = uiCloudDeviceType(d)
-              const name = d.name || d.model || d.id
-              const externalId = d.id
+              const name = d.name || d.model || d.mac || d.id || "Unknown Device"
+              const externalId = d.id || d.mac || null
 
               const upsertData = {
                 clientId,
@@ -127,8 +127,8 @@ export async function POST() {
             try {
               const mac = d.mac?.toLowerCase() || null
               const type = unifiDeviceType(d.type)
-              const name = d.name || d.model || d._id
-              const externalId = d._id
+              const name = d.name || d.model || d.mac || d._id || "Unknown Device"
+              const externalId = d._id || d.mac || null
 
               const upsertData = {
                 clientId,
