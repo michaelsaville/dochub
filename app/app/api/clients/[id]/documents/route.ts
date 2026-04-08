@@ -33,7 +33,7 @@ export async function POST(
   if (error) return error
   try {
     const { id } = await params
-    const { title, content, category, isPinned } = await req.json()
+    const { title, content, category, isPinned, folderId } = await req.json()
     if (!title?.trim()) return NextResponse.json({ error: "Title required" }, { status: 400 })
     const doc = await prisma.clientDocument.create({
       data: {
@@ -42,6 +42,7 @@ export async function POST(
         content: content?.trim() || null,
         category: category?.trim() || null,
         isPinned: isPinned ?? false,
+        folderId: folderId ?? null,
       },
       include,
     })

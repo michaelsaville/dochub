@@ -43,8 +43,9 @@ model Client {
   activityEvents ActivityEvent[]
   alarms         Alarm[]
   applications   Application[]
-  attachments    ClientAttachment[]
-  documents      ClientDocument[]
+  attachments     ClientAttachment[]
+  documents       ClientDocument[]
+  documentFolders DocumentFolder[]
   users          ClientUser[]
   contacts       Contact[]
   credentials    Credential[]
@@ -456,9 +457,24 @@ model AppSetting {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
+model DocumentFolder {
+  id        String           @id @default(cuid())
+  clientId  String
+  name      String
+  parentId  String?
+  order     Int              @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent    DocumentFolder?  @relation("FolderChildren", fields: [parentId], references: [id])
+  children  DocumentFolder[] @relation("FolderChildren")
+  documents ClientDocument[]
+}
+
 model ClientDocument {
   id          String             @id @default(cuid())
   clientId    String
+  folderId    String?
   title       String
   content     String?
   category    String?
@@ -467,6 +483,7 @@ model ClientDocument {
   updatedAt   DateTime           @updatedAt
   attachments ClientAttachment[]
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folder      DocumentFolder?    @relation(fields: [folderId], references: [id])
 }
 
 model ClientAttachment {

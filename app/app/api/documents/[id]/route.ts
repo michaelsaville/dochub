@@ -30,7 +30,7 @@ export async function PUT(
   if (error) return error
   try {
     const { id } = await params
-    const { title, content, category, isPinned } = await req.json()
+    const { title, content, category, isPinned, folderId } = await req.json()
     const doc = await prisma.clientDocument.update({
       where: { id },
       data: {
@@ -38,6 +38,7 @@ export async function PUT(
         content: content?.trim() ?? null,
         category: category?.trim() ?? null,
         isPinned: isPinned ?? undefined,
+        ...(folderId !== undefined ? { folderId: folderId ?? null } : {}),
       },
       include,
     })

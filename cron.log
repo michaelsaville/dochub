@@ -19,3 +19,5 @@
 {"success":false,"syncro":{"success":false,"error":"Unexpected token 'M', \"Method Not Allowed\" is not valid JSON"},"domains":{"success":false,"error":"Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"}}
 [2026-04-07T02:00:01] Running sync
 {"success":false,"syncro":{"success":false,"error":"Unexpected token 'M', \"Method Not Allowed\" is not valid JSON"},"domains":{"success":false,"error":"Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"}}
+[2026-04-08T02:00:01] Running sync
+{"success":false,"syncro":{"success":false,"error":"Unexpected token 'M', \"Method Not Allowed\" is not valid JSON"},"domains":{"success":false,"error":"Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"}}
