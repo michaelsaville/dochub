@@ -254,6 +254,11 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
 
+  const [versionsOpen, setVersionsOpen] = useState<string | null>(null)
+  const [docVersions, setDocVersions] = useState<Record<string, { id: string; title: string; savedAt: string; savedBy: string | null }[]>>({})
+  const [loadingVersions, setLoadingVersions] = useState<Record<string, boolean>>({})
+  const [reverting, setReverting] = useState<string | null>(null)
+
   const fetchFolders = useCallback(async () => {
     const res = await fetch(`/api/clients/${clientId}/folders`)
     if (res.ok) setFolders(await res.json())
@@ -388,6 +393,30 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
     // Refresh docs since their folderId may have changed
     const res = await fetch(`/api/clients/${clientId}/documents`)
     if (res.ok) onDocsChange(await res.json())
+  }
+
+  async function fetchVersions(docId: string) {
+    setLoadingVersions(v => ({ ...v, [docId]: true }))
+    try {
+      const res = await fetch(`/api/documents/${docId}/versions`)
+      if (res.ok) { const data = await res.json(); setDocVersions(v => ({ ...v, [docId]: data })) }
+    } finally {
+      setLoadingVersions(v => ({ ...v, [docId]: false }))
+    }
+  }
+
+  async function revertToVersion(docId: string, versionId: string) {
+    if (!confirm("Revert to this version? The current content will be saved as a new version first.")) return
+    setReverting(versionId)
+    try {
+      const res = await fetch(`/api/documents/${docId}/versions/${versionId}/revert`, { method: "POST" })
+      if (res.ok) {
+        const updated = await res.json()
+        onDocsChange(docs.map(d => d.id === docId ? updated : d))
+        // Refresh version list
+        await fetchVersions(docId)
+      }
+    } finally { setReverting(null) }
   }
 
   const pinned = visibleDocs.filter(d => d.isPinned)
@@ -594,6 +623,15 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                         </button>
                         <button onClick={() => { setEditingDoc(doc.id); setEditForm({ title: doc.title, content: doc.content ?? "", category: doc.category ?? "", isPinned: doc.isPinned, folderId: doc.folderId ?? null }); setExpandedDoc(doc.id) }}
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                        <button
+                          onClick={() => {
+                            const next = versionsOpen === doc.id ? null : doc.id
+                            setVersionsOpen(next)
+                            if (next && !docVersions[doc.id]) fetchVersions(doc.id)
+                            if (!expandedDoc || expandedDoc !== doc.id) setExpandedDoc(doc.id)
+                          }}
+                          style={{ fontSize: "12px", color: versionsOpen === doc.id ? "var(--color-text-primary)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >History</button>
                         <button onClick={() => deleteDoc(doc.id)}
                           style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Delete</button>
                       </div>
@@ -664,6 +702,39 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                           ) : (
                             <div style={{ padding: "16px 20px", fontSize: "13px", color: "var(--color-text-muted)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>No content yet — click Edit to add.</div>
                           )
+                        )}
+
+                        {/* Version history panel */}
+                        {versionsOpen === doc.id && (
+                          <div style={{ padding: "14px 16px", borderTop: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
+                            <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "10px" }}>Version history</div>
+                            {loadingVersions[doc.id] ? (
+                              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Loading...</div>
+                            ) : !docVersions[doc.id] || docVersions[doc.id].length === 0 ? (
+                              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>No versions saved yet. Versions are created automatically when you save edits.</div>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                {docVersions[doc.id].map(v => (
+                                  <div key={v.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "7px 10px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.title}</div>
+                                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                                        {new Date(v.savedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                        {v.savedBy ? ` · ${v.savedBy}` : ""}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => revertToVersion(doc.id, v.id)}
+                                      disabled={reverting === v.id}
+                                      style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)", flexShrink: 0 }}
+                                    >
+                                      {reverting === v.id ? "Reverting..." : "Revert"}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {/* Attachments section */}

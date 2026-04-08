@@ -473,18 +473,31 @@ model DocumentFolder {
 }
 
 model ClientDocument {
-  id          String             @id @default(cuid())
+  id          String              @id @default(cuid())
   clientId    String
   folderId    String?
   title       String
   content     String?
   category    String?
-  isPinned    Boolean            @default(false)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  isPinned    Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   attachments ClientAttachment[]
-  client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  folder      DocumentFolder?    @relation(fields: [folderId], references: [id])
+  versions    DocumentVersion[]
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folder      DocumentFolder?     @relation(fields: [folderId], references: [id])
+}
+
+model DocumentVersion {
+  id         String         @id @default(cuid())
+  documentId String
+  title      String
+  content    String?
+  savedAt    DateTime       @default(now())
+  savedBy    String?
+  document   ClientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, savedAt])
 }
 
 model ClientAttachment {

@@ -26,11 +26,29 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
     const { title, content, category, isPinned, folderId } = await req.json()
+
+    // Snapshot current content before overwriting (only if title or content changed)
+    const current = await prisma.clientDocument.findUnique({ where: { id }, select: { title: true, content: true } })
+    if (current) {
+      const titleChanged = title?.trim() !== undefined && title.trim() !== current.title
+      const contentChanged = content !== undefined && (content?.trim() ?? null) !== current.content
+      if (titleChanged || contentChanged) {
+        await prisma.documentVersion.create({
+          data: {
+            documentId: id,
+            title: current.title,
+            content: current.content,
+            savedBy: session?.user?.name ?? "unknown",
+          },
+        })
+      }
+    }
+
     const doc = await prisma.clientDocument.update({
       where: { id },
       data: {
