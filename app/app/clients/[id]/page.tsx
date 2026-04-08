@@ -373,6 +373,11 @@ export default function ClientDetailPage() {
   const [showArchivedLicenses, setShowArchivedLicenses] = useState(false)
   const [expandedAssetHistory, setExpandedAssetHistory] = useState<Record<string, any[] | null>>({})
   const [loadingAssetHistory, setLoadingAssetHistory] = useState<Record<string, boolean>>({})
+  const [editingCredId, setEditingCredId] = useState<string | null>(null)
+  const [credEditForm, setCredEditForm] = useState<any>({})
+  const [savingCredEdit, setSavingCredEdit] = useState(false)
+  const [expandedCredHistory, setExpandedCredHistory] = useState<Record<string, any[] | null>>({})
+  const [loadingCredHistory, setLoadingCredHistory] = useState<Record<string, boolean>>({})
 
   const boundSourceTag = (ds?: string | null, si?: string | null, pi?: string | null) =>
     sourceTag(ds, si, pi, sourceColors)
@@ -598,6 +603,42 @@ export default function ClientDetailPage() {
       await fetch(`/api/credentials/${credId}`, { method: "DELETE" })
       setCredentials(c => c.filter(x => x.id !== credId))
     } catch {}
+  }
+
+  async function updateCred(credId: string) {
+    setSavingCredEdit(true)
+    try {
+      const res = await fetch(`/api/credentials/${credId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credEditForm),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setCredentials(c => c.map(x => x.id === credId ? { ...x, ...updated } : x))
+        setEditingCredId(null)
+        // Invalidate cached history so it refreshes next time
+        setExpandedCredHistory(h => { const n = { ...h }; delete n[credId]; return n })
+      }
+    } catch {}
+    finally { setSavingCredEdit(false) }
+  }
+
+  async function toggleCredHistory(credId: string) {
+    if (credId in expandedCredHistory) {
+      setExpandedCredHistory(h => { const n = { ...h }; delete n[credId]; return n })
+      return
+    }
+    setLoadingCredHistory(h => ({ ...h, [credId]: true }))
+    try {
+      const res = await fetch(`/api/credentials/${credId}/history`)
+      const data = await res.json()
+      setExpandedCredHistory(h => ({ ...h, [credId]: Array.isArray(data) ? data : [] }))
+    } catch {
+      setExpandedCredHistory(h => ({ ...h, [credId]: [] }))
+    } finally {
+      setLoadingCredHistory(h => ({ ...h, [credId]: false }))
+    }
   }
 
   async function fetchLicenses(includeInactive = false) {
@@ -2190,85 +2231,162 @@ export default function ClientDetailPage() {
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : credentials.length === 0 && !showAddCred ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No credentials yet.</div>
-            ) : credentials.map(cred => (
-              <div key={cred.id} style={{
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "10px", padding: "16px", marginBottom: "10px",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
-                    {boundSourceTag(cred.dataSource)}
-                    {cred.user && (
-                      <span onClick={() => { setActiveTab("Users"); selectUser(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
-                        {cred.user.name}
-                      </span>
-                    )}
+            ) : credentials.map(cred => {
+              const isEditing = editingCredId === cred.id
+              const historyOpen = cred.id in expandedCredHistory
+              const credHistory = expandedCredHistory[cred.id] ?? []
+              const inpStyle = { width: "100%", padding: "7px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
+              return (
+                <div key={cred.id} style={{
+                  background: "var(--color-background-secondary)",
+                  border: "0.5px solid var(--color-border-tertiary)",
+                  borderRadius: "10px", padding: "16px", marginBottom: "10px",
+                }}>
+                  {/* Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
+                      {boundSourceTag(cred.dataSource)}
+                      {cred.user && (
+                        <span onClick={() => { setActiveTab("Users"); selectUser(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
+                          {cred.user.name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <button
+                        onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
+                        title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
+                        style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "#f59e0b" : "var(--color-text-muted)" }}
+                      >★</button>
+                      {!isEditing && (
+                        <button
+                          onClick={() => {
+                            setEditingCredId(cred.id)
+                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", contactId: cred.contact?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "" })
+                          }}
+                          style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >Edit</button>
+                      )}
+                      <button onClick={() => deleteCred(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Retire</button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                    <button
-                      onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
-                      title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
-                      style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "#f59e0b" : "var(--color-text-muted)" }}
-                    >★</button>
-                    <button onClick={() => deleteCred(cred.id)} style={{
-                      fontSize: "12px", color: "var(--color-text-secondary)", background: "none",
-                      border: "none", cursor: "pointer", padding: 0,
-                    }}>Retire</button>
-                  </div>
+
+                  {isEditing ? (
+                    /* ── Edit form ── */
+                    <div>
+                      {[
+                        { key: "label",    label: "Label",               type: "text"     },
+                        { key: "username", label: "Username",             type: "text"     },
+                        { key: "password", label: "New password (blank = keep current)", type: "password" },
+                        { key: "totp",     label: "TOTP seed (blank = keep current)",    type: "text"     },
+                        { key: "url",      label: "URL",                  type: "text"     },
+                        { key: "notes",    label: "Notes",                type: "text"     },
+                      ].map(({ key, label, type }) => (
+                        <div key={key} style={{ marginBottom: "8px" }}>
+                          <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
+                          <input type={type} value={credEditForm[key] ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inpStyle} />
+                        </div>
+                      ))}
+                      {client && client.users.length > 0 && (
+                        <div style={{ marginBottom: "8px" }}>
+                          <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Linked user</label>
+                          <select value={credEditForm.userId ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, userId: e.target.value }))} style={inpStyle}>
+                            <option value="">None</option>
+                            {client.users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div style={{ marginBottom: "10px" }}>
+                        <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Expiry date</label>
+                        <input type="date" value={credEditForm.expiryDate ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, expiryDate: e.target.value }))} style={{ ...inpStyle, width: "auto" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={() => updateCred(cred.id)} disabled={savingCredEdit} style={{ fontSize: "13px", fontWeight: 500, padding: "7px 14px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                          {savingCredEdit ? "Saving..." : "Save"}
+                        </button>
+                        <button onClick={() => setEditingCredId(null)} style={{ fontSize: "13px", padding: "7px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── View mode ── */
+                    <>
+                      {cred.username && (
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Username</span>
+                          <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{cred.username}</span>
+                        </div>
+                      )}
+                      {cred.hasPassword && (
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Password</span>
+                          <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{revealedPasswords[cred.id] ?? "••••••••••••"}</span>
+                          <button onClick={() => revealPassword(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
+                        </div>
+                      )}
+                      {cred.hasTotp && (
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>MFA</span>
+                          {revealedTotps[cred.id] ? (
+                            <>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>{revealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>· {revealedTotps[cred.id].seed}</span>
+                              <button onClick={() => navigator.clipboard.writeText(revealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
+                              <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: "13px", fontFamily: "monospace", letterSpacing: "3px" }}>••••••</span>
+                              <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {cred.url && (
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>URL</span>
+                          <a href={cred.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{cred.url}</a>
+                        </div>
+                      )}
+                      {cred.notes && (
+                        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{cred.notes}</div>
+                      )}
+
+                      {/* History */}
+                      <div style={{ marginTop: "10px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>
+                        <button
+                          onClick={() => toggleCredHistory(cred.id)}
+                          style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >
+                          {historyOpen ? "Hide history" : "History"}
+                        </button>
+                        {historyOpen && (
+                          <div style={{ marginTop: "8px" }}>
+                            {loadingCredHistory[cred.id] ? (
+                              <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Loading...</div>
+                            ) : credHistory.length === 0 ? (
+                              <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>No history recorded yet.</div>
+                            ) : credHistory.map((h: any) => (
+                              <div key={h.id} style={{ display: "flex", gap: "12px", padding: "4px 0", borderBottom: "0.5px solid var(--color-border-tertiary)", alignItems: "baseline" }}>
+                                <span style={{ fontSize: "11px", color: "var(--color-text-muted)", flexShrink: 0, width: "130px" }}>
+                                  {new Date(h.changedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                                <span style={{ fontSize: "11px", color: "var(--color-text-secondary)", flexShrink: 0, width: "100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.changedBy ?? "unknown"}</span>
+                                <span style={{ fontSize: "12px", color: "var(--color-text-primary)" }}>
+                                  {h.field === "password"
+                                    ? "password rotated"
+                                    : `${h.field}: ${h.oldValue ?? "—"} → ${h.newValue ?? "—"}`}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-                {cred.username && (
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Username</span>
-                    <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{cred.username}</span>
-                  </div>
-                )}
-                {cred.hasPassword && (
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Password</span>
-                    <span style={{ fontSize: "13px", fontFamily: "monospace" }}>
-                      {revealedPasswords[cred.id] ?? "••••••••••••"}
-                    </span>
-                    <button onClick={() => revealPassword(cred.id)} style={{
-                      fontSize: "12px", color: "var(--color-text-secondary)", background: "none",
-                      border: "none", cursor: "pointer", padding: 0,
-                    }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
-                  </div>
-                )}
-                {cred.hasTotp && (
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>MFA</span>
-                    {revealedTotps[cred.id] ? (
-                      <>
-                        <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>
-                          {revealedTotps[cred.id].code}
-                        </span>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>
-                          · {revealedTotps[cred.id].seed}
-                        </span>
-                        <button onClick={() => navigator.clipboard.writeText(revealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
-                        <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ fontSize: "13px", fontFamily: "monospace", letterSpacing: "3px" }}>••••••</span>
-                        <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
-                      </>
-                    )}
-                  </div>
-                )}
-                {cred.url && (
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>URL</span>
-                    <a href={cred.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{cred.url}</a>
-                  </div>
-                )}
-                {cred.notes && (
-                  <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{cred.notes}</div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
