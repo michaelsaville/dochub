@@ -9,6 +9,7 @@ const SENSITIVE_KEYS = new Set([
   "integration:unifi:apiKey",
   "integration:hpinstanton:bearerToken",
   "integration:sonicwall:devices", // JSON array — not individually sensitive but contains passwords
+  "integration:resend:apiKey",
 ])
 
 export async function GET() {

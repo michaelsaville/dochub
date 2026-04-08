@@ -71,7 +71,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -80,6 +80,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "data-sources", label: "Data Sources" },
   { id: "data-management", label: "Data Management" },
   { id: "api-keys", label: "API Keys" },
+  { id: "alerts", label: "Email Alerts", group: "Notifications" },
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
@@ -240,6 +241,28 @@ export default function SettingsPage() {
   const [pax8CompanyMap, setPax8CompanyMap] = useState<Record<string, string>>({})
   const [pax8Syncing, setPax8Syncing] = useState(false)
   const [pax8SyncResult, setPax8SyncResult] = useState<any>(null)
+
+  // --- Email Alerts ---
+  const [sendingTestEmail, setSendingTestEmail] = useState(false)
+  const [testEmailResult, setTestEmailResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  async function sendTestEmail() {
+    setSendingTestEmail(true)
+    setTestEmailResult(null)
+    try {
+      const res = await fetch("/api/cron/alerts", {
+        headers: { authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setTestEmailResult({ ok: true, message: data.sent ? `Sent — ${data.total} item(s) in digest.` : `Not sent: ${data.reason}` })
+      } else {
+        setTestEmailResult({ ok: false, message: data.error ?? "Failed" })
+      }
+    } catch (e: any) {
+      setTestEmailResult({ ok: false, message: e.message })
+    } finally { setSendingTestEmail(false) }
+  }
 
   // --- Shared clients list for mapping ---
   const [clientsList, setClientsList] = useState<{ id: string; name: string }[]>([])
@@ -820,6 +843,69 @@ export default function SettingsPage() {
             )}
 
             {/* ── SyncroMSP ── */}
+            {activeSection === "alerts" && (
+              <SectionCard title="Email Alerts" description="Send a nightly expiration digest via Resend. Covers SSL, domains, warranties, credentials, and licenses expiring within 30 days.">
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={lbl}>Alert recipient email</label>
+                    <input
+                      type="email"
+                      value={cfg("integration:alerts:email")}
+                      onChange={e => setCfg("integration:alerts:email", e.target.value)}
+                      placeholder="michael@pcc2k.com"
+                      style={inp}
+                    />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={lbl}>From address <span style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>(must be a Resend-verified sender)</span></label>
+                    <input
+                      value={cfg("integration:alerts:from", "DocHub <noreply@dochub.pcc2k.com>")}
+                      onChange={e => setCfg("integration:alerts:from", e.target.value)}
+                      placeholder="DocHub <noreply@yourdomain.com>"
+                      style={inp}
+                    />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={lbl}>Resend API key</label>
+                    <input
+                      type="password"
+                      value={cfg("integration:resend:apiKey")}
+                      onChange={e => setCfg("integration:resend:apiKey", e.target.value)}
+                      placeholder="re_••••••••••••••••••••••••••••••••"
+                      style={inp}
+                    />
+                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                      Get an API key at resend.com — free tier is 3,000 emails/month.
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => saveIntegration(["integration:alerts:email", "integration:alerts:from", "integration:resend:apiKey"])}
+                    disabled={savingIntegration}
+                    style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
+                  >
+                    {savingIntegration ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={sendTestEmail}
+                    disabled={sendingTestEmail}
+                    style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: sendingTestEmail ? "not-allowed" : "pointer", color: "var(--color-text-secondary)", opacity: sendingTestEmail ? 0.6 : 1 }}
+                  >
+                    {sendingTestEmail ? "Sending..." : "Send test email now"}
+                  </button>
+                  {testEmailResult && (
+                    <span style={{ fontSize: "13px", color: testEmailResult.ok ? "#10b981" : "var(--color-text-danger)" }}>
+                      {testEmailResult.message}
+                    </span>
+                  )}
+                </div>
+                <div style={{ marginTop: "16px", padding: "12px 14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  The nightly digest runs automatically as part of the <code style={{ fontFamily: "monospace", fontSize: "12px" }}>/api/cron/sync</code> job. It only sends if there are items expiring within 30 days.
+                </div>
+              </SectionCard>
+            )}
+
             {activeSection === "syncro" && (
               <SectionCard title="SyncroMSP" description="Sync all customers, assets, and contacts from Syncro. Existing records will be updated. Credentials are configured via environment variables.">
                 <button onClick={runSyncroSync} disabled={syncing} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: syncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: syncing ? 0.6 : 1 }}>

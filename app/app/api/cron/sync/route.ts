@@ -24,6 +24,15 @@ export async function GET(req: Request) {
     results.domains = { success: false, error: e.message }
   }
 
+  try {
+    const res = await fetch("http://localhost:3000/api/cron/alerts", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.alerts = await res.json()
+  } catch (e: any) {
+    results.alerts = { success: false, error: e.message }
+  }
+
   const success = results.syncro?.success !== false
   return NextResponse.json({ success, ...results })
 }
