@@ -64,6 +64,7 @@ model Client {
   cameraSystems  CameraSystem[]
   wifiControllers WifiController[]
   ptpLinks        PtpLink[]
+  portalUsers     PortalUser[]
 }
 
 model Location {
@@ -1299,4 +1300,28 @@ model FieldHistory {
 
   @@index([entityType, entityId])
   @@index([changedAt])
+}
+
+model PortalUser {
+  id           String          @id @default(cuid())
+  clientId     String
+  name         String
+  email        String          @unique
+  passwordHash String?
+  isActive     Boolean         @default(true)
+  permissions  Json            @default("{}")
+  lastLoginAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessions     PortalSession[]
+}
+
+model PortalSession {
+  id           String     @id @default(cuid())
+  token        String     @unique
+  portalUserId String
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+  portalUser   PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
 }

@@ -4,6 +4,7 @@ import AppShell from "@/components/AppShell"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
 import DocumentsPanel from "@/components/DocumentsPanel"
+import PortalUsersPanel from "@/components/PortalUsersPanel"
 import FileSharesPanel from "@/components/FileSharesPanel"
 import VpnPanel from "@/components/VpnPanel"
 import PhonePanel from "@/components/PhonePanel"
@@ -99,7 +100,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Audit Trail"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Audit Trail"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -3050,6 +3051,10 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "Portal" && (
+          <PortalUsersPanel clientId={id as string} />
         )}
 
         {activeTab === "Audit Trail" && (
