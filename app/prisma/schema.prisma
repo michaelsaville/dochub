@@ -53,6 +53,7 @@ model Client {
   locations      Location[]
   networkDevices NetworkDevice[]
   runbooks       Runbook[]
+  runbookRuns    RunbookRun[]
   subnets        Subnet[]
   vlans          Vlan[]
   websites       Website[]
@@ -543,6 +544,7 @@ model Runbook {
   client      Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   steps       RunbookStep[]
   tags        RunbookTagMap[]
+  runs        RunbookRun[]
 }
 
 model RunbookTagMap {
@@ -555,14 +557,50 @@ model RunbookTagMap {
 }
 
 model RunbookStep {
-  id        String   @id @default(cuid())
-  runbookId String
-  order     Int
-  title     String
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  runbook   Runbook  @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+  id          String                  @id @default(cuid())
+  runbookId   String
+  order       Int
+  title       String
+  notes       String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  runbook     Runbook                 @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+  completions RunbookStepCompletion[]
+}
+
+enum RunbookRunStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+model RunbookRun {
+  id          String                  @id @default(cuid())
+  runbookId   String
+  clientId    String
+  startedBy   String?
+  startedAt   DateTime                @default(now())
+  completedAt DateTime?
+  status      RunbookRunStatus        @default(IN_PROGRESS)
+  notes       String?
+  runbook     Runbook                 @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+  client      Client                  @relation(fields: [clientId], references: [id])
+  steps       RunbookStepCompletion[]
+
+  @@index([runbookId, startedAt])
+}
+
+model RunbookStepCompletion {
+  id          String      @id @default(cuid())
+  runId       String
+  stepId      String
+  completed   Boolean     @default(false)
+  notes       String?
+  completedAt DateTime?
+  run         RunbookRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step        RunbookStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, stepId])
 }
 
 model VendorContact {
