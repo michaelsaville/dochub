@@ -94,3 +94,38 @@ html, body {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
+
+/* ─── Print / Report styles ──────────────────────────────────────────────── */
+@media print {
+  /* Override theme variables — always print black on white */
+  :root {
+    --bg: #ffffff;
+    --surface: #f7f7f7;
+    --card: #eeeeee;
+    --border: #cccccc;
+    --text: #111111;
+    --muted: #555555;
+    --color-text-primary:    #111111;
+    --color-text-secondary:  #444444;
+    --color-text-muted:      #777777;
+    --color-background-primary:   #ffffff;
+    --color-background-secondary: #f7f7f7;
+    --color-background-hover:     #eeeeee;
+    --color-border-secondary: #cccccc;
+    --color-border-tertiary:  #dddddd;
+    --color-text-danger:      #cc0000;
+  }
+
+  body { background: #fff !important; color: #111 !important; }
+  aside, .no-print { display: none !important; }
+  main { overflow: visible !important; }
+
+  @page { size: A4; margin: 1.8cm 2cm; }
+
+  /* Avoid breaking table rows across pages */
+  tr { page-break-inside: avoid; }
+  h2, h3 { page-break-after: avoid; }
+}
+
+.print-only { display: none; }
+@media print { .print-only { display: block; } }
