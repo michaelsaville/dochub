@@ -6,11 +6,12 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 
 const nav = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Clients",   href: "/clients"   },
-  { label: "Alarms",    href: "/alarms"    },
-  { label: "Reports",   href: "/reports"   },
-  { label: "Settings",  href: "/settings"  },
+  { label: "Dashboard",   href: "/dashboard"   },
+  { label: "Clients",     href: "/clients"     },
+  { label: "Expirations", href: "/expirations" },
+  { label: "Alarms",      href: "/alarms"      },
+  { label: "Reports",     href: "/reports"     },
+  { label: "Settings",    href: "/settings"    },
 ]
 
 function BellIcon() {
