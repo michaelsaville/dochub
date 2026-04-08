@@ -2,15 +2,36 @@ import { getToken } from "next-auth/jwt"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
+const PORTAL_COOKIE = "portal_session"
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  // ── Portal routes ────────────────────────────────────────────────────────
+  if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal/")) {
+    // Always allow portal login page and portal auth API
+    if (
+      pathname === "/portal/login" ||
+      pathname.startsWith("/api/portal/auth/")
+    ) {
+      return NextResponse.next()
+    }
+    // Require portal session cookie (full DB validation happens in API routes)
+    const token = req.cookies.get(PORTAL_COOKIE)?.value
+    if (!token) {
+      return NextResponse.redirect(new URL("/portal/login", req.url))
+    }
+    return NextResponse.next()
+  }
+
+  // ── Staff routes ─────────────────────────────────────────────────────────
 
   // Always allow auth routes and login page
   if (pathname.startsWith("/api/auth") || pathname === "/login") {
     return NextResponse.next()
   }
 
-  // Allow the cron endpoint — authenticated via CRON_SECRET bearer token, not session
+  // Allow the cron endpoint — authenticated via CRON_SECRET bearer token
   if (pathname === "/api/cron/sync") {
     return NextResponse.next()
   }
@@ -24,7 +45,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // CLIENT role — only allowed in /portal (future feature)
+  // CLIENT role — only allowed in /portal
   if (token.role === "CLIENT" && !pathname.startsWith("/portal")) {
     return NextResponse.redirect(new URL("/portal", req.url))
   }

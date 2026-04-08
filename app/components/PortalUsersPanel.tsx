@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DEFAULT_PERMISSIONS, type PortalPermissions } from "@/lib/portal-auth"
+import { DEFAULT_PERMISSIONS, type PortalPermissions } from "@/lib/portal-types"
 
 type PortalUser = {
   id: string

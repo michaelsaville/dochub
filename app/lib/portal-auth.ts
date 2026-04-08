@@ -2,27 +2,13 @@ import { prisma } from "./prisma"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import crypto from "crypto"
+import type { PortalPermissions } from "./portal-types"
+
+export type { PortalPermissions }
+export { DEFAULT_PERMISSIONS } from "./portal-types"
 
 export const PORTAL_COOKIE = "portal_session"
 const EXPIRY_DAYS = 7
-
-export type PortalPermissions = {
-  assets: boolean
-  documents: boolean
-  contacts: boolean
-  locations: boolean
-  licenses: boolean
-  domains: boolean
-}
-
-export const DEFAULT_PERMISSIONS: PortalPermissions = {
-  assets: false,
-  documents: false,
-  contacts: false,
-  locations: false,
-  licenses: false,
-  domains: false,
-}
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex")
