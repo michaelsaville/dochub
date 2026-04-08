@@ -99,24 +99,39 @@ function SectionCard({ title, description, children }: { title: string; descript
 
 function SyncResult({ result }: { result: any }) {
   if (!result) return null
+  const hasErrors = result.errors?.length > 0
+  const allFailed = result.success && result.errors?.length > 0 && result.devices === 0 && result.clients === 0 && result.assets === 0
   return (
-    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: result.success ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)", border: `0.5px solid ${result.success ? "#22c55e44" : "#ef444444"}`, fontSize: "13px" }}>
+    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: result.success ? (hasErrors ? "rgba(245,158,11,0.08)" : "rgba(34,197,94,0.08)") : "rgba(239,68,68,0.08)", border: `0.5px solid ${result.success ? (hasErrors ? "#f59e0b44" : "#22c55e44") : "#ef444444"}`, fontSize: "13px" }}>
       {result.success ? (
         <div>
-          <div style={{ fontWeight: 500, color: "#22c55e", marginBottom: "4px" }}>Sync complete</div>
-          <div style={{ color: "var(--color-text-secondary)" }}>
-            {result.devices != null && `${result.devices} devices`}
-            {result.licenses != null && `${result.licenses} subscriptions`}
-            {result.clients != null && ` · ${result.clients} clients`}
-            {result.assets != null && ` · ${result.assets} assets`}
-            {result.sites != null && ` · ${result.sites} sites`}
-            {result.networks != null && ` · ${result.networks} networks`}
-            {result.companies != null && ` · ${result.companies} companies`}
+          <div style={{ fontWeight: 500, color: hasErrors ? "#f59e0b" : "#22c55e", marginBottom: "4px" }}>
+            {allFailed ? "Sync failed — see errors below" : hasErrors ? "Sync complete with errors" : "Sync complete"}
           </div>
-          {result.errors?.length > 0 && <div style={{ marginTop: "6px", color: "#f59e0b", fontSize: "12px" }}>{result.errors.length} error(s) — check logs</div>}
+          {!allFailed && (
+            <div style={{ color: "var(--color-text-secondary)", marginBottom: hasErrors ? "8px" : 0 }}>
+              {result.devices != null && `${result.devices} devices`}
+              {result.licenses != null && `${result.licenses} subscriptions`}
+              {result.clients != null && ` · ${result.clients} clients`}
+              {result.assets != null && ` · ${result.assets} assets`}
+              {result.sites != null && ` · ${result.sites} sites`}
+              {result.networks != null && ` · ${result.networks} networks`}
+              {result.companies != null && ` · ${result.companies} companies`}
+            </div>
+          )}
+          {hasErrors && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              {result.errors.map((e: string, i: number) => (
+                <div key={i} style={{ fontSize: "12px", color: "#f59e0b", fontFamily: "monospace", wordBreak: "break-all" }}>{e}</div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
-        <div style={{ color: "#ef4444" }}>Error: {result.error}</div>
+        <div>
+          <div style={{ fontWeight: 500, color: "#ef4444", marginBottom: "4px" }}>Sync failed</div>
+          <div style={{ fontSize: "12px", color: "#ef4444", fontFamily: "monospace", wordBreak: "break-all" }}>{result.error}</div>
+        </div>
       )}
     </div>
   )
