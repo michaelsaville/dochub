@@ -99,7 +99,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Activity"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Audit Trail"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -299,9 +299,6 @@ export default function ClientDetailPage() {
   const [appEditForm, setAppEditForm] = useState<any>({})
   const [activityEvents, setActivityEvents] = useState<any[]>([])
   const [loadingActivity, setLoadingActivity] = useState(false)
-  const [showAddEvent, setShowAddEvent] = useState(false)
-  const [eventForm, setEventForm] = useState({ eventType: "TECH_NOTE", title: "", bodyText: "" })
-  const [savingEvent, setSavingEvent] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [userSummary, setUserSummary] = useState<UserSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
@@ -411,7 +408,7 @@ export default function ClientDetailPage() {
     }
     if (activeTab === "Documents" && clientDocs.length === 0) fetchClientDocs()
     if (activeTab === "SOPs" && clientRunbooks.length === 0) fetchClientRunbooks()
-    if (activeTab === "Activity" && activityEvents.length === 0) fetchActivity()
+    if (activeTab === "Audit Trail" && activityEvents.length === 0) fetchActivity()
   }, [activeTab])
 
   useEffect(() => {
@@ -988,22 +985,6 @@ export default function ClientDetailPage() {
     finally { setLoadingActivity(false) }
   }
 
-  async function saveEvent() {
-    if (!eventForm.title.trim()) return
-    setSavingEvent(true)
-    try {
-      const res = await fetch(`/api/clients/${id}/activity`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(eventForm),
-      })
-      if (res.ok) {
-        setActivityEvents(await res.json())
-        setEventForm({ eventType: "TECH_NOTE", title: "", bodyText: "" })
-        setShowAddEvent(false)
-      }
-    } catch {}
-    finally { setSavingEvent(false) }
-  }
 
   async function togglePin(eventId: string, isPinned: boolean) {
     try {
@@ -3071,42 +3052,8 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {activeTab === "Activity" && (
+        {activeTab === "Audit Trail" && (
           <div style={{ maxWidth: "680px" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
-              <button onClick={() => setShowAddEvent(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add note</button>
-            </div>
-
-            {showAddEvent && (
-              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "20px" }}>
-                <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New event</div>
-                <div style={{ marginBottom: "12px" }}>
-                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Type</label>
-                  <select value={eventForm.eventType} onChange={e => setEventForm(f => ({ ...f, eventType: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
-                    <option value="TECH_NOTE">Tech note</option>
-                    <option value="SITE_VISIT">Site visit</option>
-                    <option value="KNOWN_ISSUE">Known issue</option>
-                    <option value="PLANNED_MAINTENANCE">Planned maintenance</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: "12px" }}>
-                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Title *</label>
-                  <input autoFocus value={eventForm.title} onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
-                </div>
-                <div style={{ marginBottom: "16px" }}>
-                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Details</label>
-                  <textarea value={eventForm.bodyText} onChange={e => setEventForm(f => ({ ...f, bodyText: e.target.value }))} rows={3}
-                    style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", boxSizing: "border-box" }} />
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button onClick={saveEvent} disabled={savingEvent} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingEvent ? "Saving..." : "Save"}</button>
-                  <button onClick={() => setShowAddEvent(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
-                </div>
-              </div>
-            )}
-
             {loadingActivity ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : activityEvents.length === 0 ? (
