@@ -2,6 +2,7 @@
 
 import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
+import { THEMES, useTheme, type ThemeId } from "@/components/ThemeProvider"
 
 type AssetTypeTemplate = {
   standardFields: string[]
@@ -70,10 +71,11 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8" | "api-keys"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8" | "api-keys"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
+  { id: "appearance", label: "Appearance" },
   { id: "asset-types", label: "Asset Types" },
   { id: "data-sources", label: "Data Sources" },
   { id: "data-management", label: "Data Management" },
@@ -123,6 +125,7 @@ function SyncResult({ result }: { result: any }) {
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>("platform")
+  const { themeId, setThemeId } = useTheme()
 
   // --- API Keys ---
   type ApiKeyMeta = { id: string; name: string; lastUsedAt: string | null; createdAt: string }
@@ -591,9 +594,6 @@ export default function SettingsPage() {
                     </label>
                   )}
                 </SectionCard>
-                <SectionCard title="Appearance">
-                  <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>DocHub uses the PCC dark theme. Single dark mode — no light mode.</div>
-                </SectionCard>
                 <SectionCard title="Domain Monitoring" description="Raise an alarm when a client domain expires within the threshold period.">
                   <div style={{ display: "flex", alignItems: "flex-end", gap: "12px" }}>
                     <div style={{ width: "140px" }}>
@@ -608,6 +608,63 @@ export default function SettingsPage() {
                   </div>
                 </SectionCard>
               </>
+            )}
+
+            {/* ── Appearance ── */}
+            {activeSection === "appearance" && (
+              <SectionCard title="Appearance" description="Choose your theme. Saved in your browser — personal to you.">
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px" }}>
+                  {THEMES.map(theme => {
+                    const selected = themeId === theme.id
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => setThemeId(theme.id as ThemeId)}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0,
+                          borderRadius: "10px", outline: "none",
+                        }}
+                      >
+                        <div style={{
+                          borderRadius: "10px", overflow: "hidden",
+                          border: selected ? `2px solid ${theme.previewAccent}` : "2px solid var(--color-border-secondary)",
+                          transition: "border-color 0.15s",
+                        }}>
+                          {/* Preview area */}
+                          <div style={{ background: theme.previewBg, padding: "14px 14px 10px", position: "relative" }}>
+                            {/* Simulated sidebar + content */}
+                            <div style={{ display: "flex", gap: "6px", height: "48px" }}>
+                              <div style={{ width: "24px", background: theme.previewSurface, borderRadius: "4px", opacity: 0.9 }} />
+                              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <div style={{ height: "8px", background: theme.previewSurface, borderRadius: "3px", width: "80%" }} />
+                                <div style={{ height: "6px", background: theme.previewSurface, borderRadius: "3px", width: "60%", opacity: 0.6 }} />
+                                <div style={{ height: "6px", background: theme.previewSurface, borderRadius: "3px", width: "70%", opacity: 0.4 }} />
+                                <div style={{ height: "6px", background: theme.previewAccent, borderRadius: "3px", width: "45%", marginTop: "2px" }} />
+                              </div>
+                            </div>
+                          </div>
+                          {/* Label row */}
+                          <div style={{
+                            background: "var(--color-background-secondary)",
+                            padding: "10px 12px",
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                          }}>
+                            <div>
+                              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>{theme.label}</div>
+                              <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>{theme.description}</div>
+                            </div>
+                            {selected && (
+                              <div style={{ width: "16px", height: "16px", borderRadius: "50%", background: theme.previewAccent, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700 }}>✓</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </SectionCard>
             )}
 
             {/* ── Asset Types ── */}
