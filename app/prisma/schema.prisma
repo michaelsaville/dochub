@@ -66,6 +66,7 @@ model Client {
   wifiControllers WifiController[]
   ptpLinks        PtpLink[]
   portalUsers     PortalUser[]
+  networkDiagram  NetworkDiagram?
 }
 
 model Location {
@@ -1385,4 +1386,15 @@ model CustomReport {
   config      Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Network Topology Diagram ──────────────────────────────────────────────────
+
+model NetworkDiagram {
+  id         String   @id @default(cuid())
+  clientId   String   @unique
+  xml        String   @db.Text
+  updatedAt  DateTime @updatedAt
+  updatedBy  String?
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }

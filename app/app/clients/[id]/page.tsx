@@ -12,6 +12,7 @@ import CameraPanel from "@/components/CameraPanel"
 import WifiPanel from "@/components/WifiPanel"
 import PtpPanel from "@/components/PtpPanel"
 import SwitchPanel from "@/components/SwitchPanel"
+import NetworkDiagramPanel from "@/components/NetworkDiagramPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -343,7 +344,7 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "racks" | "shares" | "wireless" | "ptp">("ipam")
+  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "racks" | "shares" | "wireless" | "ptp" | "diagram">("ipam")
   const [ptpLinks, setPtpLinks] = useState<any[]>([])
   const [loadingPtp, setLoadingPtp] = useState(false)
   const [subnets, setSubnets] = useState<any[]>([])
@@ -2943,7 +2944,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["ipam", "racks", "wireless", "ptp", "shares"] as const).map(t => (
+              {(["ipam", "racks", "wireless", "ptp", "shares", "diagram"] as const).map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
@@ -2951,7 +2952,7 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : t === "ptp" ? "PTP Bridges" : "File Shares"}
+                  {t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : t === "ptp" ? "PTP Bridges" : t === "shares" ? "File Shares" : "Topology Diagram"}
                 </button>
               ))}
             </div>
@@ -3043,6 +3044,10 @@ export default function ClientDetailPage() {
                   />
                 )}
               </div>
+            )}
+
+            {networkSubTab === "diagram" && (
+              <NetworkDiagramPanel clientId={id as string} />
             )}
           </div>
         )}
