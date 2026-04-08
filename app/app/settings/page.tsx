@@ -62,16 +62,16 @@ const DEFAULT_TYPES = [
 
 const SOURCE_LABELS: Record<string, string> = {
   SYNCRO: "Syncro", UNIFI: "Unifi", MERAKI: "Meraki",
-  HPINSTANTON: "HP Instant On", SONICWALL: "SonicWall",
+  SONICWALL: "SonicWall",
   ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
 }
 const SOURCE_DOMAINS: Record<string, string> = {
   SYNCRO: "syncromsp.com", UNIFI: "ui.com", MERAKI: "meraki.com",
-  HPINSTANTON: "arubainstanton.com", SONICWALL: "sonicwall.com",
+  SONICWALL: "sonicwall.com",
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "hpinstanton" | "sonicwall" | "pax8" | "api-keys"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -83,7 +83,6 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
-  { id: "hpinstanton", label: "HP Instant On", group: "Integrations" },
   { id: "sonicwall", label: "SonicWall", group: "Integrations" },
   { id: "pax8", label: "Pax8", group: "Integrations" },
 ]
@@ -213,13 +212,6 @@ export default function SettingsPage() {
   const [merakiSyncing, setMerakiSyncing] = useState(false)
   const [merakiSyncResult, setMerakiSyncResult] = useState<any>(null)
 
-  // --- HP Instant On ---
-  const [hpSites, setHpSites] = useState<{ id: string; name: string }[]>([])
-  const [loadingHpSites, setLoadingHpSites] = useState(false)
-  const [hpSiteMap, setHpSiteMap] = useState<Record<string, string>>({})
-  const [hpSyncing, setHpSyncing] = useState(false)
-  const [hpSyncResult, setHpSyncResult] = useState<any>(null)
-
   // --- SonicWall ---
   const [sonicwallDevices, setSonicwallDevices] = useState<{ host: string; username: string; password: string; clientId: string; name: string }[]>([])
   const [sonicwallSyncing, setSonicwallSyncing] = useState(false)
@@ -255,7 +247,6 @@ export default function SettingsPage() {
       setIntegrationConfig(d)
       if (d["integration:unifi:siteMap"]) { try { setUnifiSiteMap(JSON.parse(d["integration:unifi:siteMap"])) } catch {} }
       if (d["integration:meraki:networkMap"]) { try { setMerakiNetworkMap(JSON.parse(d["integration:meraki:networkMap"])) } catch {} }
-      if (d["integration:hpinstanton:siteMap"]) { try { setHpSiteMap(JSON.parse(d["integration:hpinstanton:siteMap"])) } catch {} }
       if (d["integration:sonicwall:devices"]) { try { setSonicwallDevices(JSON.parse(d["integration:sonicwall:devices"])) } catch {} }
       if (d["integration:pax8:companyMap"]) { try { setPax8CompanyMap(JSON.parse(d["integration:pax8:companyMap"])) } catch {} }
     }).catch(() => {})
@@ -418,26 +409,6 @@ export default function SettingsPage() {
   async function runMerakiSync() {
     setMerakiSyncing(true); setMerakiSyncResult(null)
     try { const r = await fetch("/api/integrations/meraki/sync", { method: "POST" }); setMerakiSyncResult(await r.json()) } finally { setMerakiSyncing(false) }
-  }
-
-  // HP Instant On
-  async function loadHpSites() {
-    setLoadingHpSites(true); setHpSites([])
-    try {
-      await saveIntegration(["integration:hpinstanton:bearerToken"])
-      const r = await fetch("/api/integrations/hpinstanton/sites")
-      const data = await r.json()
-      if (!r.ok) { alert(data.error || "Failed"); return }
-      setHpSites(data)
-    } finally { setLoadingHpSites(false) }
-  }
-  async function saveHpMapping() {
-    await saveIntegration([], { "integration:hpinstanton:siteMap": JSON.stringify(hpSiteMap) })
-    alert("Mapping saved")
-  }
-  async function runHpSync() {
-    setHpSyncing(true); setHpSyncResult(null)
-    try { const r = await fetch("/api/integrations/hpinstanton/sync", { method: "POST" }); setHpSyncResult(await r.json()) } finally { setHpSyncing(false) }
   }
 
   // SonicWall
@@ -991,59 +962,6 @@ export default function SettingsPage() {
                       {merakiSyncing ? "Syncing..." : "Run Meraki sync"}
                     </button>
                     <SyncResult result={merakiSyncResult} />
-                  </SectionCard>
-                )}
-              </>
-            )}
-
-            {/* ── HP Instant On ── */}
-            {activeSection === "hpinstanton" && (
-              <>
-                <SectionCard title="HP Instant On — Bearer Token" description="Paste your HP Instant On API bearer token. Obtain it from the Instant On mobile app developer tools, or via the Aruba Instant On API portal at api.arubainstanton.com.">
-                  <div style={{ marginBottom: "12px" }}>
-                    <label style={lbl}>Bearer Token</label>
-                    <input type="password" value={cfg("integration:hpinstanton:bearerToken")} onChange={e => setCfg("integration:hpinstanton:bearerToken", e.target.value)} placeholder="eyJ..." style={inp} />
-                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "6px" }}>
-                      The HP Instant On API uses OAuth2. To get a token: open the Instant On app → developer tools → copy the Bearer token from any API request.
-                    </div>
-                  </div>
-                  <button onClick={loadHpSites} disabled={loadingHpSites} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: loadingHpSites ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: loadingHpSites ? 0.6 : 1 }}>
-                    {loadingHpSites ? "Connecting..." : "Load sites"}
-                  </button>
-                </SectionCard>
-
-                {hpSites.length > 0 && (
-                  <SectionCard title="Site → Client Mapping">
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "14px" }}>
-                      {hpSites.map(site => (
-                        <div key={site.id} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <div style={{ width: "200px", flexShrink: 0 }}>
-                            <div style={{ fontSize: "13px", fontWeight: 500 }}>{site.name}</div>
-                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{site.id}</div>
-                          </div>
-                          <select value={hpSiteMap[site.id] ?? ""} onChange={e => setHpSiteMap(m => ({ ...m, [site.id]: e.target.value }))} style={{ flex: 1, ...inp }}>
-                            <option value="">— skip —</option>
-                            {clientsList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={saveHpMapping} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save mapping</button>
-                      <button onClick={runHpSync} disabled={hpSyncing} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: hpSyncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: hpSyncing ? 0.6 : 1 }}>
-                        {hpSyncing ? "Syncing..." : "Run sync"}
-                      </button>
-                    </div>
-                    <SyncResult result={hpSyncResult} />
-                  </SectionCard>
-                )}
-
-                {hpSites.length === 0 && Object.keys(hpSiteMap).length > 0 && (
-                  <SectionCard title="Sync">
-                    <button onClick={runHpSync} disabled={hpSyncing} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}>
-                      {hpSyncing ? "Syncing..." : "Run HP Instant On sync"}
-                    </button>
-                    <SyncResult result={hpSyncResult} />
                   </SectionCard>
                 )}
               </>
