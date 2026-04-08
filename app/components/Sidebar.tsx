@@ -6,12 +6,14 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 
 const nav = [
-  { label: "Dashboard",   href: "/dashboard"   },
-  { label: "Clients",     href: "/clients"     },
-  { label: "Expirations", href: "/expirations" },
-  { label: "Alarms",      href: "/alarms"      },
-  { label: "Reports",     href: "/reports"     },
-  { label: "Settings",    href: "/settings"    },
+  { label: "Dashboard",   href: "/dashboard"      },
+  { label: "Clients",     href: "/clients"        },
+  { label: "Expirations", href: "/expirations"    },
+  { label: "Alarms",      href: "/alarms"         },
+  { label: "Runbooks",    href: "/runbooks"       },
+  { label: "Portal",      href: "/portal-admin"   },
+  { label: "Reports",     href: "/reports"        },
+  { label: "Settings",    href: "/settings"       },
 ]
 
 function BellIcon() {
@@ -23,7 +25,7 @@ function BellIcon() {
   )
 }
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const { data: session } = useSession()
   const pathname = usePathname()
   const router = useRouter()
@@ -116,8 +118,28 @@ export default function Sidebar() {
         </button>
       </div>
 
+      {/* Search button */}
+      <div style={{ padding: "8px 8px 4px" }}>
+        <button
+          onClick={onOpenSearch}
+          style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            width: "100%", padding: "7px 10px", borderRadius: "6px",
+            background: "rgba(61,111,255,0.06)", border: "0.5px solid var(--color-border-tertiary)",
+            cursor: "pointer", color: "var(--muted)", fontSize: "12px",
+            fontFamily: "var(--sans)",
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span style={{ flex: 1, textAlign: "left" }}>Search...</span>
+          <span style={{ fontSize: "10px", opacity: 0.6, fontFamily: "var(--mono)" }}>⌘K</span>
+        </button>
+      </div>
+
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "10px 8px" }}>
+      <nav style={{ flex: 1, padding: "6px 8px" }}>
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/")
           return (

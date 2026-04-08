@@ -1,5 +1,6 @@
 "use client"
 
+import AppShell from "@/components/AppShell"
 import { useRouter } from "next/navigation"
 
 const REPORTS = [
@@ -34,7 +35,8 @@ export default function ReportsPage() {
   const router = useRouter()
 
   return (
-    <div style={{ padding: "32px", maxWidth: "860px", margin: "0 auto" }}>
+    <AppShell>
+    <div style={{ padding: "32px", maxWidth: "860px" }}>
       <h1 style={{ fontSize: "20px", fontWeight: 500, marginBottom: "4px" }}>Reports</h1>
       <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "28px" }}>
         Generate and print reports. All reports support browser print-to-PDF.
@@ -61,5 +63,6 @@ export default function ReportsPage() {
         ))}
       </div>
     </div>
+    </AppShell>
   )
 }
