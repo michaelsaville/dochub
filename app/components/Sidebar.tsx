@@ -26,6 +26,13 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [alertCount, setAlertCount] = useState(0)
+  const [logoExists, setLogoExists] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/settings/logo", { method: "HEAD" })
+      .then(r => setLogoExists(r.ok))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch("/api/alerts?days=90")
@@ -57,9 +64,17 @@ export default function Sidebar() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <div style={{ fontFamily: "var(--mono)", fontSize: "11px", fontWeight: 600, color: "var(--accent)", letterSpacing: "0.08em" }}>
-          PCC<span style={{ color: "var(--muted)", fontWeight: 400 }}> // </span>DOCHUB
-        </div>
+        {logoExists ? (
+          <img
+            src="/api/settings/logo"
+            alt="Company logo"
+            style={{ maxHeight: "32px", maxWidth: "140px", objectFit: "contain" }}
+          />
+        ) : (
+          <div style={{ fontFamily: "var(--mono)", fontSize: "11px", fontWeight: 600, color: "var(--accent)", letterSpacing: "0.08em" }}>
+            PCC<span style={{ color: "var(--muted)", fontWeight: 400 }}> // </span>DOCHUB
+          </div>
+        )}
         <button
           onClick={() => router.push("/alerts")}
           title={alertCount > 0 ? `${alertCount} expiry alert${alertCount !== 1 ? "s" : ""}` : "No expiry alerts"}
