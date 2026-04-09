@@ -8,11 +8,21 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const clientId = searchParams.get("clientId")
+  const search = searchParams.get("search")
 
   const credentials = await prisma.credential.findMany({
     where: {
       isRetired: false,
       ...(clientId ? { clientId } : {}),
+      ...(search ? {
+        OR: [
+          { label: { contains: search, mode: "insensitive" } },
+          { username: { contains: search, mode: "insensitive" } },
+          { url: { contains: search, mode: "insensitive" } },
+          { notes: { contains: search, mode: "insensitive" } },
+          { client: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      } : {}),
     },
     select: {
       id: true,
@@ -25,11 +35,14 @@ export async function GET(req: Request) {
       expiryDate: true,
       clientId: true,
       assetId: true,
+      encryptedTotp: true,
       client: { select: { id: true, name: true } },
       asset: { select: { id: true, name: true, friendlyName: true } },
     },
     orderBy: [{ isFavorite: "desc" }, { label: "asc" }],
   })
 
-  return NextResponse.json({ credentials })
+  // Return flat array for extension compatibility
+  const flat = credentials.map(c => ({ ...c, hasTotp: !!c.encryptedTotp, encryptedTotp: undefined, clientName: c.client?.name }))
+  return NextResponse.json(flat)
 }

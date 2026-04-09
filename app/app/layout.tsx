@@ -18,6 +18,15 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "DocHub — PCC2K",
   description: "PCC2K Documentation Platform",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "DocHub",
+  },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
 }
 
 export default function RootLayout({

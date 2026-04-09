@@ -9,16 +9,53 @@ datasource db {
 }
 
 model StaffUser {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  name           String?
-  role           UserRole        @default(TECH)
-  microsoftId    String?         @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  activityEvents ActivityEvent[]
-  vpnAccess      VpnAccessor[]   @relation("StaffUserVpnAccess")
-  apiKeys        ApiKey[]
+  id                  String                @id @default(cuid())
+  email               String                @unique
+  name                String?
+  role                UserRole              @default(TECH)
+  microsoftId         String?               @unique
+  passkeyChallenge    String?               // ephemeral, cleared after each WebAuthn ceremony
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  activityEvents      ActivityEvent[]
+  vpnAccess           VpnAccessor[]         @relation("StaffUserVpnAccess")
+  apiKeys             ApiKey[]
+  personalCredentials PersonalCredential[]
+  passkeys            StaffUserPasskey[]
+  vaultSession        PersonalVaultSession?
+}
+
+model PersonalCredential {
+  id                String    @id @default(cuid())
+  staffUserId       String
+  label             String
+  username          String?
+  encryptedPassword String
+  encryptedTotp     String?
+  url               String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  staffUser         StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+}
+
+model StaffUserPasskey {
+  id           String    @id @default(cuid())
+  staffUserId  String
+  name         String
+  credentialId Bytes
+  publicKey    Bytes
+  counter      BigInt    @default(0)
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  staffUser    StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+}
+
+model PersonalVaultSession {
+  id          String    @id @default(cuid())
+  staffUserId String    @unique
+  expiresAt   DateTime
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
 }
 
 model ApiKey {

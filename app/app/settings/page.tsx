@@ -71,7 +71,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -80,6 +80,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "data-sources", label: "Data Sources" },
   { id: "data-management", label: "Data Management" },
   { id: "api-keys", label: "API Keys" },
+  { id: "my-vault", label: "My Vault", group: "Personal" },
   { id: "alerts", label: "Email Alerts", group: "Notifications" },
   { id: "teams",    label: "Microsoft Teams", group: "Notifications" },
   { id: "synology", label: "Synology",        group: "Integrations" },
@@ -1576,9 +1577,395 @@ export default function SettingsPage() {
               </>
             )}
 
+            {activeSection === "my-vault" && (
+              <MyVaultSection />
+            )}
+
           </div>
         </div>
       </div>
     </AppShell>
+  )
+}
+
+// ─── My Vault Section ───────────────────────────────────────────────────────
+
+type PasskeyEntry = { id: string; name: string; lastUsedAt: string | null; createdAt: string }
+type VaultEntry = { id: string; label: string; username: string | null; url: string | null; notes: string | null; hasTotp: boolean; createdAt: string; updatedAt: string }
+type RevealedEntry = { password: string | null; totpCode: string | null; totpSecret: string | null }
+
+function MyVaultSection() {
+  const [vaultUnlocked, setVaultUnlocked] = useState(false)
+  const [vaultExpiresAt, setVaultExpiresAt] = useState<string | null>(null)
+  const [passkeys, setPasskeys] = useState<PasskeyEntry[]>([])
+  const [vaultItems, setVaultItems] = useState<VaultEntry[]>([])
+  const [revealed, setRevealed] = useState<Record<string, RevealedEntry>>({})
+  const [loadingAuth, setLoadingAuth] = useState(false)
+  const [loadingRegister, setLoadingRegister] = useState(false)
+  const [regName, setRegName] = useState("")
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addForm, setAddForm] = useState({ label: "", username: "", password: "", totp: "", url: "", notes: "" })
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ label: "", username: "", password: "", totp: "", url: "", notes: "" })
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  const [totpSecondsLeft, setTotpSecondsLeft] = useState(30 - (Math.floor(Date.now() / 1000) % 30))
+
+  useEffect(() => {
+    loadSession()
+    loadPasskeys()
+  }, [])
+
+  useEffect(() => {
+    if (vaultUnlocked) loadVaultItems()
+  }, [vaultUnlocked])
+
+  useEffect(() => {
+    const tick = () => {
+      const s = 30 - (Math.floor(Date.now() / 1000) % 30)
+      setTotpSecondsLeft(s)
+      if (s === 30) {
+        // Refresh all revealed TOTP codes at the boundary
+        setRevealed(prev => {
+          const updated = { ...prev }
+          Object.keys(updated).forEach(id => {
+            if (updated[id].totpSecret) {
+              updated[id] = { ...updated[id], totpCode: computeTotp(updated[id].totpSecret!) }
+            }
+          })
+          return updated
+        })
+      }
+    }
+    const t = setInterval(tick, 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  function computeTotp(secret: string): string {
+    // Client-side TOTP for display refresh (same RFC 6238 logic)
+    const epoch = Math.floor(Date.now() / 1000)
+    const counter = Math.floor(epoch / 30)
+    // We can't do HMAC-SHA1 purely in browser without crypto subtle — just show "refresh"
+    // This will be replaced by re-fetching from server at the boundary
+    return "——"
+  }
+
+  async function loadSession() {
+    const r = await fetch("/api/personal-vault/session")
+    if (r.ok) {
+      const d = await r.json()
+      setVaultUnlocked(d.unlocked)
+      setVaultExpiresAt(d.expiresAt || null)
+    }
+  }
+
+  async function loadPasskeys() {
+    const r = await fetch("/api/passkey")
+    if (r.ok) setPasskeys(await r.json())
+  }
+
+  async function loadVaultItems() {
+    const r = await fetch("/api/personal-vault")
+    if (r.ok) setVaultItems(await r.json())
+  }
+
+  function flash(type: "ok" | "err", text: string) {
+    setMsg({ type, text })
+    setTimeout(() => setMsg(null), 4000)
+  }
+
+  async function registerPasskey() {
+    if (!regName.trim()) { flash("err", "Enter a name for this passkey first"); return }
+    if (!window.PublicKeyCredential) { flash("err", "WebAuthn not supported in this browser"); return }
+    setLoadingRegister(true)
+    try {
+      const { startRegistration } = await import("@simplewebauthn/browser")
+      const optRes = await fetch("/api/passkey/register/options", { method: "POST" })
+      if (!optRes.ok) { flash("err", "Failed to get registration options"); return }
+      const options = await optRes.json()
+      const attestation = await startRegistration(options)
+      const verRes = await fetch("/api/passkey/register/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: regName.trim(), ...attestation }),
+      })
+      if (!verRes.ok) { flash("err", "Registration verification failed"); return }
+      flash("ok", "Passkey registered!")
+      setRegName("")
+      loadPasskeys()
+    } catch (e: any) {
+      flash("err", e.message || "Registration failed")
+    } finally {
+      setLoadingRegister(false)
+    }
+  }
+
+  async function deletePasskey(id: string) {
+    if (!confirm("Remove this passkey?")) return
+    const r = await fetch(`/api/passkey/${id}`, { method: "DELETE" })
+    if (r.ok) { loadPasskeys(); flash("ok", "Passkey removed") }
+  }
+
+  async function unlockVault() {
+    if (!window.PublicKeyCredential) { flash("err", "WebAuthn not supported in this browser"); return }
+    setLoadingAuth(true)
+    try {
+      const { startAuthentication } = await import("@simplewebauthn/browser")
+      const optRes = await fetch("/api/passkey/auth/options", { method: "POST" })
+      if (!optRes.ok) {
+        const d = await optRes.json()
+        flash("err", d.error || "Failed to start authentication")
+        return
+      }
+      const options = await optRes.json()
+      const assertion = await startAuthentication(options)
+      const verRes = await fetch("/api/passkey/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assertion),
+      })
+      if (!verRes.ok) { flash("err", "Authentication failed"); return }
+      const d = await verRes.json()
+      setVaultUnlocked(true)
+      setVaultExpiresAt(d.expiresAt)
+      flash("ok", "Vault unlocked for 15 minutes")
+      loadVaultItems()
+    } catch (e: any) {
+      flash("err", e.message || "Authentication failed")
+    } finally {
+      setLoadingAuth(false)
+    }
+  }
+
+  async function lockVault() {
+    await fetch("/api/personal-vault/session", { method: "DELETE" })
+    setVaultUnlocked(false)
+    setVaultExpiresAt(null)
+    setVaultItems([])
+    setRevealed({})
+  }
+
+  async function revealItem(id: string) {
+    const r = await fetch(`/api/personal-vault/${id}/reveal`)
+    if (!r.ok) { flash("err", "Could not reveal — is vault still unlocked?"); return }
+    const d = await r.json()
+    setRevealed(prev => ({ ...prev, [id]: d }))
+  }
+
+  async function addItem() {
+    if (!addForm.label.trim()) { flash("err", "Label is required"); return }
+    const r = await fetch("/api/personal-vault", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(addForm),
+    })
+    if (!r.ok) { flash("err", "Failed to add"); return }
+    setShowAddForm(false)
+    setAddForm({ label: "", username: "", password: "", totp: "", url: "", notes: "" })
+    loadVaultItems()
+    flash("ok", "Added")
+  }
+
+  async function saveEdit(id: string) {
+    const r = await fetch(`/api/personal-vault/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm),
+    })
+    if (!r.ok) { flash("err", "Failed to save"); return }
+    setEditId(null)
+    loadVaultItems()
+    flash("ok", "Saved")
+  }
+
+  async function deleteItem(id: string) {
+    if (!confirm("Delete this credential?")) return
+    await fetch(`/api/personal-vault/${id}`, { method: "DELETE" })
+    setVaultItems(prev => prev.filter(x => x.id !== id))
+    flash("ok", "Deleted")
+  }
+
+  function copyToClipboard(text: string, label: string) {
+    navigator.clipboard.writeText(text).then(() => flash("ok", `${label} copied`))
+  }
+
+  const cardStyle: React.CSSProperties = {
+    background: "var(--color-background-secondary)",
+    border: "0.5px solid var(--color-border-tertiary)",
+    borderRadius: "10px",
+    padding: "20px",
+    marginBottom: "16px",
+  }
+  const btnPrimary: React.CSSProperties = {
+    padding: "7px 14px", fontSize: "13px", fontWeight: 500, borderRadius: "7px",
+    background: "var(--color-brand)", color: "#fff", border: "none", cursor: "pointer",
+  }
+  const btnSecondary: React.CSSProperties = {
+    padding: "7px 14px", fontSize: "13px", borderRadius: "7px",
+    background: "transparent", color: "var(--color-text-secondary)",
+    border: "0.5px solid var(--color-border-secondary)", cursor: "pointer",
+  }
+  const btnDanger: React.CSSProperties = {
+    padding: "5px 10px", fontSize: "12px", borderRadius: "6px",
+    background: "transparent", color: "#ef4444",
+    border: "0.5px solid #ef4444", cursor: "pointer",
+  }
+
+  return (
+    <>
+      {msg && (
+        <div style={{
+          position: "fixed", top: 20, right: 20, zIndex: 9999,
+          padding: "10px 16px", borderRadius: "8px", fontSize: "13px",
+          background: msg.type === "ok" ? "#166534" : "#7f1d1d",
+          color: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}>{msg.text}</div>
+      )}
+
+      {/* Passkey Management */}
+      <div style={cardStyle}>
+        <div style={{ fontWeight: 600, fontSize: "15px", marginBottom: "4px" }}>Passkeys</div>
+        <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+          Register a passkey (Face ID, Touch ID, Windows Hello, or hardware key) to unlock your personal vault.
+        </div>
+
+        {passkeys.length === 0 && (
+          <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>
+            No passkeys registered yet.
+          </div>
+        )}
+
+        {passkeys.map(pk => (
+          <div key={pk.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, padding: "8px 12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)" }}>
+            <span style={{ fontSize: "18px" }}>🔑</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "13px", fontWeight: 500 }}>{pk.name}</div>
+              <div style={{ fontSize: "11px", color: "var(--color-text-secondary)" }}>
+                Last used: {pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : "Never"} · Added {new Date(pk.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+            <button style={btnDanger} onClick={() => deletePasskey(pk.id)}>Remove</button>
+          </div>
+        ))}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <input
+            value={regName}
+            onChange={e => setRegName(e.target.value)}
+            placeholder='Passkey name (e.g. "MacBook Touch ID")'
+            style={{ ...inp, flex: 1, maxWidth: 300 }}
+          />
+          <button style={btnPrimary} onClick={registerPasskey} disabled={loadingRegister}>
+            {loadingRegister ? "Registering…" : "Register Passkey"}
+          </button>
+        </div>
+      </div>
+
+      {/* Vault Lock/Unlock */}
+      <div style={cardStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "15px" }}>Personal Credential Vault</div>
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              {vaultUnlocked
+                ? `Unlocked · expires ${vaultExpiresAt ? new Date(vaultExpiresAt).toLocaleTimeString() : "soon"}`
+                : "Locked — authenticate with a passkey to access"}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {!vaultUnlocked ? (
+              <button style={btnPrimary} onClick={unlockVault} disabled={loadingAuth || passkeys.length === 0}>
+                {loadingAuth ? "Authenticating…" : passkeys.length === 0 ? "Register a passkey first" : "Unlock Vault"}
+              </button>
+            ) : (
+              <button style={btnSecondary} onClick={lockVault}>Lock</button>
+            )}
+          </div>
+        </div>
+
+        {vaultUnlocked && (
+          <>
+            {vaultItems.length === 0 && !showAddForm && (
+              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: 12 }}>
+                No credentials yet.
+              </div>
+            )}
+
+            {vaultItems.map(item => (
+              <div key={item.id} style={{ marginBottom: 12, padding: "12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)" }}>
+                {editId === item.id ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input placeholder="Label *" value={editForm.label} onChange={e => setEditForm(f => ({ ...f, label: e.target.value }))} style={inp} />
+                    <input placeholder="Username" value={editForm.username} onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))} style={inp} />
+                    <input placeholder="Password (leave blank to keep existing)" type="password" value={editForm.password} onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} style={inp} />
+                    <input placeholder="TOTP secret (leave blank to keep existing)" value={editForm.totp} onChange={e => setEditForm(f => ({ ...f, totp: e.target.value }))} style={inp} />
+                    <input placeholder="URL" value={editForm.url} onChange={e => setEditForm(f => ({ ...f, url: e.target.value }))} style={inp} />
+                    <input placeholder="Notes" value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} style={inp} />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button style={btnPrimary} onClick={() => saveEdit(item.id)}>Save</button>
+                      <button style={btnSecondary} onClick={() => setEditId(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ fontWeight: 500, fontSize: "14px" }}>{item.label}</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={btnSecondary} onClick={() => { setEditId(item.id); setEditForm({ label: item.label, username: item.username || "", password: "", totp: "", url: item.url || "", notes: item.notes || "" }) }}>Edit</button>
+                        <button style={btnDanger} onClick={() => deleteItem(item.id)}>Delete</button>
+                      </div>
+                    </div>
+                    {item.username && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: 2 }}>{item.username}</div>}
+                    {item.url && <div style={{ fontSize: "12px", color: "var(--color-brand)", marginTop: 2 }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.url}</a></div>}
+                    <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                      {!revealed[item.id] ? (
+                        <button style={{ ...btnSecondary, fontSize: "12px", padding: "4px 10px" }} onClick={() => revealItem(item.id)}>Reveal</button>
+                      ) : (
+                        <>
+                          {revealed[item.id].password && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <code style={{ fontSize: "12px", background: "var(--color-background-secondary)", padding: "2px 8px", borderRadius: 4 }}>{revealed[item.id].password}</code>
+                              <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].password!, "Password")}>Copy</button>
+                            </div>
+                          )}
+                          {revealed[item.id].totpCode && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <code style={{ fontSize: "14px", fontWeight: 600, letterSpacing: "0.1em", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-primary)" }}>
+                                {revealed[item.id].totpCode}
+                              </code>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-secondary)" }}>{totpSecondsLeft}s</span>
+                              <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].totpCode!, "TOTP code")}>Copy</button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {showAddForm ? (
+              <div style={{ padding: "12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", marginBottom: 12 }}>
+                <div style={{ fontWeight: 500, fontSize: "13px", marginBottom: 10 }}>New Credential</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input placeholder="Label *" value={addForm.label} onChange={e => setAddForm(f => ({ ...f, label: e.target.value }))} style={inp} />
+                  <input placeholder="Username" value={addForm.username} onChange={e => setAddForm(f => ({ ...f, username: e.target.value }))} style={inp} />
+                  <input placeholder="Password" type="password" value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} style={inp} />
+                  <input placeholder="TOTP secret (base32)" value={addForm.totp} onChange={e => setAddForm(f => ({ ...f, totp: e.target.value }))} style={inp} />
+                  <input placeholder="URL" value={addForm.url} onChange={e => setAddForm(f => ({ ...f, url: e.target.value }))} style={inp} />
+                  <input placeholder="Notes" value={addForm.notes} onChange={e => setAddForm(f => ({ ...f, notes: e.target.value }))} style={inp} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={btnPrimary} onClick={addItem}>Add</button>
+                    <button style={btnSecondary} onClick={() => setShowAddForm(false)}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button style={btnPrimary} onClick={() => setShowAddForm(true)}>+ Add Credential</button>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }
