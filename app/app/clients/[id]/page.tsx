@@ -1321,7 +1321,7 @@ export default function ClientDetailPage() {
           </button>
         </div>
 
-        <div style={{ display: "flex", marginBottom: "24px", borderBottom: "1px solid var(--border)", overflow: "auto" }}>
+        <div className="pcc-tab-bar" style={{ marginBottom: "24px", borderBottom: "1px solid var(--border)" }}>
           {tabs.map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
