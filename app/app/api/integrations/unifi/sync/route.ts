@@ -18,6 +18,42 @@ const TYPE_MAP: Record<string, string> = {
   OTHER: "Other",
 }
 
+// Infer switch port count from UniFi model info.
+// Shortname lookup first (most reliable); regex extract from model name as fallback.
+function inferPortCount(model: string, shortname: string): number | null {
+  const PORT_COUNT: Record<string, number> = {
+    // USW Lite
+    "USL8LP": 8, "USL16LP": 16,
+    // USW
+    "USW8": 8, "USW8P60": 8, "USW8P150": 8,
+    "USW16P": 16,
+    "USW24": 24, "USW24P250": 24, "USW24P500": 24,
+    "USW48": 48, "USW48P500": 48, "USW48P750": 48,
+    // USW Flex
+    "USWFLEX": 5, "USWFLEXMINI": 5,
+    // USW Pro
+    "USW24PRO": 24, "USW48PRO": 48,
+    "USWPRO24": 24, "USWPRO48": 48,
+    // USW Pro Max
+    "USW24PROMAX": 28, "USW48PROMAX": 52,
+    // USW Enterprise
+    "USW24EN": 28, "USW48EN": 52,
+    // US (legacy)
+    "US8": 8, "US8P60": 8, "US8P150": 8,
+    "US16P150": 16,
+    "US24P250": 24, "US24P500": 24,
+    "US48P500": 48, "US48P750": 48,
+  }
+  const sn = (shortname || "").toUpperCase().replace(/-/g, "")
+  if (PORT_COUNT[sn] != null) return PORT_COUNT[sn]
+
+  // Regex fallback: first number in the model name in plausible port-count range
+  const nums = [...(model || "").matchAll(/\b(\d+)\b/g)]
+    .map(m => parseInt(m[1]))
+    .filter(n => n >= 4 && n <= 96)
+  return nums[0] ?? null
+}
+
 function isNvrDevice(d: any): boolean {
   const model = (d.model || "").toLowerCase()
   const shortname = (d.shortname || "").toLowerCase()
@@ -233,7 +269,7 @@ export async function POST() {
               const type = uiCloudDeviceType(d)
               const assetTypeName = TYPE_MAP[type] ?? "Other"
 
-              await upsertDevice(clientId, client.locations[0]?.id || null, mac, {
+              const assetId = await upsertDevice(clientId, client.locations[0]?.id || null, mac, {
                 name: d.name || d.model || d.mac || d.id || "Unknown Device",
                 assetTypeId: typeByName[assetTypeName] ?? null,
                 make: "Ubiquiti",
@@ -245,6 +281,17 @@ export async function POST() {
                 managementUrl: d.ip ? `https://${d.ip}` : null,
               })
               totalDevices++
+
+              // Auto-set portCount on switches if not already configured
+              if (type === "SWITCH") {
+                const pc = inferPortCount(d.model || "", d.shortname || "")
+                if (pc) {
+                  await prisma.asset.updateMany({
+                    where: { id: assetId, portCount: null },
+                    data: { portCount: pc },
+                  })
+                }
+              }
             } catch (devErr: any) {
               errors.push(`Device ${d.id}: ${devErr.message}`)
             }
@@ -284,7 +331,7 @@ export async function POST() {
               const type = unifiDeviceType(d.type)
               const assetTypeName = TYPE_MAP[type] ?? "Other"
 
-              await upsertDevice(clientId, client.locations[0]?.id || null, mac, {
+              const assetId = await upsertDevice(clientId, client.locations[0]?.id || null, mac, {
                 name: d.name || d.model || d.mac || d._id || "Unknown Device",
                 assetTypeId: typeByName[assetTypeName] ?? null,
                 make: "Ubiquiti",
@@ -296,6 +343,17 @@ export async function POST() {
                 managementUrl: d.ip ? `https://${d.ip}` : null,
               })
               totalDevices++
+
+              // Auto-set portCount on switches if not already configured
+              if (type === "SWITCH") {
+                const pc = inferPortCount(d.model || "", d.shortname || "")
+                if (pc) {
+                  await prisma.asset.updateMany({
+                    where: { id: assetId, portCount: null },
+                    data: { portCount: pc },
+                  })
+                }
+              }
             } catch (devErr: any) {
               errors.push(`Device ${d._id}: ${devErr.message}`)
             }
