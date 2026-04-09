@@ -271,6 +271,7 @@ export default function ClientDetailPage() {
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealedTotps, setRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
+  const [totpSecondsLeft, setTotpSecondsLeft] = useState<number>(30 - (Math.floor(Date.now() / 1000) % 30))
   const [copiedCreds, setCopiedCreds] = useState<Record<string, string>>({})
   const [editingClient, setEditingClient] = useState(false)
   const [clientForm, setClientForm] = useState({ name: "", type: "BUSINESS", notes: "" })
@@ -437,6 +438,43 @@ export default function ClientDetailPage() {
     }
     if (networkSubTab === "ptp" && ptpLinks.length === 0) fetchPtp()
   }, [networkSubTab, activeTab])
+
+  // TOTP countdown — ticks every second, refreshes codes at the 30s boundary
+  useEffect(() => {
+    const tick = () => {
+      const now = Math.floor(Date.now() / 1000)
+      const secs = 30 - (now % 30)
+      setTotpSecondsLeft(secs)
+      // At the boundary, regenerate all currently-revealed codes
+      if (secs === 30) {
+        const refreshCodes = async (
+          revealed: Record<string, { seed: string; code: string }>,
+          setter: React.Dispatch<React.SetStateAction<Record<string, { seed: string; code: string }>>>
+        ) => {
+          const ids = Object.keys(revealed)
+          if (ids.length === 0) return
+          const updated: Record<string, { seed: string; code: string }> = {}
+          await Promise.all(ids.map(async id => {
+            try {
+              const r = await fetch(`/api/credentials/${id}/reveal`)
+              if (r.ok) {
+                const d = await r.json()
+                updated[id] = { seed: d.totp ?? revealed[id].seed, code: d.totpCode ?? "------" }
+              } else {
+                updated[id] = revealed[id]
+              }
+            } catch { updated[id] = revealed[id] }
+          }))
+          setter(prev => ({ ...prev, ...updated }))
+        }
+        setRevealedTotps(prev => { refreshCodes(prev, setRevealedTotps); return prev })
+        setDashRevealedTotps(prev => { refreshCodes(prev, setDashRevealedTotps); return prev })
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [])
 
   async function fetchClient() {
     try {
@@ -1468,7 +1506,8 @@ export default function ClientDetailPage() {
                         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                           {dashRevealedTotps[cred.id] ? (
                             <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>{dashRevealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "#10b981" }}>{dashRevealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
                               <button onClick={() => navigator.clipboard.writeText(dashRevealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
                               <button onClick={() => setDashRevealedTotps(t => { const n = { ...t }; delete n[cred.id]; return n })} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
                             </>
@@ -2433,7 +2472,8 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>MFA</span>
                           {revealedTotps[cred.id] ? (
                             <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>{revealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "#10b981" }}>{revealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
                               <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>· {revealedTotps[cred.id].seed}</span>
                               <button
                                 onClick={() => copyTotpCode(cred.id)}
