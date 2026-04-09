@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { useTheme } from "@/components/ThemeProvider"
 
 const nav = [
   { label: "Dashboard",   href: "/dashboard"      },
@@ -29,6 +30,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   const { data: session } = useSession()
   const pathname = usePathname()
   const router = useRouter()
+  const { themeId, setThemeId } = useTheme()
+  const isLight = themeId === "pcc-light"
   const [alertCount, setAlertCount] = useState(0)
   const [logoExists, setLogoExists] = useState(false)
 
@@ -173,11 +176,25 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
         padding: "12px 16px",
         borderTop: "0.5px solid var(--color-border-tertiary)",
       }}>
-        <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>
-          {session?.user?.name}
-        </div>
-        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>
-          {session?.user?.email}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>
+              {session?.user?.name}
+            </div>
+            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>
+              {session?.user?.email}
+            </div>
+          </div>
+          <button
+            onClick={() => setThemeId(isLight ? "pcc-dark" : "pcc-light")}
+            title={isLight ? "Switch to dark mode" : "Switch to light mode"}
+            style={{
+              background: "none", border: "none", cursor: "pointer", padding: "2px",
+              color: "var(--muted)", fontSize: "15px", lineHeight: 1, flexShrink: 0,
+            }}
+          >
+            {isLight ? "☾" : "☀"}
+          </button>
         </div>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}

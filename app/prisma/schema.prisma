@@ -38,6 +38,7 @@ model Client {
   syncroId       String?            @unique
   notes          String?
   isActive       Boolean            @default(true)
+  lastSyncedAt   DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   activityEvents ActivityEvent[]

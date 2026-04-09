@@ -50,6 +50,7 @@ export async function POST() {
           update: {
             name: getClientName(c),
             type: detectClientType(c),
+            lastSyncedAt: new Date(),
             updatedAt: new Date(),
           },
           create: {

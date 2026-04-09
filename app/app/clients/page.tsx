@@ -10,7 +10,20 @@ type Client = {
   type: "BUSINESS" | "RESIDENTIAL"
   isActive: boolean
   assetCount: number
+  lastSyncedAt: string | null
   _count: { locations: number; users: number; alarms: number }
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "—"
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (secs < 60) return "just now"
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
 }
 
 export default function ClientsPage() {
@@ -177,11 +190,11 @@ export default function ClientsPage() {
 
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px",
+            display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 80px",
             padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Client name", "Type", "Sites", "Users", "Assets", "Alarms"].map((h) => (
+            {["Client name", "Type", "Sites", "Users", "Assets", "Alarms", "Last sync"].map((h) => (
               <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
             ))}
           </div>
@@ -200,7 +213,7 @@ export default function ClientsPage() {
                 key={client.id}
                 onClick={() => router.push("/clients/" + client.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px",
+                  display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 80px",
                   padding: "12px 16px", cursor: "pointer",
                   borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                   background: "var(--color-background-primary)",
@@ -235,6 +248,9 @@ export default function ClientsPage() {
                   ) : (
                     <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>
                   )}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                  {relativeTime(client.lastSyncedAt)}
                 </div>
               </div>
             ))
