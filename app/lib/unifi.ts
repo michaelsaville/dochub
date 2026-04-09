@@ -152,7 +152,9 @@ export async function uiCloudGetDevices(apiKey: string, hostId: string): Promise
     undefined,
     cloudHeaders(apiKey)
   )
-  return data?.data ?? []
+  // API returns: { data: [{ hostId, hostName, devices: [...] }] }
+  const hostEntry = (data?.data ?? []).find((h: any) => h.hostId === hostId)
+  return hostEntry?.devices ?? []
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
