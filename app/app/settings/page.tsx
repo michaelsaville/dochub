@@ -71,7 +71,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -81,6 +81,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "data-management", label: "Data Management" },
   { id: "api-keys", label: "API Keys" },
   { id: "alerts", label: "Email Alerts", group: "Notifications" },
+  { id: "teams",  label: "Microsoft Teams", group: "Notifications" },
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
@@ -245,6 +246,26 @@ export default function SettingsPage() {
   // --- Email Alerts ---
   const [sendingTestEmail, setSendingTestEmail] = useState(false)
   const [testEmailResult, setTestEmailResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [sendingTeamsTest, setSendingTeamsTest] = useState(false)
+  const [teamsTestResult, setTeamsTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  async function sendTeamsTest() {
+    const url = cfg("teams:webhook_url")
+    if (!url) { setTeamsTestResult({ ok: false, message: "Enter a webhook URL first" }); return }
+    setSendingTeamsTest(true)
+    setTeamsTestResult(null)
+    try {
+      const res = await fetch("/api/integrations/teams/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: url }),
+      })
+      const data = await res.json()
+      setTeamsTestResult(data.ok ? { ok: true, message: "Test card posted to Teams." } : { ok: false, message: data.error ?? "Failed" })
+    } catch (e: any) {
+      setTeamsTestResult({ ok: false, message: e.message })
+    } finally { setSendingTeamsTest(false) }
+  }
 
   async function sendTestEmail() {
     setSendingTestEmail(true)
@@ -950,6 +971,61 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ marginTop: "16px", padding: "12px 14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   The nightly digest runs automatically as part of the <code style={{ fontFamily: "monospace", fontSize: "12px" }}>/api/cron/sync</code> job. It only sends if there are items within the warning window.
+                </div>
+              </SectionCard>
+            )}
+
+            {activeSection === "teams" && (
+              <SectionCard title="Microsoft Teams" description="Post alarm notifications and nightly expiration digests to a Teams channel via incoming webhook.">
+                <div style={{ display: "grid", gap: "12px", marginBottom: "16px" }}>
+                  <div>
+                    <label style={lbl}>Incoming webhook URL</label>
+                    <input
+                      value={cfg("teams:webhook_url")}
+                      onChange={e => setCfg("teams:webhook_url", e.target.value)}
+                      placeholder="https://prod-xx.westus.logic.azure.com/..."
+                      style={inp}
+                    />
+                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                      In Teams: go to the channel → Workflows → Post to a channel when a webhook request is received.
+                    </div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Minimum severity for real-time alarm notifications</label>
+                    <select
+                      value={cfg("teams:min_severity", "CRITICAL")}
+                      onChange={e => setCfg("teams:min_severity", e.target.value)}
+                      style={inp}
+                    >
+                      <option value="CRITICAL">Critical only</option>
+                      <option value="WARNING">Warning and above</option>
+                      <option value="INFO">All alarms</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => saveIntegration(["teams:webhook_url", "teams:min_severity"])}
+                    disabled={savingIntegration}
+                    style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
+                  >
+                    {savingIntegration ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={sendTeamsTest}
+                    disabled={sendingTeamsTest}
+                    style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: sendingTeamsTest ? "not-allowed" : "pointer", color: "var(--color-text-secondary)", opacity: sendingTeamsTest ? 0.6 : 1 }}
+                  >
+                    {sendingTeamsTest ? "Sending..." : "Send test card"}
+                  </button>
+                  {teamsTestResult && (
+                    <span style={{ fontSize: "13px", color: teamsTestResult.ok ? "#10b981" : "var(--color-text-danger)" }}>
+                      {teamsTestResult.message}
+                    </span>
+                  )}
+                </div>
+                <div style={{ marginTop: "16px", padding: "12px 14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  Real-time notifications fire on every new alarm matching the severity filter. The nightly expiration digest also posts to Teams alongside the email.
                 </div>
               </SectionCard>
             )}

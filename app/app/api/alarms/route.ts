@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { postAlarmToTeams } from "@/lib/teams"
 
 export async function GET(req: Request) {
   const { error } = await requireAuth()
@@ -46,6 +47,15 @@ export async function POST(req: Request) {
       },
       include: { client: { select: { id: true, name: true } } },
     })
+
+    postAlarmToTeams({
+      severity: alarm.severity,
+      type: alarm.type,
+      message: alarm.message,
+      clientName: alarm.client.name,
+      alarmId: alarm.id,
+    })
+
     return NextResponse.json(alarm, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: "Failed to create alarm" }, { status: 500 })

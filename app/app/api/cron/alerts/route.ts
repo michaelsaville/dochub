@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { postExpirationDigestToTeams } from "@/lib/teams"
 
 // Called nightly by cron: GET /api/cron/alerts  (Bearer CRON_SECRET)
 export async function GET(req: Request) {
@@ -106,7 +107,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ sent: false, error: err }, { status: 500 })
   }
 
-  return NextResponse.json({ sent: true, total: all.length, critical: critical.length, warning: warning.length })
+  // Also post to Teams if configured (fire-and-forget alongside email)
+  const teamsSetting = await prisma.appSetting.findUnique({ where: { key: "teams:webhook_url" } })
+  let teamsResult: object = { skipped: true }
+  if (teamsSetting?.value) {
+    teamsResult = await postExpirationDigestToTeams({ critical, warning }, teamsSetting.value)
+  }
+
+  return NextResponse.json({ sent: true, total: all.length, critical: critical.length, warning: warning.length, teams: teamsResult })
 }
 
 function row(category: string, label: string, clientName: string, expiresAt: Date, now: Date): string {
