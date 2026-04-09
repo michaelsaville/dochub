@@ -53,12 +53,20 @@ export default function RunbooksPage() {
               {runbooks.length} SOP{runbooks.length !== 1 ? "s" : ""}
             </div>
           </div>
-          <button
-            onClick={() => router.push("/runbooks/new")}
-            style={{ fontSize: "14px", fontWeight: 500, padding: "8px 18px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}
-          >
-            New SOP
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => router.push("/runbooks/history")}
+              style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)" }}
+            >
+              History
+            </button>
+            <button
+              onClick={() => router.push("/runbooks/new")}
+              style={{ fontSize: "14px", fontWeight: 500, padding: "8px 18px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}
+            >
+              New SOP
+            </button>
+          </div>
         </div>
 
         {/* Filters */}

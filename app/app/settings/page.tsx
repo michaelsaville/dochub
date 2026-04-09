@@ -844,7 +844,7 @@ export default function SettingsPage() {
 
             {/* ── SyncroMSP ── */}
             {activeSection === "alerts" && (
-              <SectionCard title="Email Alerts" description="Send a nightly expiration digest via Resend. Covers SSL, domains, warranties, credentials, and licenses expiring within 30 days.">
+              <SectionCard title="Email Alerts" description="Send a nightly expiration digest via Resend. Covers selected categories expiring within the configured window.">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                   <div style={{ gridColumn: "1 / -1" }}>
                     <label style={lbl}>Alert recipient email</label>
@@ -878,10 +878,58 @@ export default function SettingsPage() {
                       Get an API key at resend.com — free tier is 3,000 emails/month.
                     </div>
                   </div>
+                  <div>
+                    <label style={lbl}>Warning threshold (days)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={cfg("alerts:threshold:warn", "30")}
+                      onChange={e => setCfg("alerts:threshold:warn", e.target.value)}
+                      style={{ ...inp, width: "100px" }}
+                    />
+                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>Items expiring within this many days appear in the digest.</div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Critical threshold (days)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={cfg("alerts:threshold:critical", "7")}
+                      onChange={e => setCfg("alerts:threshold:critical", e.target.value)}
+                      style={{ ...inp, width: "100px" }}
+                    />
+                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>Items within this window are marked critical (red) in the email.</div>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={lbl}>Categories to include</label>
+                    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "6px" }}>
+                      {[
+                        { key: "alerts:categories:ssl",         label: "SSL certs"   },
+                        { key: "alerts:categories:domains",     label: "Domains"     },
+                        { key: "alerts:categories:warranties",  label: "Warranties"  },
+                        { key: "alerts:categories:credentials", label: "Credentials" },
+                        { key: "alerts:categories:licenses",    label: "Licenses"    },
+                      ].map(({ key, label }) => (
+                        <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={cfg(key, "true") !== "false"}
+                            onChange={e => setCfg(key, e.target.checked ? "true" : "false")}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                   <button
-                    onClick={() => saveIntegration(["integration:alerts:email", "integration:alerts:from", "integration:resend:apiKey"])}
+                    onClick={() => saveIntegration([
+                      "integration:alerts:email", "integration:alerts:from", "integration:resend:apiKey",
+                      "alerts:threshold:warn", "alerts:threshold:critical",
+                      "alerts:categories:ssl", "alerts:categories:domains", "alerts:categories:warranties",
+                      "alerts:categories:credentials", "alerts:categories:licenses",
+                    ])}
                     disabled={savingIntegration}
                     style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
                   >
@@ -901,7 +949,7 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <div style={{ marginTop: "16px", padding: "12px 14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                  The nightly digest runs automatically as part of the <code style={{ fontFamily: "monospace", fontSize: "12px" }}>/api/cron/sync</code> job. It only sends if there are items expiring within 30 days.
+                  The nightly digest runs automatically as part of the <code style={{ fontFamily: "monospace", fontSize: "12px" }}>/api/cron/sync</code> job. It only sends if there are items within the warning window.
                 </div>
               </SectionCard>
             )}

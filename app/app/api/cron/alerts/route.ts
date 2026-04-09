@@ -10,49 +10,65 @@ export async function GET(req: Request) {
 
   // Load settings
   const settings = await prisma.appSetting.findMany({
-    where: { key: { in: ["integration:resend:apiKey", "integration:alerts:email", "integration:alerts:from"] } },
+    where: {
+      key: {
+        in: [
+          "integration:resend:apiKey", "integration:alerts:email", "integration:alerts:from",
+          "alerts:threshold:warn", "alerts:threshold:critical",
+          "alerts:categories:ssl", "alerts:categories:domains", "alerts:categories:warranties",
+          "alerts:categories:credentials", "alerts:categories:licenses",
+        ],
+      },
+    },
   })
   const cfg = Object.fromEntries(settings.map(s => [s.key, s.value]))
 
-  const apiKey = cfg["integration:resend:apiKey"]
-  const toEmail = cfg["integration:alerts:email"]
-  const fromAddress = cfg["integration:alerts:from"] || "DocHub <noreply@dochub.pcc2k.com>"
+  const apiKey       = cfg["integration:resend:apiKey"]
+  const toEmail      = cfg["integration:alerts:email"]
+  const fromAddress  = cfg["integration:alerts:from"] || "DocHub <noreply@dochub.pcc2k.com>"
+  const warnDays     = parseInt(cfg["alerts:threshold:warn"]     || "30", 10)
+  const criticalDays = parseInt(cfg["alerts:threshold:critical"] || "7",  10)
+  const inclSsl         = cfg["alerts:categories:ssl"]         !== "false"
+  const inclDomains     = cfg["alerts:categories:domains"]     !== "false"
+  const inclWarranties  = cfg["alerts:categories:warranties"]  !== "false"
+  const inclCredentials = cfg["alerts:categories:credentials"] !== "false"
+  const inclLicenses    = cfg["alerts:categories:licenses"]    !== "false"
 
   if (!apiKey || !toEmail) {
     return NextResponse.json({ skipped: true, reason: "Resend API key or alert email not configured" })
   }
 
-  const now = new Date()
-  const in7  = new Date(Date.now() + 7  * 86400000)
-  const in30 = new Date(Date.now() + 30 * 86400000)
+  const now    = new Date()
+  const inWarn = new Date(Date.now() + warnDays     * 86400000)
+  const inCrit = new Date(Date.now() + criticalDays * 86400000)
 
-  // Query all 5 categories expiring within 30 days (including already expired)
+  // Query enabled categories expiring within the warn window
   const [sslCerts, domains, warranties, credentials, licenses] = await Promise.all([
-    prisma.website.findMany({
-      where: { sslExpiresAt: { not: null, lte: in30 } },
+    inclSsl ? prisma.website.findMany({
+      where: { sslExpiresAt: { not: null, lte: inWarn } },
       select: { id: true, domain: true, sslExpiresAt: true, client: { select: { name: true } } },
       orderBy: { sslExpiresAt: "asc" },
-    }),
-    prisma.website.findMany({
-      where: { expiresAt: { not: null, lte: in30 } },
+    }) : [],
+    inclDomains ? prisma.website.findMany({
+      where: { expiresAt: { not: null, lte: inWarn } },
       select: { id: true, domain: true, expiresAt: true, client: { select: { name: true } } },
       orderBy: { expiresAt: "asc" },
-    }),
-    prisma.asset.findMany({
-      where: { warrantyExpiry: { not: null, lte: in30 }, status: { notIn: ["RETIRED", "DISPOSED"] } },
+    }) : [],
+    inclWarranties ? prisma.asset.findMany({
+      where: { warrantyExpiry: { not: null, lte: inWarn }, status: { notIn: ["RETIRED", "DISPOSED"] } },
       select: { id: true, name: true, friendlyName: true, warrantyExpiry: true, location: { select: { client: { select: { name: true } } } } },
       orderBy: { warrantyExpiry: "asc" },
-    }),
-    prisma.credential.findMany({
-      where: { isRetired: false, expiryDate: { not: null, lte: in30 } },
+    }) : [],
+    inclCredentials ? prisma.credential.findMany({
+      where: { isRetired: false, expiryDate: { not: null, lte: inWarn } },
       select: { id: true, label: true, expiryDate: true, client: { select: { name: true } } },
       orderBy: { expiryDate: "asc" },
-    }),
-    prisma.license.findMany({
-      where: { isActive: true, expiryDate: { not: null, lte: in30 } },
+    }) : [],
+    inclLicenses ? prisma.license.findMany({
+      where: { isActive: true, expiryDate: { not: null, lte: inWarn } },
       select: { id: true, name: true, expiryDate: true, client: { select: { name: true } } },
       orderBy: { expiryDate: "asc" },
-    }),
+    }) : [],
   ])
 
   type Item = { category: string; label: string; clientName: string; expiresAt: Date }
@@ -69,8 +85,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ sent: false, reason: "Nothing expiring within 30 days" })
   }
 
-  const critical = all.filter(i => i.expiresAt <= in7)
-  const warning  = all.filter(i => i.expiresAt > in7)
+  const critical = all.filter(i => i.expiresAt <= inCrit)
+  const warning  = all.filter(i => i.expiresAt > inCrit)
 
   const html = buildEmail(critical, warning, now)
 
