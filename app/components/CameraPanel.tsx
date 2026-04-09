@@ -418,7 +418,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                 {!system.isActive && <span style={{ fontSize: "11px", color: "#ef4444" }}>Inactive</span>}
               </div>
               <div style={{ display: "flex", gap: "16px", marginTop: "6px", flexWrap: "wrap" }}>
-                {system.asset && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Host: {assetLabel(system.asset)}</span>}
+                {system.asset && <a href={`/assets/${system.asset.id}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }} onClick={e => e.stopPropagation()}>Host: {assetLabel(system.asset)}</a>}
                 {system.credential && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Cred: {system.credential.label}</span>}
                 {system.storageNote && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{system.storageNote}</span>}
                 {system.managementUrl && (

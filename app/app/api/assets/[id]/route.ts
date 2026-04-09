@@ -29,6 +29,19 @@ export async function GET(
       },
     })
     if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    // Reverse-lookup: which phone/camera systems is this asset linked to?
+    const [linkedPhoneSystems, linkedCameraSystems] = await Promise.all([
+      prisma.phoneSystem.findMany({
+        where: { assetId: id },
+        select: { id: true, name: true, type: true, clientId: true },
+      }),
+      prisma.cameraSystem.findMany({
+        where: { assetId: id },
+        select: { id: true, name: true, type: true, clientId: true },
+      }),
+    ])
+
     const { credentials, ...rest } = asset
     return NextResponse.json({
       ...rest,
@@ -36,6 +49,8 @@ export async function GET(
         id: c.id, label: c.label, username: c.username, url: c.url,
         hasPassword: !!c.encryptedPassword,
       })),
+      linkedPhoneSystems,
+      linkedCameraSystems,
     })
   } catch (e) {
     return NextResponse.json({ error: "Failed to fetch asset" }, { status: 500 })

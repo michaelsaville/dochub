@@ -85,6 +85,8 @@ type Asset = {
     phone: string | null
   } | null
   credentials: Credential[]
+  linkedPhoneSystems: { id: string; name: string; type: string; clientId: string }[]
+  linkedCameraSystems: { id: string; name: string; type: string; clientId: string }[]
 }
 
 const categoryLabel: Record<string, string> = {
@@ -875,6 +877,39 @@ export default function AssetDetailPage() {
                       <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{value}</span>
                     )}
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* Linked Systems */}
+            {((asset.linkedPhoneSystems?.length ?? 0) > 0 || (asset.linkedCameraSystems?.length ?? 0) > 0) && (
+              <div style={card}>
+                <div style={cardTitle}>Linked Systems</div>
+                {asset.linkedPhoneSystems?.map(sys => (
+                  <a
+                    key={sys.id}
+                    href={`/clients/${sys.clientId}?tab=Phone+System`}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)", textDecoration: "none" }}
+                  >
+                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", flexShrink: 0 }}>☎</span>
+                    <div>
+                      <div style={{ fontSize: "13px", color: "var(--color-accent)" }}>{sys.name}</div>
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Phone System</div>
+                    </div>
+                  </a>
+                ))}
+                {asset.linkedCameraSystems?.map(sys => (
+                  <a
+                    key={sys.id}
+                    href={`/clients/${sys.clientId}?tab=Cameras`}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)", textDecoration: "none" }}
+                  >
+                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", flexShrink: 0 }}>📷</span>
+                    <div>
+                      <div style={{ fontSize: "13px", color: "var(--color-accent)" }}>{sys.name}</div>
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Camera System</div>
+                    </div>
+                  </a>
                 ))}
               </div>
             )}

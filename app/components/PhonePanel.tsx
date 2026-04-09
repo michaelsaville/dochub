@@ -609,7 +609,7 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
               </div>
               <div style={{ display: "flex", gap: "16px", marginTop: "6px", flexWrap: "wrap" }}>
                 {system.sipDomain && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>SIP: {system.sipDomain}</span>}
-                {system.asset && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Host: {assetLabel(system.asset)}</span>}
+                {system.asset && <a href={`/assets/${system.asset.id}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }} onClick={e => e.stopPropagation()}>Host: {assetLabel(system.asset)}</a>}
                 {system.credential && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Cred: {system.credential.label}</span>}
                 {system.managementUrl && (
                   <a href={system.managementUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", color: "var(--color-accent)" }} onClick={e => e.stopPropagation()}>
