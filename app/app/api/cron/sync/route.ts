@@ -33,6 +33,15 @@ export async function GET(req: Request) {
     results.alerts = { success: false, error: e.message }
   }
 
+  try {
+    const res = await fetch("http://localhost:3000/api/cron/synology", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.synology = await res.json()
+  } catch (e: any) {
+    results.synology = { success: false, error: e.message }
+  }
+
   const success = results.syncro?.success !== false
   return NextResponse.json({ success, ...results })
 }

@@ -71,7 +71,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -81,7 +81,8 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "data-management", label: "Data Management" },
   { id: "api-keys", label: "API Keys" },
   { id: "alerts", label: "Email Alerts", group: "Notifications" },
-  { id: "teams",  label: "Microsoft Teams", group: "Notifications" },
+  { id: "teams",    label: "Microsoft Teams", group: "Notifications" },
+  { id: "synology", label: "Synology",        group: "Integrations" },
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
   { id: "meraki", label: "Cisco Meraki", group: "Integrations" },
@@ -1026,6 +1027,36 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ marginTop: "16px", padding: "12px 14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   Real-time notifications fire on every new alarm matching the severity filter. The nightly expiration digest also posts to Teams alongside the email.
+                </div>
+              </SectionCard>
+            )}
+
+            {activeSection === "synology" && (
+              <SectionCard title="Synology DSM" description="Per-NAS backup monitoring. Credentials are configured on individual NAS assets, not here.">
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: "20px" }}>
+                  Synology backup monitoring is configured per-asset. To enable it on a NAS:
+                  <ol style={{ margin: "12px 0 0 18px", padding: 0 }}>
+                    <li>Open the NAS asset page (Clients → Assets → select the NAS)</li>
+                    <li>Scroll to the <strong>Synology Backups</strong> section</li>
+                    <li>Enter the DSM credentials and hit Save</li>
+                    <li>Hit <strong>Sync now</strong> to pull backup job status immediately</li>
+                  </ol>
+                </div>
+                <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", padding: "16px", fontSize: "13px" }}>
+                  <div style={{ fontWeight: 500, marginBottom: "10px" }}>DSM account setup checklist</div>
+                  {[
+                    "Control Panel → User & Group → Create a dedicated read-only user (e.g. dochub)",
+                    "Applications tab → ensure DSM access is allowed for that user",
+                    "Disable 2FA for this account — the API login will fail if 2FA is enabled",
+                    "Note the NAS IP and DSM port (default HTTP: 5000, HTTPS: 5001)",
+                    "Test login: http://nas-ip:5000/webapi/auth.cgi?api=SYNO.API.Auth&version=3&method=login&account=dochub&passwd=yourpass&session=test&format=sid",
+                    "You should get back: {\"data\":{\"sid\":\"...\"},\"success\":true}",
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: "flex", gap: "10px", padding: "6px 0", borderBottom: i < 5 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                      <span style={{ color: "var(--color-accent, #3d6fff)", fontWeight: 600, flexShrink: 0, fontSize: "12px", marginTop: "1px" }}>{i + 1}</span>
+                      <span style={{ color: "var(--color-text-secondary)", fontFamily: i >= 4 ? "monospace" : "inherit", fontSize: i >= 4 ? "11px" : "13px" }}>{step}</span>
+                    </div>
+                  ))}
                 </div>
               </SectionCard>
             )}

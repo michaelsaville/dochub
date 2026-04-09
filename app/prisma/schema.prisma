@@ -216,6 +216,39 @@ model Asset {
   cameras          Camera[]         @relation("AssetCamera")
   wifiControllers  WifiController[] @relation("AssetWifiController")
   networkDevice    NetworkDevice?   // if migrated from NetworkDevice
+  synologyConfig   SynologyConfig?
+}
+
+model SynologyConfig {
+  id                String              @id @default(cuid())
+  assetId           String              @unique
+  port              Int                 @default(5001)
+  useHttps          Boolean             @default(true)
+  skipSslVerify     Boolean             @default(true)
+  username          String
+  encryptedPassword String
+  lastSyncedAt      DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  asset             Asset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  backupJobs        SynologyBackupJob[]
+}
+
+model SynologyBackupJob {
+  id          String         @id @default(cuid())
+  configId    String
+  taskId      String
+  name        String
+  type        String         // "hyper_backup" | "active_backup"
+  lastResult  String?        // "success" | "error" | "warning" | "running" | "unfinished" | "none"
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  destination String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  config      SynologyConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, taskId])
 }
 
 model ExitInterview {

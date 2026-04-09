@@ -1332,13 +1332,17 @@ export default function ClientDetailPage() {
           </button>
         </div>
 
-        <div className="pcc-tab-bar" style={{ marginBottom: "24px", borderBottom: "1px solid var(--border)" }}>
-          {tabs.map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
-              {tab}{tab === "Assets" && assets.length > 0 ? ` (${assets.length})` : ""}
-            </button>
-          ))}
+        <div className="pcc-tab-bar-wrap">
+          <button className="pcc-tab-scroll-btn" onClick={() => { const el = document.querySelector('.pcc-tab-bar') as HTMLElement; if (el) el.scrollLeft -= 160 }}>‹</button>
+          <div className="pcc-tab-bar">
+            {tabs.map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
+                {tab}{tab === "Assets" && assets.length > 0 ? ` (${assets.length})` : ""}
+              </button>
+            ))}
+          </div>
+          <button className="pcc-tab-scroll-btn" onClick={() => { const el = document.querySelector('.pcc-tab-bar') as HTMLElement; if (el) el.scrollLeft += 160 }}>›</button>
         </div>
 
         {activeTab === "Dashboard" && (

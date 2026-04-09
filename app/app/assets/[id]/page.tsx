@@ -162,6 +162,15 @@ export default function AssetDetailPage() {
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealingId, setRevealingId] = useState<string | null>(null)
 
+  // Synology
+  const [synologyConfig, setSynologyConfig] = useState<any>(null)
+  const [loadingSynology, setLoadingSynology] = useState(false)
+  const [synologyForm, setSynologyForm] = useState({ port: "5001", useHttps: true, skipSslVerify: true, username: "", password: "" })
+  const [savingSynology, setSavingSynology] = useState(false)
+  const [synologySyncing, setSynologySyncing] = useState(false)
+  const [synologySyncResult, setSynologySyncResult] = useState<any>(null)
+  const [showSynologyForm, setShowSynologyForm] = useState(false)
+
   const [driverLookup, setDriverLookup] = useState<{ url: string; source: "manufacturer" | "search" } | null>(null)
   const [driverLooking, setDriverLooking] = useState(false)
   const [driverSaving, setDriverSaving] = useState(false)
@@ -212,12 +221,51 @@ export default function AssetDetailPage() {
     if (id) {
       fetch("/api/assets/" + id)
         .then(r => r.ok ? r.json() : Promise.reject())
-        .then(setAsset)
+        .then(d => { setAsset(d); if (d.assetType?.name === "NAS") fetchSynology() })
         .catch(() => router.back())
         .finally(() => setLoading(false))
       fetchInterfaces()
     }
   }, [id])
+
+  async function fetchSynology() {
+    setLoadingSynology(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/synology`)
+      const data = await res.json()
+      setSynologyConfig(data)
+      if (data) setSynologyForm(f => ({ ...f, port: String(data.port), useHttps: data.useHttps, skipSslVerify: data.skipSslVerify, username: data.username }))
+    } finally { setLoadingSynology(false) }
+  }
+
+  async function saveSynology() {
+    setSavingSynology(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/synology`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...synologyForm, port: parseInt(synologyForm.port) }),
+      })
+      if (res.ok) { setSynologyConfig(await res.json()); setShowSynologyForm(false) }
+    } finally { setSavingSynology(false) }
+  }
+
+  async function syncSynology() {
+    setSynologySyncing(true)
+    setSynologySyncResult(null)
+    try {
+      const res = await fetch(`/api/assets/${id}/synology/sync`, { method: "POST" })
+      const data = await res.json()
+      setSynologySyncResult(data)
+      if (data.success) fetchSynology()
+    } finally { setSynologySyncing(false) }
+  }
+
+  async function deleteSynology() {
+    if (!confirm("Remove Synology config and all backup job data?")) return
+    await fetch(`/api/assets/${id}/synology`, { method: "DELETE" })
+    setSynologyConfig(null)
+    setSynologySyncResult(null)
+  }
 
   async function fetchInterfaces() {
     setLoadingIfaces(true)
@@ -694,6 +742,102 @@ export default function AssetDetailPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Synology Backups — NAS assets only */}
+            {asset.assetType?.name === "NAS" && (
+              <div style={card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <div style={cardTitle}>Synology Backups</div>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    {synologyConfig && (
+                      <button onClick={syncSynology} disabled={synologySyncing} style={{ fontSize: "12px", padding: "3px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                        {synologySyncing ? "Syncing…" : "Sync now"}
+                      </button>
+                    )}
+                    <button onClick={() => setShowSynologyForm(v => !v)} style={{ fontSize: "12px", padding: "3px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                      {showSynologyForm ? "Cancel" : synologyConfig ? "Edit" : "Configure"}
+                    </button>
+                    {synologyConfig && !showSynologyForm && (
+                      <button onClick={deleteSynology} style={{ fontSize: "12px", padding: "3px 10px", borderRadius: "6px", border: "none", background: "transparent", cursor: "pointer", color: "var(--color-text-danger)" }}>Remove</button>
+                    )}
+                  </div>
+                </div>
+
+                {showSynologyForm && (
+                  <div style={{ marginBottom: "14px", padding: "14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                      {[
+                        { label: "Port", key: "port", type: "number", placeholder: "5001" },
+                        { label: "Username", key: "username", type: "text", placeholder: "dochub" },
+                        { label: "Password", key: "password", type: "password", placeholder: synologyConfig ? "Leave blank to keep current" : "DSM password" },
+                      ].map(({ label, key, type, placeholder }) => (
+                        <div key={key}>
+                          <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
+                          <input type={type} placeholder={placeholder} value={(synologyForm as any)[key]} onChange={e => setSynologyForm(f => ({ ...f, [key]: e.target.value }))}
+                            style={{ width: "100%", padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
+                      {[
+                        { label: "Use HTTPS", key: "useHttps" },
+                        { label: "Skip SSL verification (self-signed cert)", key: "skipSslVerify" },
+                      ].map(({ label, key }) => (
+                        <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={(synologyForm as any)[key]} onChange={e => setSynologyForm(f => ({ ...f, [key]: e.target.checked }))} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <button onClick={saveSynology} disabled={savingSynology} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                      {savingSynology ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                )}
+
+                {loadingSynology ? (
+                  <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Loading…</div>
+                ) : !synologyConfig ? (
+                  <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>No Synology config. Hit Configure to add DSM credentials.</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: "11px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>
+                      {synologyConfig.lastSyncedAt ? `Last synced ${new Date(synologyConfig.lastSyncedAt).toLocaleString()}` : "Never synced — hit Sync now"}
+                    </div>
+                    {synologySyncResult && (
+                      <div style={{ fontSize: "12px", marginBottom: "10px", color: synologySyncResult.success ? "#22c55e" : "#ef4444" }}>
+                        {synologySyncResult.success ? `Synced — ${synologySyncResult.jobs} job(s) found` : `Error: ${synologySyncResult.error}`}
+                      </div>
+                    )}
+                    {synologyConfig.backupJobs?.length === 0 ? (
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>No backup jobs found. Try syncing.</div>
+                    ) : (
+                      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden" }}>
+                        {synologyConfig.backupJobs?.map((job: any, i: number) => {
+                          const resultColor: Record<string, string> = { success: "#22c55e", error: "#ef4444", warning: "#f59e0b", running: "#3d6fff", unfinished: "#94a3b8", none: "#94a3b8" }
+                          const color = resultColor[job.lastResult] ?? "#94a3b8"
+                          return (
+                            <div key={job.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", borderBottom: i < synologyConfig.backupJobs.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                              <div>
+                                <div style={{ fontSize: "13px", fontWeight: 500 }}>{job.name}</div>
+                                <div style={{ fontSize: "11px", color: "var(--color-text-secondary)" }}>{job.type === "hyper_backup" ? "Hyper Backup" : "Active Backup"}{job.destination ? ` → ${job.destination}` : ""}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" }}>
+                                  <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: color }} />
+                                  <span style={{ fontSize: "12px", fontWeight: 500, color }}>{job.lastResult ?? "unknown"}</span>
+                                </div>
+                                {job.lastRunAt && <div style={{ fontSize: "11px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{new Date(job.lastRunAt).toLocaleDateString()}</div>}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
