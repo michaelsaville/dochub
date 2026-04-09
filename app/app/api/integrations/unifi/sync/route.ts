@@ -18,6 +18,21 @@ const TYPE_MAP: Record<string, string> = {
   OTHER: "Other",
 }
 
+function isNvrDevice(d: any): boolean {
+  const model = (d.model || "").toLowerCase()
+  const shortname = (d.shortname || "").toLowerCase()
+  return (
+    model.includes("nvr") ||
+    shortname.startsWith("unvr") ||
+    shortname.startsWith("udnvr") ||
+    shortname.startsWith("udr")
+  )
+}
+
+function isViewportDevice(d: any): boolean {
+  return (d.model || "").toLowerCase().includes("viewport")
+}
+
 export async function POST() {
   const { error } = await requireAuth()
   if (error) return error
@@ -49,8 +64,10 @@ export async function POST() {
     const typeByName = Object.fromEntries(assetTypes.map(t => [t.name, t.id]))
 
     let totalDevices = 0
+    let totalCameras = 0
     const errors: string[] = []
 
+    // Returns the upserted asset's ID
     async function upsertDevice(clientId: string, locationId: string | null, mac: string | null, assetData: {
       name: string
       assetTypeId: string | null
@@ -61,19 +78,15 @@ export async function POST() {
       serial: string | null
       firmwareVersion: string | null
       managementUrl: string | null
-    }) {
-      // Find client's location IDs for scoped search
+    }): Promise<string> {
       const clientLocations = await prisma.location.findMany({
         where: { clientId },
         select: { id: true },
       })
       const locationIds = clientLocations.map(l => l.id)
-
-      // Resolve locationId — prefer provided, fall back to first client location
       const resolvedLocationId = locationId ?? clientLocations[0]?.id
       if (!resolvedLocationId) throw new Error("No location found for client")
 
-      // Try to find existing asset by MAC within this client's locations
       const existing = mac
         ? await prisma.asset.findFirst({
             where: { macAddress: mac, locationId: { in: locationIds } },
@@ -85,8 +98,9 @@ export async function POST() {
           where: { id: existing.id },
           data: { ...assetData, dataSource: "UNIFI" },
         })
+        return existing.id
       } else {
-        await prisma.asset.create({
+        const created = await prisma.asset.create({
           data: {
             locationId: resolvedLocationId,
             ...assetData,
@@ -94,6 +108,106 @@ export async function POST() {
             status: "ACTIVE",
           },
         })
+        return created.id
+      }
+    }
+
+    async function syncProtectDevices(
+      clientId: string,
+      locationId: string | null,
+      hostId: string,
+      clientName: string,
+      devices: any[]
+    ) {
+      const protectDevices = devices.filter(d => d.productLine === "protect")
+      if (protectDevices.length === 0) return
+
+      // Find or create CameraSystem for this host (tagged in notes)
+      const hostMarker = `unifi_host:${hostId}`
+      let system = await prisma.cameraSystem.findFirst({
+        where: { clientId, notes: { contains: hostMarker } },
+      })
+
+      // Upsert NVR as Asset and link it
+      const nvrDevice = protectDevices.find(isNvrDevice)
+      let nvrAssetId: string | null = null
+      if (nvrDevice) {
+        try {
+          const mac = nvrDevice.mac?.toLowerCase() || null
+          nvrAssetId = await upsertDevice(clientId, locationId, mac, {
+            name: nvrDevice.name || nvrDevice.model || "UniFi NVR",
+            assetTypeId: typeByName["NVR / DVR"] ?? null,
+            make: "Ubiquiti",
+            model: nvrDevice.model || null,
+            ipAddress: nvrDevice.ip || null,
+            macAddress: mac,
+            serial: null,
+            firmwareVersion: nvrDevice.version || null,
+            managementUrl: nvrDevice.ip ? `https://${nvrDevice.ip}` : null,
+          })
+          totalDevices++
+        } catch (e: any) {
+          errors.push(`NVR ${nvrDevice.mac}: ${e.message}`)
+        }
+      }
+
+      if (!system) {
+        system = await prisma.cameraSystem.create({
+          data: {
+            clientId,
+            name: `UniFi Protect — ${clientName}`,
+            type: "UNIFI_NVR",
+            assetId: nvrAssetId,
+            notes: hostMarker,
+          },
+        })
+      } else if (nvrAssetId && !system.assetId) {
+        await prisma.cameraSystem.update({
+          where: { id: system.id },
+          data: { assetId: nvrAssetId },
+        })
+      }
+
+      // Upsert cameras (skip NVR and Viewport)
+      const cameraDevices = protectDevices.filter(d => !isNvrDevice(d) && !isViewportDevice(d))
+      for (const d of cameraDevices) {
+        try {
+          const mac = d.mac?.toLowerCase() || null
+          const existing = mac
+            ? await prisma.camera.findFirst({
+                where: { macAddress: mac, system: { clientId } },
+              })
+            : null
+
+          if (existing) {
+            await prisma.camera.update({
+              where: { id: existing.id },
+              data: {
+                name: d.name || existing.name,
+                model: d.model || null,
+                ipAddress: d.ip || null,
+                macAddress: mac,
+                isActive: d.status === "online",
+              },
+            })
+          } else {
+            await prisma.camera.create({
+              data: {
+                systemId: system.id,
+                name: d.name || d.model || "Unknown Camera",
+                type: "IP_POE",
+                make: "Ubiquiti",
+                model: d.model || null,
+                ipAddress: d.ip || null,
+                macAddress: mac,
+                isActive: d.status === "online",
+              },
+            })
+          }
+          totalCameras++
+        } catch (e: any) {
+          errors.push(`Camera ${d.mac}: ${e.message}`)
+        }
       }
     }
 
@@ -111,8 +225,9 @@ export async function POST() {
           if (!client) { errors.push(`Client ${clientId} not found`); continue }
 
           const devices = await uiCloudGetDevices(apiKey, hostId)
+          const networkDevices = devices.filter((d: any) => d.productLine !== "protect")
 
-          for (const d of devices) {
+          for (const d of networkDevices) {
             try {
               const mac = d.mac?.toLowerCase() || null
               const type = uiCloudDeviceType(d)
@@ -134,6 +249,8 @@ export async function POST() {
               errors.push(`Device ${d.id}: ${devErr.message}`)
             }
           }
+
+          await syncProtectDevices(clientId, client.locations[0]?.id || null, hostId, client.name, devices)
         } catch (hostErr: any) {
           errors.push(`Host ${hostId}: ${hostErr.message}`)
         }
@@ -194,6 +311,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       devices: totalDevices,
+      cameras: totalCameras,
       sites: mappedSiteIds.length,
       errors: errors.slice(0, 20),
     })

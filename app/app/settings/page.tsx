@@ -114,6 +114,7 @@ function SyncResult({ result }: { result: any }) {
           {!allFailed && (
             <div style={{ color: "var(--color-text-secondary)", marginBottom: hasErrors ? "8px" : 0 }}>
               {result.devices != null && `${result.devices} devices`}
+              {result.cameras != null && ` · ${result.cameras} cameras`}
               {result.licenses != null && `${result.licenses} subscriptions`}
               {result.clients != null && ` · ${result.clients} clients`}
               {result.assets != null && ` · ${result.assets} assets`}
