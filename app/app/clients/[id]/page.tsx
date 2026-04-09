@@ -271,6 +271,7 @@ export default function ClientDetailPage() {
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealedTotps, setRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
+  const [copiedCreds, setCopiedCreds] = useState<Record<string, string>>({})
   const [editingClient, setEditingClient] = useState(false)
   const [clientForm, setClientForm] = useState({ name: "", type: "BUSINESS", notes: "" })
   const [savingClient, setSavingClient] = useState(false)
@@ -553,6 +554,39 @@ export default function ClientDetailPage() {
       setCredentials(await res.json())
     } catch {}
     finally { setLoadingCreds(false) }
+  }
+
+  function flashCopied(credId: string, field: string) {
+    setCopiedCreds(p => ({ ...p, [credId]: field }))
+    setTimeout(() => setCopiedCreds(p => { const n = { ...p }; delete n[credId]; return n }), 1500)
+  }
+
+  async function copyPassword(credId: string) {
+    try {
+      if (revealedPasswords[credId]) {
+        await navigator.clipboard.writeText(revealedPasswords[credId])
+      } else {
+        const res = await fetch(`/api/credentials/${credId}/reveal`)
+        const data = await res.json()
+        await navigator.clipboard.writeText(data.password)
+      }
+      flashCopied(credId, "password")
+    } catch {}
+  }
+
+  async function copyTotpCode(credId: string) {
+    try {
+      let code: string
+      if (revealedTotps[credId]) {
+        code = revealedTotps[credId].code
+      } else {
+        const res = await fetch(`/api/credentials/${credId}/reveal`)
+        const data = await res.json()
+        code = data.totpCode ?? ""
+      }
+      if (code) await navigator.clipboard.writeText(code)
+      flashCopied(credId, "totp")
+    } catch {}
   }
 
   async function revealPassword(credId: string) {
@@ -2316,12 +2350,20 @@ export default function ClientDetailPage() {
                         <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Username</span>
                           <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{cred.username}</span>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(cred.username); flashCopied(cred.id, "username") }}
+                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "username" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                          >{copiedCreds[cred.id] === "username" ? "Copied!" : "Copy"}</button>
                         </div>
                       )}
                       {cred.hasPassword && (
                         <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Password</span>
                           <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{revealedPasswords[cred.id] ?? "••••••••••••"}</span>
+                          <button
+                            onClick={() => copyPassword(cred.id)}
+                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "password" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                          >{copiedCreds[cred.id] === "password" ? "Copied!" : "Copy"}</button>
                           <button onClick={() => revealPassword(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
                         </div>
                       )}
@@ -2332,12 +2374,19 @@ export default function ClientDetailPage() {
                             <>
                               <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: "#10b981" }}>{revealedTotps[cred.id].code}</span>
                               <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>· {revealedTotps[cred.id].seed}</span>
-                              <button onClick={() => navigator.clipboard.writeText(revealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
+                              <button
+                                onClick={() => copyTotpCode(cred.id)}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              >{copiedCreds[cred.id] === "totp" ? "Copied!" : "Copy"}</button>
                               <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
                             </>
                           ) : (
                             <>
                               <span style={{ fontSize: "13px", fontFamily: "monospace", letterSpacing: "3px" }}>••••••</span>
+                              <button
+                                onClick={() => copyTotpCode(cred.id)}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              >{copiedCreds[cred.id] === "totp" ? "Copied!" : "Copy code"}</button>
                               <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
                             </>
                           )}
