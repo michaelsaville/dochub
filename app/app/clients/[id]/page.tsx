@@ -306,6 +306,9 @@ export default function ClientDetailPage() {
   const [userSummary, setUserSummary] = useState<UserSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
+  const [assetSearch, setAssetSearch] = useState("")
+  const [assetStatusFilter, setAssetStatusFilter] = useState("ALL")
+  const [assetTypeFilter, setAssetTypeFilter] = useState("ALL")
   const [showAddAsset, setShowAddAsset] = useState(false)
   const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", primaryUserId: "", contactId: "", notes: "", customFields: {} })
   const [savingAsset, setSavingAsset] = useState(false)
@@ -1194,7 +1197,15 @@ export default function ClientDetailPage() {
   const getTypeLabel = (asset: Asset) => asset.assetType?.name ?? categoryLabel[asset.category] ?? asset.category
   const getTypeKey = (asset: Asset) => asset.assetTypeId ?? asset.category
 
-  const assetsByType = assets.reduce((acc, asset) => {
+  const filteredAssets = assets.filter(asset => {
+    const q = assetSearch.toLowerCase()
+    if (q && !`${asset.name} ${asset.friendlyName ?? ""} ${asset.serial ?? ""}`.toLowerCase().includes(q)) return false
+    if (assetStatusFilter !== "ALL" && asset.status !== assetStatusFilter) return false
+    if (assetTypeFilter !== "ALL" && getTypeKey(asset) !== assetTypeFilter) return false
+    return true
+  })
+
+  const assetsByType = filteredAssets.reduce((acc, asset) => {
     const key = getTypeKey(asset)
     if (!acc[key]) acc[key] = []
     acc[key].push(asset)
@@ -1769,10 +1780,56 @@ export default function ClientDetailPage() {
               </div>
             )}
 
+            {assets.length > 0 && (
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "16px", flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  placeholder="Search name, serial..."
+                  value={assetSearch}
+                  onChange={e => setAssetSearch(e.target.value)}
+                  style={{ padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", width: "200px" }}
+                />
+                <select
+                  value={assetStatusFilter}
+                  onChange={e => setAssetStatusFilter(e.target.value)}
+                  style={{ padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+                >
+                  <option value="ALL">All statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="SPARE">Spare</option>
+                  <option value="RETIRED">Retired</option>
+                  <option value="DISPOSED">Disposed</option>
+                </select>
+                <select
+                  value={assetTypeFilter}
+                  onChange={e => setAssetTypeFilter(e.target.value)}
+                  style={{ padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+                >
+                  <option value="ALL">All types</option>
+                  {Object.keys(assets.reduce((acc, a) => { acc[getTypeKey(a)] = getTypeLabel(a); return acc }, {} as Record<string,string>)).sort((a, b) => (assets.find(x => getTypeKey(x) === a)?.assetType?.name ?? a).localeCompare(assets.find(x => getTypeKey(x) === b)?.assetType?.name ?? b)).map(key => (
+                    <option key={key} value={key}>{assets.find(a => getTypeKey(a) === key)?.assetType?.name ?? key}</option>
+                  ))}
+                </select>
+                {(assetSearch || assetStatusFilter !== "ALL" || assetTypeFilter !== "ALL") && (
+                  <button
+                    onClick={() => { setAssetSearch(""); setAssetStatusFilter("ALL"); setAssetTypeFilter("ALL") }}
+                    style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >Clear</button>
+                )}
+                {(assetSearch || assetStatusFilter !== "ALL" || assetTypeFilter !== "ALL") && (
+                  <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                    {filteredAssets.length} of {assets.length}
+                  </span>
+                )}
+              </div>
+            )}
+
             {loadingAssets ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading assets...</div>
             ) : assets.length === 0 && !showAddAsset ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No assets found.</div>
+            ) : filteredAssets.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No assets match your filters.</div>
             ) : (
               typeKeys.map(key => (
                 <div key={key} style={{ marginBottom: "24px" }}>
