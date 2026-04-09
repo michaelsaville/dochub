@@ -9,7 +9,8 @@ type Client = {
   name: string
   type: "BUSINESS" | "RESIDENTIAL"
   isActive: boolean
-  _count: { locations: number; users: number }
+  assetCount: number
+  _count: { locations: number; users: number; alarms: number }
 }
 
 export default function ClientsPage() {
@@ -176,11 +177,11 @@ export default function ClientsPage() {
 
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 120px 80px 80px",
+            display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px",
             padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Client name", "Type", "Sites", "Users"].map((h) => (
+            {["Client name", "Type", "Sites", "Users", "Assets", "Alarms"].map((h) => (
               <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
             ))}
           </div>
@@ -199,7 +200,7 @@ export default function ClientsPage() {
                 key={client.id}
                 onClick={() => router.push("/clients/" + client.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 120px 80px 80px",
+                  display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px",
                   padding: "12px 16px", cursor: "pointer",
                   borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                   background: "var(--color-background-primary)",
@@ -218,6 +219,22 @@ export default function ClientsPage() {
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   {client._count.users}
+                </div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  {client.assetCount}
+                </div>
+                <div>
+                  {client._count.alarms > 0 ? (
+                    <span style={{
+                      display: "inline-block", fontSize: "11px", fontWeight: 600,
+                      padding: "2px 7px", borderRadius: "10px",
+                      background: "rgba(239,68,68,0.12)", color: "#ef4444",
+                    }}>
+                      {client._count.alarms}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>
+                  )}
                 </div>
               </div>
             ))
