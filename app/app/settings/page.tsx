@@ -143,7 +143,12 @@ function SyncResult({ result }: { result: any }) {
 }
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<Section>("platform")
+  const [activeSection, setActiveSection] = useState<Section>(() => {
+    if (typeof window === "undefined") return "platform"
+    const q = new URLSearchParams(window.location.search).get("section")
+    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","syncro","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
+    return (q && valid.includes(q as Section)) ? (q as Section) : "platform"
+  })
   const { themeId, setThemeId } = useTheme()
 
   // --- API Keys ---
