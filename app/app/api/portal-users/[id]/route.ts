@@ -7,7 +7,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (error) return error
   try {
     const { id } = await params
-    const { name, email, isActive, permissions } = await req.json()
+    const { name, email, isActive, permissions, isPortalOwner } = await req.json()
     const user = await prisma.portalUser.update({
       where: { id },
       data: {
@@ -15,10 +15,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         ...(email?.trim() ? { email: email.toLowerCase().trim() } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
         ...(permissions !== undefined ? { permissions } : {}),
+        ...(isPortalOwner !== undefined ? { isPortalOwner: !!isPortalOwner } : {}),
       },
       select: {
         id: true, name: true, email: true, isActive: true,
         permissions: true, lastLoginAt: true, createdAt: true,
+        isPortalOwner: true,
       },
     })
     // If deactivating, kill all sessions

@@ -8,6 +8,7 @@ type PortalUser = {
   name: string
   email: string
   isActive: boolean
+  isPortalOwner?: boolean
   permissions: PortalPermissions
   lastLoginAt: string | null
   createdAt: string
@@ -66,6 +67,18 @@ export default function PortalUsersPanel({ clientId }: { clientId: string }) {
         alert(e.error || "Failed to create user")
       }
     } finally { setSaving(false) }
+  }
+
+  async function toggleOwner(user: PortalUser) {
+    const res = await fetch(`/api/portal-users/${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPortalOwner: !user.isPortalOwner }),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setUsers(u => u.map(x => x.id === user.id ? { ...x, ...updated } : x))
+    }
   }
 
   async function toggleActive(user: PortalUser) {
@@ -196,7 +209,12 @@ export default function PortalUsersPanel({ clientId }: { clientId: string }) {
                 {/* Active indicator */}
                 <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: user.isActive ? "#22c55e" : "#4a5568", flexShrink: 0 }} title={user.isActive ? "Active" : "Disabled"} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{user.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{user.name}</div>
+                    {user.isPortalOwner && (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: "rgba(168,85,247,0.16)", color: "#a855f7", textTransform: "uppercase", letterSpacing: "0.04em" }}>Owner</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "1px" }}>
                     {user.email}
                     {user.lastLoginAt && <span> · Last login {new Date(user.lastLoginAt).toLocaleDateString()}</span>}
@@ -230,6 +248,29 @@ export default function PortalUsersPanel({ clientId }: { clientId: string }) {
                       }}
                     >
                       {user.isActive ? "Disable access" : "Enable access"}
+                    </button>
+                  </div>
+
+                  {/* Owner toggle */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", paddingBottom: "16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>Vault owner</div>
+                      <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                        {user.isPortalOwner
+                          ? "Sees every credential in this client's portal vault, including private items from other employees. Used for recovery."
+                          : "Standard portal user — sees only their own private items plus team and MSP-shared credentials."}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleOwner(user)}
+                      style={{
+                        fontSize: "13px", padding: "6px 14px", borderRadius: "8px", cursor: "pointer",
+                        border: "none", fontWeight: 500,
+                        background: user.isPortalOwner ? "rgba(168,85,247,0.16)" : "rgba(148,163,184,0.16)",
+                        color: user.isPortalOwner ? "#a855f7" : "var(--color-text-secondary)",
+                      }}
+                    >
+                      {user.isPortalOwner ? "Owner — click to revoke" : "Make vault owner"}
                     </button>
                   </div>
 

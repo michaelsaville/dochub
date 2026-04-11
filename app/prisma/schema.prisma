@@ -104,6 +104,7 @@ model Client {
   wifiControllers WifiController[]
   ptpLinks        PtpLink[]
   portalUsers     PortalUser[]
+  portalCredentials PortalCredential[]
   networkDiagram  NetworkDiagram?
 }
 
@@ -1426,18 +1427,21 @@ model FieldHistory {
 }
 
 model PortalUser {
-  id           String          @id @default(cuid())
-  clientId     String
-  name         String
-  email        String          @unique
-  passwordHash String?
-  isActive     Boolean         @default(true)
-  permissions  Json            @default("{}")
-  lastLoginAt  DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sessions     PortalSession[]
+  id             String              @id @default(cuid())
+  clientId       String
+  name           String
+  email          String              @unique
+  passwordHash   String?
+  isActive       Boolean             @default(true)
+  isPortalOwner  Boolean             @default(false)
+  permissions    Json                @default("{}")
+  lastLoginAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  client         Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessions       PortalSession[]
+  credentials    PortalCredential[]
+  vaultSession   PortalVaultSession?
 }
 
 model PortalSession {
@@ -1446,6 +1450,40 @@ model PortalSession {
   portalUserId String
   expiresAt    DateTime
   createdAt    DateTime   @default(now())
+  portalUser   PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+}
+
+enum PortalCredentialVisibility {
+  PRIVATE
+  TEAM
+  MSP_SHARED
+}
+
+model PortalCredential {
+  id                String                     @id @default(cuid())
+  clientId          String
+  ownedByUserId     String?
+  createdByStaffId  String?
+  label             String
+  username          String?
+  encryptedPassword String
+  encryptedTotp     String?
+  url               String?
+  notes             String?
+  visibility        PortalCredentialVisibility @default(PRIVATE)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  ownedByUser       PortalUser?                @relation(fields: [ownedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([ownedByUserId])
+}
+
+model PortalVaultSession {
+  id           String     @id @default(cuid())
+  portalUserId String     @unique
+  expiresAt    DateTime
   portalUser   PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
 }
 

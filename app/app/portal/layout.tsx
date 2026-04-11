@@ -8,6 +8,7 @@ type PortalUser = {
   name: string
   email: string
   client: { id: string; name: string }
+  isPortalOwner?: boolean
   permissions: Record<string, boolean>
 }
 
@@ -22,6 +23,7 @@ const NAV_SECTIONS = [
   { key: "locations", label: "Locations", href: "/portal/locations" },
   { key: "licenses",  label: "Licenses",  href: "/portal/licenses" },
   { key: "domains",   label: "Domains",   href: "/portal/domains" },
+  { key: "vault",     label: "Vault",     href: "/portal/vault" },
 ]
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -58,7 +60,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   const visibleNav = NAV_SECTIONS.filter(s =>
-    s.key === "dashboard" || (user?.permissions[s.key])
+    s.key === "dashboard" || s.key === "vault" || (user?.permissions[s.key])
   )
 
   return (

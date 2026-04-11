@@ -13,6 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       select: {
         id: true, name: true, email: true, isActive: true,
         permissions: true, lastLoginAt: true, createdAt: true,
+        isPortalOwner: true,
         passwordHash: false,
       },
       orderBy: { name: "asc" },
@@ -28,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (error) return error
   try {
     const { id } = await params
-    const { name, email, password, permissions } = await req.json()
+    const { name, email, password, permissions, isPortalOwner } = await req.json()
     if (!name?.trim() || !email?.trim()) {
       return NextResponse.json({ error: "Name and email required" }, { status: 400 })
     }
@@ -40,10 +41,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         email: email.toLowerCase().trim(),
         passwordHash,
         permissions: permissions ?? DEFAULT_PERMISSIONS,
+        isPortalOwner: !!isPortalOwner,
       },
       select: {
         id: true, name: true, email: true, isActive: true,
         permissions: true, lastLoginAt: true, createdAt: true,
+        isPortalOwner: true,
       },
     })
     return NextResponse.json(user, { status: 201 })

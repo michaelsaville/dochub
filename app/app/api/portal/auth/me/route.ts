@@ -10,6 +10,7 @@ export async function GET() {
       name: user.name,
       email: user.email,
       client: user.client,
+      isPortalOwner: (user as any).isPortalOwner ?? false,
       permissions: getPermissions(user),
     })
   } catch {
