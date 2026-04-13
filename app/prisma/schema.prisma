@@ -524,6 +524,14 @@ model Website {
   registrarUrl  String?
   sslExpiresAt  DateTime?
   sslIssuer     String?
+  // Uptime monitoring
+  uptimeEnabled   Boolean   @default(false)
+  httpStatus      Int?      // last HTTP status code
+  responseTimeMs  Int?      // last response time in ms
+  isUp            Boolean   @default(true)
+  lastUpAt        DateTime?
+  lastDownAt      DateTime?
+  uptimeCheckedAt DateTime?
   client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
@@ -554,13 +562,18 @@ model ClientDocument {
   title       String
   content     String?
   category    String?
-  isPinned    Boolean             @default(false)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  attachments ClientAttachment[]
-  versions    DocumentVersion[]
-  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  folder      DocumentFolder?     @relation(fields: [folderId], references: [id])
+  isPinned      Boolean             @default(false)
+  needsReview   Boolean             @default(false)
+  reviewNote    String?             // reason it was flagged
+  flaggedAt     DateTime?
+  flaggedBy     String?             // staff user name who flagged
+  reviewedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  attachments   ClientAttachment[]
+  versions      DocumentVersion[]
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folder        DocumentFolder?     @relation(fields: [folderId], references: [id])
 }
 
 model DocumentVersion {
@@ -1507,4 +1520,30 @@ model NetworkDiagram {
   updatedAt  DateTime @updatedAt
   updatedBy  String?
   client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+// ─── Ephemeral One-Time Notes ─────────────────────────────────────────────────
+
+model EphemeralNote {
+  id               String    @id @default(cuid())
+  encryptedContent String    @db.Text
+  passphrase       String?   // optional bcrypt hash of passphrase
+  expiresAt        DateTime
+  burnedAt         DateTime? // set on first read — note is then deleted async
+  createdBy        String?   // staff user name
+  createdAt        DateTime  @default(now())
+}
+
+// ─── Secure Share Links ───────────────────────────────────────────────────────
+
+model SecureShareLink {
+  id               String    @id @default(cuid())
+  resourceType     String    // "credential" | "document"
+  resourceId       String
+  passphrase       String?   // optional bcrypt hash
+  expiresAt        DateTime
+  maxViews         Int       @default(1)
+  viewCount        Int       @default(0)
+  createdBy        String?
+  createdAt        DateTime  @default(now())
 }

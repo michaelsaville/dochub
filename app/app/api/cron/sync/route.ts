@@ -49,6 +49,15 @@ export async function GET(req: Request) {
     results.unifiLocal = { success: false, error: e.message }
   }
 
+  try {
+    const res = await fetch("http://localhost:3000/api/cron/uptime", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.uptime = await res.json()
+  } catch (e: any) {
+    results.uptime = { success: false, error: e.message }
+  }
+
   const success = results.syncro?.success !== false
   return NextResponse.json({ success, ...results })
 }

@@ -274,6 +274,7 @@ export default function ClientDetailPage() {
   const [revealedTotps, setRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
   const [totpSecondsLeft, setTotpSecondsLeft] = useState<number>(30 - (Math.floor(Date.now() / 1000) % 30))
   const [copiedCreds, setCopiedCreds] = useState<Record<string, string>>({})
+  const [breachStatus, setBreachStatus] = useState<Record<string, { count: number; checking: boolean }>>({})
   const [editingClient, setEditingClient] = useState(false)
   const [clientForm, setClientForm] = useState({ name: "", type: "BUSINESS", notes: "" })
   const [savingClient, setSavingClient] = useState(false)
@@ -699,6 +700,17 @@ export default function ClientDetailPage() {
       }
     } catch {}
     finally { setSavingCredEdit(false) }
+  }
+
+  async function checkBreach(credId: string) {
+    setBreachStatus(s => ({ ...s, [credId]: { count: -1, checking: true } }))
+    try {
+      const res = await fetch(`/api/credentials/${credId}/check-breach`)
+      const data = await res.json()
+      setBreachStatus(s => ({ ...s, [credId]: { count: data.count ?? -1, checking: false } }))
+    } catch {
+      setBreachStatus(s => ({ ...s, [credId]: { count: -1, checking: false } }))
+    }
   }
 
   async function toggleCredHistory(credId: string) {
@@ -2466,6 +2478,9 @@ export default function ClientDetailPage() {
                             style={{ fontSize: "11px", color: copiedCreds[cred.id] === "password" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                           >{copiedCreds[cred.id] === "password" ? "Copied!" : "Copy"}</button>
                           <button onClick={() => revealPassword(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
+                          <button onClick={() => checkBreach(cred.id)} disabled={breachStatus[cred.id]?.checking} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", padding: 0, color: breachStatus[cred.id]?.count === 0 ? "#22c55e" : breachStatus[cred.id]?.count > 0 ? "#ef4444" : "var(--color-text-muted)" }}>
+                            {breachStatus[cred.id]?.checking ? "Checking..." : breachStatus[cred.id]?.count === 0 ? "Safe" : breachStatus[cred.id]?.count > 0 ? `Breached (${breachStatus[cred.id].count.toLocaleString()}x)` : "Breach check"}
+                          </button>
                         </div>
                       )}
                       {cred.hasTotp && (

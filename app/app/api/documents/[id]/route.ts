@@ -66,6 +66,35 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { session, error } = await requireAuth()
+  if (error) return error
+  try {
+    const { id } = await params
+    const body = await req.json()
+
+    const data: any = {}
+    if (body.needsReview === true) {
+      data.needsReview = true
+      data.reviewNote = body.reviewNote || null
+      data.flaggedAt = new Date()
+      data.flaggedBy = session?.user?.name ?? "unknown"
+      data.reviewedAt = null
+    } else if (body.needsReview === false) {
+      data.needsReview = false
+      data.reviewedAt = new Date()
+    }
+
+    const doc = await prisma.clientDocument.update({ where: { id }, data, include })
+    return NextResponse.json(doc)
+  } catch (e) {
+    return NextResponse.json({ error: "Failed" }, { status: 500 })
+  }
+}
+
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
