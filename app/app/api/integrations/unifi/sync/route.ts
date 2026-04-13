@@ -54,6 +54,19 @@ function inferPortCount(model: string, shortname: string): number | null {
   return nums[0] ?? null
 }
 
+/** Create SwitchPort rows for a switch asset if none exist yet. */
+async function scaffoldSwitchPorts(assetId: string, portCount: number | null) {
+  if (!portCount || portCount < 1) return
+  const existing = await prisma.switchPort.count({ where: { assetId } })
+  if (existing > 0) return
+  await prisma.switchPort.createMany({
+    data: Array.from({ length: portCount }, (_, i) => ({
+      assetId,
+      portNumber: i + 1,
+    })),
+  })
+}
+
 function isNvrDevice(d: any): boolean {
   const model = (d.model || "").toLowerCase()
   const shortname = (d.shortname || "").toLowerCase()
@@ -291,6 +304,8 @@ export async function POST() {
                     data: { portCount: pc },
                   })
                 }
+                const asset = await prisma.asset.findUnique({ where: { id: assetId }, select: { portCount: true } })
+                await scaffoldSwitchPorts(assetId, asset?.portCount ?? pc ?? null)
               }
             } catch (devErr: any) {
               errors.push(`Device ${d.id}: ${devErr.message}`)
@@ -353,6 +368,8 @@ export async function POST() {
                     data: { portCount: pc },
                   })
                 }
+                const asset = await prisma.asset.findUnique({ where: { id: assetId }, select: { portCount: true } })
+                await scaffoldSwitchPorts(assetId, asset?.portCount ?? pc ?? null)
               }
             } catch (devErr: any) {
               errors.push(`Device ${d._id}: ${devErr.message}`)

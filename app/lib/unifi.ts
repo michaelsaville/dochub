@@ -181,7 +181,7 @@ export function uiCloudDeviceType(device: any): string {
   if (line === "protect") return "OTHER"
   if (model.startsWith("uap") || model.startsWith("u6") || model.startsWith("bea") || line === "wifi") return "ACCESS_POINT"
   if (model.startsWith("usw") || model.startsWith("us-") || line === "switching") return "SWITCH"
-  if (model.startsWith("udm") || model.startsWith("uxg") || model.startsWith("usg") || line === "routing") return "ROUTER"
+  if (model.startsWith("udm") || model.startsWith("uxg") || model.startsWith("usg") || model.startsWith("ucg") || line === "routing") return "ROUTER"
   return "OTHER"
 }
 
