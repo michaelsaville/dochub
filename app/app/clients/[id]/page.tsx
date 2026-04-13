@@ -3211,7 +3211,7 @@ export default function ClientDetailPage() {
             deviceName={switchPanelAsset.name}
             vlans={vlans}
             onVlansChange={setVlans}
-            assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName, category: a.category, interfaces: [] }))}
+            assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName, category: a.category, macAddress: a.macAddress ?? null, interfaces: a.interfaces ?? [] }))}
             onClose={() => setSwitchPanelAsset(null)}
           />
         )}
@@ -3224,7 +3224,7 @@ export default function ClientDetailPage() {
             deviceName={switchPanelDevice.name}
             vlans={vlans}
             onVlansChange={setVlans}
-            assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName, category: a.category, interfaces: [] }))}
+            assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName, category: a.category, macAddress: a.macAddress ?? null, interfaces: a.interfaces ?? [] }))}
             onClose={() => setSwitchPanelDevice(null)}
           />
         )}

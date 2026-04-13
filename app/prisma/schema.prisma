@@ -118,6 +118,7 @@ model Location {
   zip            String?
   ispName        String?
   wanIp          String?
+  tailscaleIp    String?         // Tailscale IP for on-site UCG/controller — enables live port, DHCP, VLAN, WiFi sync
   notes          String?
   isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())

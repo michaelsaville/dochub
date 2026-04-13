@@ -157,6 +157,125 @@ export async function uiCloudGetDevices(apiKey: string, hostId: string): Promise
   return hostEntry?.devices ?? []
 }
 
+// ── Local controller data endpoints (via Tailscale IP) ──────────────────────
+
+export type LocalControllerAuth = {
+  url: string          // https://<tailscaleIp>
+  cookies: string
+  csrfToken: string
+  controllerType: "network_application" | "unifi_os"
+}
+
+export async function localLogin(tailscaleIp: string, username: string, password: string, controllerType: "network_application" | "unifi_os" = "unifi_os"): Promise<LocalControllerAuth> {
+  const url = `https://${tailscaleIp}`
+  const loginPath = controllerType === "unifi_os" ? "/api/auth/login" : "/api/login"
+  const { rawHeaders } = await httpsRequest(`${url}${loginPath}`, "POST", { username, password, remember: false })
+  return {
+    url,
+    cookies: extractCookies(rawHeaders),
+    csrfToken: extractCsrfToken(rawHeaders),
+    controllerType,
+  }
+}
+
+export async function localLogout(auth: LocalControllerAuth) {
+  const logoutPath = auth.controllerType === "unifi_os" ? "/api/auth/logout" : "/api/logout"
+  await httpsRequest(`${auth.url}${logoutPath}`, "POST", {}, {
+    Cookie: auth.cookies,
+    ...(auth.csrfToken ? { "X-CSRF-Token": auth.csrfToken } : {}),
+  })
+}
+
+function localApiBase(auth: LocalControllerAuth): string {
+  return auth.controllerType === "unifi_os" ? `${auth.url}/proxy/network` : auth.url
+}
+
+function localHeaders(auth: LocalControllerAuth): Record<string, string> {
+  return {
+    Cookie: auth.cookies,
+    ...(auth.csrfToken ? { "X-CSRF-Token": auth.csrfToken } : {}),
+  }
+}
+
+/** Fetch per-device port_table for all switches at a site. Returns { mac, portTable[] } per device. */
+export async function localGetPortTables(auth: LocalControllerAuth, siteId: string = "default"): Promise<{ mac: string; name: string; portTable: any[] }[]> {
+  const base = localApiBase(auth)
+  const { data } = await httpsRequest(`${base}/api/s/${siteId}/stat/device`, "GET", undefined, localHeaders(auth))
+  const devices: any[] = data?.data ?? []
+  return devices
+    .filter((d: any) => d.type === "usw" && d.port_table)
+    .map((d: any) => ({
+      mac: (d.mac || "").toLowerCase(),
+      name: d.name || d.model || d.mac,
+      portTable: d.port_table.map((p: any) => ({
+        portIdx: p.port_idx,
+        name: p.name,
+        enable: p.enable,
+        up: p.up,
+        speed: p.speed,
+        isUplink: p.is_uplink ?? false,
+        poeEnable: p.poe_enable ?? false,
+        poePower: p.poe_power ? parseFloat(p.poe_power) : 0,
+        rxBytes: p.rx_bytes ?? 0,
+        txBytes: p.tx_bytes ?? 0,
+        mac: (p.mac || "").toLowerCase(),
+        lldpTable: p.lldp_table ?? [],
+        macTable: (p.mac_table ?? []).map((m: any) => (m.mac || "").toLowerCase()),
+      })),
+    }))
+}
+
+/** Fetch active DHCP leases from a local controller. */
+export async function localGetDhcpLeases(auth: LocalControllerAuth, siteId: string = "default"): Promise<{ mac: string; ip: string; hostname: string; networkId: string; expiresAt: number }[]> {
+  const base = localApiBase(auth)
+  // UniFi stores DHCP leases under stat/sta (active clients)
+  const { data } = await httpsRequest(`${base}/api/s/${siteId}/stat/sta`, "GET", undefined, localHeaders(auth))
+  const clients: any[] = data?.data ?? []
+  return clients
+    .filter((c: any) => c.ip && c.mac)
+    .map((c: any) => ({
+      mac: (c.mac || "").toLowerCase(),
+      ip: c.ip,
+      hostname: c.hostname || c.name || "",
+      networkId: c.network_id || c.network || "",
+      expiresAt: c.last_seen ? (c.last_seen * 1000) + 86400000 : 0, // approximate: last_seen + 24h
+    }))
+}
+
+/** Fetch VLAN / network configurations from a local controller. */
+export async function localGetNetworks(auth: LocalControllerAuth, siteId: string = "default"): Promise<{ id: string; name: string; vlanId: number | null; subnet: string | null; gateway: string | null; dhcpEnabled: boolean; purpose: string }[]> {
+  const base = localApiBase(auth)
+  const { data } = await httpsRequest(`${base}/api/s/${siteId}/rest/networkconf`, "GET", undefined, localHeaders(auth))
+  const networks: any[] = data?.data ?? []
+  return networks.map((n: any) => ({
+    id: n._id,
+    name: n.name || "Unnamed",
+    vlanId: n.vlan_enabled ? (n.vlan ?? null) : null,
+    subnet: n.ip_subnet || null,
+    gateway: n.gateway || null,
+    dhcpEnabled: n.dhcpd_enabled ?? false,
+    purpose: n.purpose || "corporate",
+  }))
+}
+
+/** Fetch WiFi SSID configurations from a local controller. */
+export async function localGetWifiNetworks(auth: LocalControllerAuth, siteId: string = "default"): Promise<{ id: string; name: string; ssid: string; security: string; vlanId: number | null; isHidden: boolean; isEnabled: boolean; bandSteering: string; networkId: string }[]> {
+  const base = localApiBase(auth)
+  const { data } = await httpsRequest(`${base}/api/s/${siteId}/rest/wlanconf`, "GET", undefined, localHeaders(auth))
+  const wlans: any[] = data?.data ?? []
+  return wlans.map((w: any) => ({
+    id: w._id,
+    name: w.name || w.x_passphrase ? w.name : "Unnamed",
+    ssid: w.name || "",
+    security: w.security || "wpapsk",
+    vlanId: w.vlan_enabled ? (w.vlan ?? null) : null,
+    isHidden: w.hide_ssid ?? false,
+    isEnabled: w.enabled ?? true,
+    bandSteering: w.band_steering_mode || "off",
+    networkId: w.networkconf_id || "",
+  }))
+}
+
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
 export function unifiDeviceType(type: string): string {

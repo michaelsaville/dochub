@@ -20,6 +20,7 @@ export async function GET(
             assetType: { select: { id: true, name: true, template: true } },
             primaryUser: { select: { id: true, name: true } },
             contact: { select: { id: true, name: true } },
+            interfaces: { select: { id: true, assetId: true, name: true, macAddress: true, ipAddress: true, switchPortId: true } },
           },
         },
       },

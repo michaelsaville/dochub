@@ -38,6 +38,7 @@ type ClientAsset = {
   name: string
   friendlyName: string | null
   category: string
+  macAddress: string | null
   interfaces: AssetInterface[]
 }
 
@@ -296,6 +297,34 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
     }
   }
 
+  // Build MAC → asset lookup for auto-linking
+  const macToAsset = new Map<string, ClientAsset>()
+  for (const a of assets) {
+    if (a.macAddress) macToAsset.set(a.macAddress.toLowerCase(), a)
+    for (const iface of a.interfaces) {
+      if (iface.macAddress) macToAsset.set(iface.macAddress.toLowerCase(), a)
+    }
+  }
+
+  // Find MAC-based suggestions for a port (assets matching any MAC on this port's interfaces)
+  function macSuggestionsForPort(num: number): ClientAsset[] {
+    const p = getPort(num)
+    if (!p) return []
+    // Check MACs of connected interfaces on this port
+    const seen = new Set<string>()
+    const suggestions: ClientAsset[] = []
+    for (const iface of p.interfaces) {
+      if (iface.macAddress) {
+        const match = macToAsset.get(iface.macAddress.toLowerCase())
+        if (match && !seen.has(match.id)) {
+          seen.add(match.id)
+          suggestions.push(match)
+        }
+      }
+    }
+    return suggestions
+  }
+
   const totalPorts = portCount ?? 0
   // Build port rows: real switches lay out 2 rows interleaved (odd top, even bottom for 1-indexed)
   // For simplicity: top row = ports 1,3,5,... bottom row = ports 2,4,6,...
@@ -309,6 +338,15 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
     if (p.isUplink) return "#374151"
     if (p.vlan) return p.vlan.color + "44"          // configured but empty → dim VLAN tint
     return "#111827"                                 // unknown / unused → dark
+  }
+
+  // Amber border for ports that have a MAC match but no linked asset
+  function portBorder(num: number, isSelected: boolean): string {
+    if (isSelected) return "2px solid white"
+    const p = getPort(num)
+    if (!p || p.interfaces.length > 0) return "1.5px solid #4b5563"
+    // Check if any client asset MAC matches this port number (future: live MAC table)
+    return "1.5px solid #4b5563"
   }
 
   function portLabel(num: number): string {
@@ -604,6 +642,63 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
             {/* Connected device */}
             <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "14px" }}>
               <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "10px", color: "var(--color-text-secondary)" }}>Connected device</div>
+
+              {/* MAC-based auto-suggest */}
+              {(() => {
+                const port = getPort(selectedPort)
+                if (port && port.interfaces.length === 0) {
+                  // Find assets whose MAC matches any known MAC for this port (from live data or prior entries)
+                  // Show suggestion if the asset dropdown has a MAC-matching candidate
+                  const portMacs = port.interfaces.map(i => i.macAddress?.toLowerCase()).filter(Boolean) as string[]
+                  // For now, scan all client assets and show ones not yet linked to any port
+                  const unlinked = assets.filter(a => {
+                    const hasMac = a.macAddress || a.interfaces.some(i => i.macAddress)
+                    const alreadyLinked = a.interfaces.some(i => i.switchPortId)
+                    return hasMac && !alreadyLinked
+                  })
+                  if (unlinked.length > 0) {
+                    return (
+                      <div style={{
+                        marginBottom: "10px", padding: "8px 12px",
+                        background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)",
+                        borderRadius: "7px", fontSize: "12px",
+                      }}>
+                        <div style={{ color: "#f59e0b", fontWeight: 500, marginBottom: "4px" }}>
+                          Unlinked assets with MAC addresses ({unlinked.length})
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                          {unlinked.slice(0, 5).map(a => (
+                            <button key={a.id} onClick={() => {
+                              setIfaceAssetId(a.id)
+                              const mac = a.macAddress || a.interfaces.find(i => i.macAddress)?.macAddress || ""
+                              const ip = a.interfaces.find(i => i.ipAddress)?.ipAddress || ""
+                              setIfaceMac(mac)
+                              setIfaceIp(ip)
+                              setIfaceName("eth0")
+                            }} style={{
+                              fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
+                              border: "0.5px solid rgba(245, 158, 11, 0.5)", background: "transparent",
+                              cursor: "pointer", color: "var(--color-text-primary)",
+                            }}>
+                              {a.friendlyName || a.name}
+                              <span style={{ color: "var(--color-text-muted)", marginLeft: "4px" }}>
+                                {a.macAddress || a.interfaces.find(i => i.macAddress)?.macAddress || ""}
+                              </span>
+                            </button>
+                          ))}
+                          {unlinked.length > 5 && (
+                            <span style={{ fontSize: "11px", color: "var(--color-text-muted)", alignSelf: "center" }}>
+                              +{unlinked.length - 5} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+                }
+                return null
+              })()}
+
               {getPort(selectedPort)?.interfaces.length ? (
                 <div style={{ marginBottom: "10px" }}>
                   {getPort(selectedPort)!.interfaces.map(iface => (
