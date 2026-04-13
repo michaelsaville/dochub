@@ -1,20 +1,9 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
-
   app:
     image: ghcr.io/michaelsaville/dochub:latest
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     env_file: .env
     environment:
       - DATABASE_URL=postgresql://dochub:changeme_before_production@db:5432/dochub
@@ -27,8 +16,6 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     env_file: .env
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -37,13 +24,11 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /home/michael/.docker/config.json:/root/.docker/config.json:ro
+      - /home/msaville/.docker/config.json:/root/.docker/config.json:ro
     environment:
       - DOCKER_API_VERSION=1.41
     command: --interval 30 --cleanup
 
 volumes:
-  caddy_data:
-  caddy_config:
   postgres_data:
   uploads:
