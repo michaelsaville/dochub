@@ -106,6 +106,7 @@ model Client {
   portalUsers     PortalUser[]
   portalCredentials PortalCredential[]
   networkDiagram  NetworkDiagram?
+  backupConfigs   BackupConfig[]
 }
 
 model Location {
@@ -256,6 +257,7 @@ model Asset {
   wifiControllers  WifiController[] @relation("AssetWifiController")
   networkDevice    NetworkDevice?   // if migrated from NetworkDevice
   synologyConfig   SynologyConfig?
+  backupProtections BackupProtectedAsset[]
 }
 
 model SynologyConfig {
@@ -288,6 +290,43 @@ model SynologyBackupJob {
   config      SynologyConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@unique([configId, taskId])
+}
+
+// ─── Backup Documentation ─────────────────────────────────────────────────────
+
+model BackupConfig {
+  id               String    @id @default(cuid())
+  clientId         String
+  name             String    // e.g. "All Servers — Veeam", "Workstations — Datto"
+  technology       String    // e.g. "Veeam", "Datto SIRIS", "Acronis", "Windows Server Backup", "Synology Active Backup"
+  type             String    @default("image") // "image" | "file" | "cloud" | "hybrid"
+  frequency        String?   // e.g. "Every 4 hours", "Nightly", "Hourly"
+  window           String?   // e.g. "10PM-6AM", "Continuous"
+  retentionPolicy  String?   // e.g. "30 days local, 90 days cloud"
+  target           String?   // e.g. "Local NAS + Wasabi S3", "Datto Cloud"
+  encryptionEnabled Boolean  @default(false)
+  lastVerifiedAt   DateTime? // last test restore or verification
+  nextVerifyBy     DateTime? // when next verification is due (triggers alarm)
+  verifiedBy       String?   // who last verified
+  status           String    @default("active") // "active" | "paused" | "retired"
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  protectedAssets  BackupProtectedAsset[]
+}
+
+model BackupProtectedAsset {
+  id             String       @id @default(cuid())
+  backupConfigId String
+  assetId        String?      // linked DocHub asset (optional)
+  hostname       String?      // if no asset link, manual hostname
+  type           String       @default("server") // "server" | "workstation" | "nas" | "vm" | "cloud" | "other"
+  notes          String?
+  backupConfig   BackupConfig @relation(fields: [backupConfigId], references: [id], onDelete: Cascade)
+  asset          Asset?       @relation(fields: [assetId], references: [id])
+
+  @@unique([backupConfigId, assetId])
 }
 
 model ExitInterview {
