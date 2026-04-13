@@ -60,8 +60,7 @@ export default function UnifiedAlertsPage() {
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<AlertCategory | "all">("all")
   const [urgencyFilter, setUrgencyFilter] = useState<AlertUrgency | "all">("all")
-  const [creatingTicket, setCreatingTicket] = useState<string | null>(null)
-  const [ticketResult, setTicketResult] = useState<Record<string, { url?: string; error?: string }>>({})
+  const tickethubInboxUrl = (process.env.NEXT_PUBLIC_TICKETHUB_URL || "https://tickethub.pcc2k.com") + "/inbox?filter=alerts"
 
   useEffect(() => {
     setLoading(true)
@@ -75,41 +74,6 @@ export default function UnifiedAlertsPage() {
   }, [category])
 
   const filtered = urgencyFilter === "all" ? alerts : alerts.filter(a => a.urgency === urgencyFilter)
-
-  async function createTicket(alert: UnifiedAlert) {
-    setCreatingTicket(alert.id)
-    try {
-      const title = alert.category === "operational"
-        ? `[Alert] ${alert.label}: ${alert.message}`
-        : `[${alert.category.toUpperCase()}] ${alert.label} — ${alert.urgency === "expired" ? "expired" : "expiring " + (alert.expiresAt ? daysUntil(alert.expiresAt) : "")}`
-      const description = [
-        `Alert Type: ${alert.category}`,
-        `Client: ${alert.clientName}`,
-        alert.sublabel ? `Details: ${alert.sublabel}` : "",
-        alert.expiresAt ? `Expires: ${new Date(alert.expiresAt).toLocaleDateString()}` : "",
-        alert.message ? `Message: ${alert.message}` : "",
-        `\nSource: DocHub Alert ${alert.id}`,
-      ].filter(Boolean).join("\n")
-
-      const priority = alert.urgency === "expired" || alert.urgency === "critical" ? "HIGH" : "MEDIUM"
-
-      const res = await fetch("/api/alerts/create-ticket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientName: alert.clientName, title, description, priority }),
-      })
-      const data = await res.json()
-      if (res.ok && data.url) {
-        setTicketResult(prev => ({ ...prev, [alert.id]: { url: data.url } }))
-      } else {
-        setTicketResult(prev => ({ ...prev, [alert.id]: { error: data.error || "Failed" } }))
-      }
-    } catch {
-      setTicketResult(prev => ({ ...prev, [alert.id]: { error: "Network error" } }))
-    } finally {
-      setCreatingTicket(null)
-    }
-  }
 
   return (
     <AppShell>
@@ -190,8 +154,6 @@ export default function UnifiedAlertsPage() {
             {/* Rows */}
             {filtered.map((alert, i) => {
               const urg = urgencyConfig[alert.urgency]
-              const result = ticketResult[alert.id]
-
               return (
                 <div key={alert.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 100px", gap: "8px", padding: "10px 12px", alignItems: "center", borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                   {/* Icon */}
@@ -227,27 +189,19 @@ export default function UnifiedAlertsPage() {
 
                   {/* Actions */}
                   <div>
-                    {result?.url ? (
-                      <a href={result.url} target="_blank" rel="noopener" style={{ fontSize: "11px", color: "#22c55e", textDecoration: "none", fontWeight: 500 }}>
-                        View Ticket →
-                      </a>
-                    ) : result?.error ? (
-                      <span style={{ fontSize: "10px", color: "#ef4444" }}>{result.error}</span>
-                    ) : (
-                      <button
-                        onClick={() => createTicket(alert)}
-                        disabled={creatingTicket === alert.id}
-                        style={{
-                          fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
-                          border: "0.5px solid var(--color-border-secondary)",
-                          background: "transparent", cursor: "pointer",
-                          color: "var(--color-text-secondary)",
-                          opacity: creatingTicket === alert.id ? 0.5 : 1,
-                        }}
-                      >
-                        {creatingTicket === alert.id ? "..." : "Create Ticket"}
-                      </button>
-                    )}
+                    <a
+                      href={tickethubInboxUrl}
+                      target="_blank"
+                      rel="noopener"
+                      style={{
+                        fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
+                        border: "0.5px solid var(--color-border-secondary)",
+                        background: "transparent", cursor: "pointer",
+                        color: "var(--color-accent)", textDecoration: "none",
+                      }}
+                    >
+                      Handle in TicketHub →
+                    </a>
                   </div>
                 </div>
               )
