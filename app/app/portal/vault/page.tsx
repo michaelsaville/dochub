@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { usePortalUser } from "../layout"
+import { usePortalUser } from "@/lib/portal-context"
 
 type Visibility = "PRIVATE" | "TEAM" | "MSP_SHARED"
 type VaultEntry = {

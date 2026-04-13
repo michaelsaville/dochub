@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePortalUser } from "../layout"
+import { usePortalUser } from "@/lib/portal-context"
 
 type Asset = {
   id: string; name: string; friendlyName: string | null; category: string

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePortalUser } from "../layout"
+import { usePortalUser } from "@/lib/portal-context"
 
 type Location = { id: string; name: string; address: string | null; city: string | null; state: string | null; zip: string | null; ispName: string | null; wanIp: string | null; notes: string | null }
 

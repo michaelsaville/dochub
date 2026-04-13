@@ -1,6 +1,6 @@
 "use client"
 
-import { usePortalUser } from "../layout"
+import { usePortalUser } from "@/lib/portal-context"
 
 const SECTION_LINKS = [
   { key: "assets",    label: "Assets",    desc: "View your devices and equipment",      href: "/portal/assets",    icon: "🖥" },

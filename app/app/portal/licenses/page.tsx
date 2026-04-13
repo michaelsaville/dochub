@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePortalUser } from "../layout"
+import { usePortalUser } from "@/lib/portal-context"
 
 type License = { id: string; name: string; vendor: string | null; seats: number | null; assignedSeats: number | null; expiryDate: string | null; renewalDate: string | null }
 

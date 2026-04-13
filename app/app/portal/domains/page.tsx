@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePortalUser } from "../layout"
+import { usePortalUser } from "@/lib/portal-context"
 
 type Domain = { id: string; domain: string; registrar: string | null; autoRenew: boolean | null; expiresAt: string | null; sslExpiresAt: string | null; sslIssuer: string | null }
 

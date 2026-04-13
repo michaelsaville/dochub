@@ -1,19 +1,8 @@
 "use client"
 
-import { useState, useEffect, createContext, useContext } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-
-type PortalUser = {
-  id: string
-  name: string
-  email: string
-  client: { id: string; name: string }
-  isPortalOwner?: boolean
-  permissions: Record<string, boolean>
-}
-
-const PortalCtx = createContext<PortalUser | null>(null)
-export function usePortalUser() { return useContext(PortalCtx) }
+import { PortalCtx, type PortalUser } from "@/lib/portal-context"
 
 const NAV_SECTIONS = [
   { key: "dashboard", label: "Overview",  href: "/portal/dashboard" },
