@@ -19,14 +19,14 @@ export async function PATCH(
         where: { id },
         data: { isFavorite: body.isFavorite },
       })
-      return NextResponse.json({ ...updated, encryptedPassword: undefined, encryptedTotp: undefined, hasPassword: !!updated.encryptedPassword, hasTotp: !!updated.encryptedTotp })
+      return NextResponse.json({ ...updated, encryptedPassword: undefined, encryptedTotp: undefined, encryptedNotes: undefined, hasPassword: !!updated.encryptedPassword, hasTotp: !!updated.encryptedTotp, hasSecureNotes: !!updated.encryptedNotes })
     }
 
     // Full edit — fetch current values for history
     const current = await prisma.credential.findUnique({ where: { id } })
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const { label, username, password, totp, url, notes, userId, contactId, expiryDate } = body
+    const { label, username, password, totp, secureNotes, url, notes, userId, contactId, expiryDate } = body
     const changedBy = session?.user?.name ?? "unknown"
 
     const historyEntries: {
@@ -57,7 +57,8 @@ export async function PATCH(
         ...(label?.trim()       && { label: label.trim() }),
         ...(username !== undefined && { username: username?.trim() || null }),
         ...(password?.trim()    && { encryptedPassword: encrypt(password), lastRotated: new Date() }),
-        ...(totp     !== undefined && { encryptedTotp: totp?.trim() ? encrypt(totp.trim()) : null }),
+        ...(totp     !== undefined && totp?.trim() && { encryptedTotp: encrypt(totp.trim()) }),
+        ...(secureNotes !== undefined && secureNotes?.trim() && { encryptedNotes: encrypt(secureNotes.trim()) }),
         ...(url      !== undefined && { url:   url?.trim()   || null }),
         ...(notes    !== undefined && { notes: notes?.trim() || null }),
         ...(userId   !== undefined && { userId:    userId    || null }),
@@ -78,8 +79,10 @@ export async function PATCH(
       ...updated,
       encryptedPassword: undefined,
       encryptedTotp: undefined,
+      encryptedNotes: undefined,
       hasPassword: !!updated.encryptedPassword,
       hasTotp:     !!updated.encryptedTotp,
+      hasSecureNotes: !!updated.encryptedNotes,
     })
   } catch (e) {
     return NextResponse.json({ error: "Failed" }, { status: 500 })

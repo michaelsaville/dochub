@@ -268,10 +268,11 @@ export default function ClientDetailPage() {
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
-  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", totp: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
+  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", totp: "", secureNotes: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealedTotps, setRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
+  const [revealedSecureNotes, setRevealedSecureNotes] = useState<Record<string, string>>({})
   const [totpSecondsLeft, setTotpSecondsLeft] = useState<number>(30 - (Math.floor(Date.now() / 1000) % 30))
   const [copiedCreds, setCopiedCreds] = useState<Record<string, string>>({})
   const [breachStatus, setBreachStatus] = useState<Record<string, { count: number; checking: boolean }>>({})
@@ -665,6 +666,18 @@ export default function ClientDetailPage() {
     } catch {}
   }
 
+  async function revealSecureNotes(credId: string) {
+    if (revealedSecureNotes[credId]) {
+      setRevealedSecureNotes(n => { const next = { ...n }; delete next[credId]; return next })
+      return
+    }
+    try {
+      const res = await fetch(`/api/credentials/${credId}/reveal`)
+      const data = await res.json()
+      if (data.secureNotes) setRevealedSecureNotes(n => ({ ...n, [credId]: data.secureNotes }))
+    } catch {}
+  }
+
   async function saveCred() {
     if (!credForm.label.trim() || !credForm.password.trim()) return
     setSavingCred(true)
@@ -677,7 +690,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newCred = await res.json()
         setCredentials(c => [...c, newCred])
-        setCredForm({ label: "", username: "", password: "", totp: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
+        setCredForm({ label: "", username: "", password: "", totp: "", secureNotes: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
         setShowAddCred(false)
       }
     } catch {}
@@ -2377,8 +2390,9 @@ export default function ClientDetailPage() {
                   { key: "username", label: "Username", placeholder: "" },
                   { key: "password", label: "Password", placeholder: "" },
                   { key: "totp", label: "MFA / TOTP seed (optional)", placeholder: "Base32 secret from authenticator app" },
+                  { key: "secureNotes", label: "Secure Notes (encrypted)", placeholder: "Recovery keys, API tokens, config details..." },
                   { key: "url", label: "URL", placeholder: "https://" },
-                  { key: "notes", label: "Notes", placeholder: "" },
+                  { key: "notes", label: "Notes (plaintext)", placeholder: "" },
                 ].map(({ key, label, placeholder }) => (
                   <div key={key} style={{ marginBottom: "12px" }}>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
@@ -2468,7 +2482,7 @@ export default function ClientDetailPage() {
                         <button
                           onClick={() => {
                             setEditingCredId(cred.id)
-                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", contactId: cred.contact?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "" })
+                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", secureNotes: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", contactId: cred.contact?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "" })
                           }}
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Edit</button>
@@ -2485,6 +2499,7 @@ export default function ClientDetailPage() {
                         { key: "username", label: "Username",             type: "text"     },
                         { key: "password", label: "New password (blank = keep current)", type: "password" },
                         { key: "totp",     label: "TOTP seed (blank = keep current)",    type: "text"     },
+                        { key: "secureNotes", label: "Secure Notes (blank = keep current)", type: "text" },
                         { key: "url",      label: "URL",                  type: "text"     },
                         { key: "notes",    label: "Notes",                type: "text"     },
                       ].map(({ key, label, type }) => (
@@ -2570,6 +2585,29 @@ export default function ClientDetailPage() {
                         <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px" }}>
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>URL</span>
                           <a href={cred.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{cred.url}</a>
+                        </div>
+                      )}
+                      {cred.hasSecureNotes && (
+                        <div style={{ marginBottom: "4px" }}>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>Secure Notes</span>
+                            {revealedSecureNotes[cred.id] ? (
+                              <button onClick={() => revealSecureNotes(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
+                            ) : (
+                              <button onClick={() => revealSecureNotes(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
+                            )}
+                            {revealedSecureNotes[cred.id] && (
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(revealedSecureNotes[cred.id]); flashCopied(cred.id, "secureNotes") }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "secureNotes" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              >{copiedCreds[cred.id] === "secureNotes" ? "Copied!" : "Copy"}</button>
+                            )}
+                          </div>
+                          {revealedSecureNotes[cred.id] && (
+                            <div style={{ marginTop: "4px", marginLeft: "88px", padding: "8px 10px", borderRadius: "6px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "pre-wrap", color: "var(--color-text-primary)", wordBreak: "break-word" }}>
+                              {revealedSecureNotes[cred.id]}
+                            </div>
+                          )}
                         </div>
                       )}
                       {cred.notes && (

@@ -55,7 +55,12 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ password, totp, totpCode })
+    let secureNotes: string | null = null
+    if (credential.encryptedNotes) {
+      try { secureNotes = decrypt(credential.encryptedNotes) } catch {}
+    }
+
+    return NextResponse.json({ password, totp, totpCode, secureNotes })
   } catch {
     return NextResponse.json({ error: "Failed to reveal" }, { status: 500 })
   }

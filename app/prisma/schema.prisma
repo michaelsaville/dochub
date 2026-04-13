@@ -372,6 +372,7 @@ model Credential {
   username            String?
   encryptedPassword   String
   encryptedTotp       String?
+  encryptedNotes      String?
   url                 String?
   notes               String?
   isRetired           Boolean          @default(false)
