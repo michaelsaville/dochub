@@ -154,6 +154,7 @@ model ClientUser {
   userLocations UserLocation[]
   vpnAccess        VpnAccessor[]    @relation("ClientUserVpnAccess")
   phoneExtensions  PhoneExtension[] @relation("ClientUserExtension")
+  appSeats         AppSeatAssignment[] @relation("AppSeatUser")
 }
 
 model UserLocation {
@@ -418,10 +419,37 @@ model Application {
   assignedUserId String?
   contactId      String?
   vendorId       String?
+  // LOB fields
+  isLob          Boolean     @default(false)
+  accessType     String?     // "rdp" | "url" | null
+  rdpHost        String?     // RDP server hostname/IP
+  rdpPort        Int?        // RDP port (default 3389)
+  rdpGateway     String?     // RD Gateway (optional)
+  appUrl         String?     // Web application URL
+  totalSeats     Int?        // licensed seat count
   assignedUser   ClientUser? @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
   client         Client      @relation(fields: [clientId], references: [id])
   contact        Contact?    @relation("ApplicationContact", fields: [contactId], references: [id])
   vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
+  seatAssignments AppSeatAssignment[]
+}
+
+model AppSeatAssignment {
+  id               String    @id @default(cuid())
+  applicationId    String
+  clientUserId     String?   // DocHub user this seat is assigned to
+  contactId        String?   // or a contact
+  seatUsername      String?   // the app-specific username (e.g. "user01")
+  seatPassword     String?   // encrypted app-specific password
+  portalCredentialId String? // auto-created portal vault entry
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  clientUser       ClientUser? @relation("AppSeatUser", fields: [clientUserId], references: [id])
+  contact          Contact?   @relation("AppSeatContact", fields: [contactId], references: [id])
+
+  @@unique([applicationId, seatUsername])
 }
 
 model Contact {
@@ -445,6 +473,7 @@ model Contact {
   credentials     Credential[]  @relation("CredentialContact")
   licenses        License[]     @relation("LicenseContact")
   vpnAccess       VpnAccessor[] @relation("ContactVpnAccess")
+  appSeats        AppSeatAssignment[] @relation("AppSeatContact")
 }
 
 model Alarm {

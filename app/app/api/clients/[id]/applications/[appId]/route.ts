@@ -11,7 +11,8 @@ export async function PATCH(
   try {
     const { appId } = await params
     const body = await req.json()
-    const { name, vendor, version, supportUrl, notes, assignedUserId, contactId, vendorId } = body
+    const { name, vendor, version, supportUrl, notes, assignedUserId, contactId, vendorId,
+            isLob, accessType, rdpHost, rdpPort, rdpGateway, appUrl, totalSeats } = body
     const application = await prisma.application.update({
       where: { id: appId },
       data: {
@@ -23,11 +24,19 @@ export async function PATCH(
         ...(assignedUserId !== undefined && { assignedUserId: assignedUserId || null }),
         ...(contactId !== undefined && { contactId: contactId || null }),
         ...(vendorId !== undefined && { vendorId: vendorId || null }),
+        ...(isLob !== undefined && { isLob }),
+        ...(accessType !== undefined && { accessType: accessType || null }),
+        ...(rdpHost !== undefined && { rdpHost: rdpHost?.trim() || null }),
+        ...(rdpPort !== undefined && { rdpPort: rdpPort ? parseInt(rdpPort) : null }),
+        ...(rdpGateway !== undefined && { rdpGateway: rdpGateway?.trim() || null }),
+        ...(appUrl !== undefined && { appUrl: appUrl?.trim() || null }),
+        ...(totalSeats !== undefined && { totalSeats: totalSeats ? parseInt(totalSeats) : null }),
       },
       include: {
         assignedUser: { select: { id: true, name: true } },
         contact: { select: { id: true, name: true } },
         vendorRef: { select: { id: true, name: true } },
+        _count: { select: { seatAssignments: true } },
       },
     })
     return NextResponse.json(application)
