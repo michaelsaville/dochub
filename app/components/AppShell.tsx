@@ -28,7 +28,8 @@ function HamburgerIcon() {
 const QUICK_LINKS = [
   { label: "Reporting", href: "/reports", icon: "📊" },
   { label: "Global SOPs", href: "/runbooks", icon: "📋" },
-  { label: "Global Vendors", href: "/portal-admin", icon: "🏢" },
+  { label: "Client Portal", href: "/portal", icon: "🌐" },
+  { label: "Portal Admin", href: "/portal-admin", icon: "🔧" },
 ]
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
