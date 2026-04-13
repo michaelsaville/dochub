@@ -31,8 +31,16 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Allow the cron endpoint — authenticated via CRON_SECRET bearer token
-  if (pathname === "/api/cron/sync") {
+  // Allow cron, sync, webhook, and public share endpoints — authenticated via bearer token or public access
+  if (
+    pathname.startsWith("/api/cron/") ||
+    pathname.startsWith("/api/sync/") ||
+    pathname.startsWith("/api/integrations/") ||
+    pathname.startsWith("/api/webhooks/") ||
+    pathname.startsWith("/api/notes/") ||
+    pathname.startsWith("/api/share/") ||
+    pathname.startsWith("/api/v1/")
+  ) {
     return NextResponse.next()
   }
 
