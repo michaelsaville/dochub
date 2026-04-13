@@ -184,6 +184,7 @@ export default function AssetDetailPage() {
   const [linkedDocuments, setLinkedDocuments] = useState<any[]>([])
   const [linkedLicenses, setLinkedLicenses] = useState<any[]>([])
   const [linkedApplications, setLinkedApplications] = useState<any[]>([])
+  const [tickethubTickets, setTickethubTickets] = useState<any[]>([])
   const [showAddLink, setShowAddLink] = useState(false)
   const [linkForm, setLinkForm] = useState({ linkedAssetId: "", relationType: "RELATED", notes: "" })
   const [savingLink, setSavingLink] = useState(false)
@@ -258,6 +259,11 @@ export default function AssetDetailPage() {
         .finally(() => setLoading(false))
       fetchInterfaces()
       fetchAssetLinks()
+      // Fetch linked TicketHub tickets (cross-schema)
+      fetch(`/api/assets/${id}/tickets`)
+        .then(r => r.ok ? r.json() : [])
+        .then(d => setTickethubTickets(Array.isArray(d) ? d : []))
+        .catch(() => {})
     }
   }, [id])
 
@@ -1238,6 +1244,47 @@ export default function AssetDetailPage() {
                     {app.vendor && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{app.vendor}</div>}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* TicketHub Tickets linked to this asset */}
+            {tickethubTickets.length > 0 && (
+              <div style={card}>
+                <div style={cardTitle}>TicketHub Tickets</div>
+                {tickethubTickets.map((t: any, i: number) => {
+                  const statusColors: Record<string, string> = {
+                    NEW: "#3b82f6", OPEN: "#2563eb", IN_PROGRESS: "#f59e0b",
+                    WAITING_CUSTOMER: "#8b5cf6", WAITING_THIRD_PARTY: "#8b5cf6",
+                    RESOLVED: "#10b981", CLOSED: "#6b7280", CANCELLED: "#374151",
+                  }
+                  const priorityColors: Record<string, string> = {
+                    URGENT: "#ef4444", HIGH: "#f97316", MEDIUM: "#3b82f6", LOW: "#6b7280",
+                  }
+                  const tickethubUrl = (typeof window !== "undefined" ? "" : "") + (process.env.NEXT_PUBLIC_TICKETHUB_URL || "https://tickethub.pcc2k.com")
+                  const isClosed = t.status === "CLOSED" || t.status === "CANCELLED" || t.status === "RESOLVED"
+
+                  return (
+                    <div key={t.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < tickethubTickets.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", opacity: isClosed ? 0.6 : 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "10px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>#{t.ticketNumber}</span>
+                        <span style={{ fontSize: "9px", padding: "1px 5px", borderRadius: "3px", background: (priorityColors[t.priority] || "#6b7280") + "22", color: priorityColors[t.priority] || "#6b7280", fontWeight: 600 }}>{t.priority}</span>
+                        <span style={{ fontSize: "9px", padding: "1px 5px", borderRadius: "3px", background: (statusColors[t.status] || "#6b7280") + "22", color: statusColors[t.status] || "#6b7280" }}>{t.status.replace(/_/g, " ")}</span>
+                      </div>
+                      <a
+                        href={`${tickethubUrl}/tickets/${t.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        style={{ fontSize: "13px", color: "var(--color-accent)", textDecoration: "none", fontWeight: 500, display: "block", marginTop: "2px" }}
+                      >
+                        {t.title}
+                      </a>
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "1px" }}>
+                        {new Date(t.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {t.closedAt && ` — closed ${new Date(t.closedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
