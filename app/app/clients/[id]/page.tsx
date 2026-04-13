@@ -102,7 +102,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
+const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -303,6 +303,11 @@ export default function ClientDetailPage() {
   const [savingApp, setSavingApp] = useState(false)
   const [editingApp, setEditingApp] = useState<string | null>(null)
   const [appEditForm, setAppEditForm] = useState<any>({})
+  const [clientVendors, setClientVendors] = useState<any[]>([])
+  const [loadingVendors, setLoadingVendors] = useState(false)
+  const [showAddVendor, setShowAddVendor] = useState(false)
+  const [selectedVendorId, setSelectedVendorId] = useState("")
+  const [expandedVendor, setExpandedVendor] = useState<string | null>(null)
   const [activityEvents, setActivityEvents] = useState<any[]>([])
   const [loadingActivity, setLoadingActivity] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -405,6 +410,7 @@ export default function ClientDetailPage() {
     if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList() }
     if (activeTab === "Subscriptions" && subscriptions.length === 0) fetchSubscriptions()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
+    if (activeTab === "Vendors" && clientVendors.length === 0) { fetchClientVendors(); if (vendorsList.length === 0) fetchVendorsList() }
     if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
     if (activeTab === "Network" && networkDevices.length === 0) { fetchNetworkDevices(); if (vlans.length === 0) fetchVlans() }
     if (activeTab === "Remote Access") {
@@ -772,6 +778,32 @@ export default function ClientDetailPage() {
       const data = await res.json()
       setVendorsList(data.map((v: any) => ({ id: v.id, name: v.name })))
     } catch {}
+  }
+
+  async function fetchClientVendors() {
+    setLoadingVendors(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/vendors`)
+      if (res.ok) setClientVendors(await res.json())
+    } catch {} finally { setLoadingVendors(false) }
+  }
+
+  async function addClientVendor() {
+    if (!selectedVendorId) return
+    const res = await fetch(`/api/clients/${id}/vendors`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendorId: selectedVendorId }),
+    })
+    if (res.ok) { fetchClientVendors(); setSelectedVendorId(""); setShowAddVendor(false) }
+  }
+
+  async function removeClientVendor(vendorId: string) {
+    if (!confirm("Remove this vendor from this client?")) return
+    const res = await fetch(`/api/clients/${id}/vendors`, {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendorId }),
+    })
+    if (res.ok) setClientVendors(prev => prev.filter(v => v.id !== vendorId))
   }
 
   async function revealLicenseKey(licenseId: string) {
@@ -2926,6 +2958,82 @@ export default function ClientDetailPage() {
                       <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, assignedUserId: app.assignedUser?.id ?? "", contactId: app.contact?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteApp(app.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Vendors" && (
+          <div style={{ maxWidth: "920px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "12px" }}>
+              <button onClick={() => setShowAddVendor(v => !v)} style={{ fontSize: "13px", padding: "6px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                {showAddVendor ? "Cancel" : "+ Associate Vendor"}
+              </button>
+            </div>
+            {showAddVendor && (
+              <div style={{ marginBottom: "16px", padding: "16px", background: "var(--color-background-primary)", borderRadius: "10px", border: "0.5px solid var(--color-border-secondary)" }}>
+                <div style={{ marginBottom: "8px" }}>
+                  <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Select vendor</label>
+                  <select value={selectedVendorId} onChange={e => setSelectedVendorId(e.target.value)} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                    <option value="">Choose a vendor...</option>
+                    {vendorsList.filter(v => !clientVendors.some(cv => cv.id === v.id)).map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={addClientVendor} disabled={!selectedVendorId} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: selectedVendorId ? "pointer" : "default", opacity: selectedVendorId ? 1 : 0.4 }}>
+                  Associate
+                </button>
+              </div>
+            )}
+            {loadingVendors ? (
+              <div style={{ fontSize: "13px", color: "var(--color-text-muted)", padding: "20px 0" }}>Loading vendors...</div>
+            ) : clientVendors.length === 0 ? (
+              <div style={{ fontSize: "13px", color: "var(--color-text-muted)", padding: "20px 0", textAlign: "center" }}>No vendors associated with this client yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {clientVendors.map((v: any) => (
+                  <div key={v.id} style={{ background: "var(--color-background-primary)", borderRadius: "10px", border: "0.5px solid var(--color-border-secondary)", overflow: "hidden" }}>
+                    <div onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "14px", fontWeight: 500 }}>{v.name}</span>
+                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "4px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{v.category?.toLowerCase()}</span>
+                        {v._count?.licenses > 0 && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{v._count.licenses} license{v._count.licenses !== 1 ? "s" : ""}</span>}
+                        {v._count?.applications > 0 && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{v._count.applications} app{v._count.applications !== 1 ? "s" : ""}</span>}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{expandedVendor === v.id ? "▾" : "▸"}</span>
+                        <button onClick={(e) => { e.stopPropagation(); removeClientVendor(v.id) }} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: "2px 4px" }}>Remove</button>
+                      </div>
+                    </div>
+                    {expandedVendor === v.id && (
+                      <div style={{ padding: "0 16px 14px", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", paddingTop: "12px", fontSize: "13px" }}>
+                          {v.website && <div><span style={{ color: "var(--color-text-muted)" }}>Website: </span><a href={v.website.startsWith("http") ? v.website : `https://${v.website}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, #007AFF)" }}>{v.website}</a></div>}
+                          {v.portalUrl && <div><span style={{ color: "var(--color-text-muted)" }}>Portal: </span><a href={v.portalUrl.startsWith("http") ? v.portalUrl : `https://${v.portalUrl}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, #007AFF)" }}>{v.portalUrl}</a></div>}
+                          {v.supportPhone && <div><span style={{ color: "var(--color-text-muted)" }}>Support: </span>{v.supportPhone}</div>}
+                          {v.supportEmail && <div><span style={{ color: "var(--color-text-muted)" }}>Email: </span><a href={`mailto:${v.supportEmail}`} style={{ color: "var(--color-accent, #007AFF)" }}>{v.supportEmail}</a></div>}
+                          {v.supportUrl && <div><span style={{ color: "var(--color-text-muted)" }}>Support URL: </span><a href={v.supportUrl.startsWith("http") ? v.supportUrl : `https://${v.supportUrl}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, #007AFF)" }}>{v.supportUrl}</a></div>}
+                          {v.accountNumber && <div><span style={{ color: "var(--color-text-muted)" }}>Account #: </span><span style={{ fontFamily: "monospace" }}>{v.accountNumber}</span></div>}
+                        </div>
+                        {v.notes && <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--color-text-muted)", fontStyle: "italic" }}>{v.notes}</div>}
+                        {v.contacts?.length > 0 && (
+                          <div style={{ marginTop: "12px" }}>
+                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Vendor Contacts</div>
+                            {v.contacts.map((vc: any) => (
+                              <div key={vc.id} style={{ display: "flex", alignItems: "center", gap: "8px", paddingBottom: "4px", fontSize: "13px" }}>
+                                <span style={{ fontWeight: 500 }}>{vc.name}</span>
+                                {vc.role && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({vc.role})</span>}
+                                {vc.email && <a href={`mailto:${vc.email}`} style={{ fontSize: "12px", color: "var(--color-accent, #007AFF)" }}>{vc.email}</a>}
+                                {vc.phone && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{vc.phone}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
