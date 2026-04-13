@@ -30,6 +30,7 @@ const QUICK_LINKS = [
   { label: "Global SOPs", href: "/runbooks", icon: "📋" },
   { label: "Client Portal", href: "/portal", icon: "🌐" },
   { label: "Portal Admin", href: "/portal-admin", icon: "🔧" },
+  { label: "My Vault", href: "/settings?section=my-vault", icon: "🔐" },
 ]
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

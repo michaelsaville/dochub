@@ -30,12 +30,15 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   return (
     <aside style={{
       width: "220px",
-      minHeight: "100vh",
+      height: "100vh",
+      position: "sticky",
+      top: 0,
       borderRight: "0.5px solid var(--color-border-tertiary)",
       background: "var(--color-background-secondary)",
       display: "flex",
       flexDirection: "column",
       flexShrink: 0,
+      overflowY: "auto",
     }}>
 
       {/* Brand */}
