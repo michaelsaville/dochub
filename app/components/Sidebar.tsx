@@ -9,9 +9,6 @@ import { useTheme } from "@/components/ThemeProvider"
 const nav = [
   { label: "Dashboard",   href: "/dashboard"      },
   { label: "Clients",     href: "/clients"        },
-  { label: "Runbooks",    href: "/runbooks"       },
-  { label: "Portal",      href: "/portal-admin"   },
-  { label: "Reports",     href: "/reports"        },
   { label: "Settings",    href: "/settings"       },
 ]
 
