@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "DocHub",
-  "version": "1.0.0",
-  "description": "PCC2K DocHub — search client credentials from any page",
+  "version": "2.0.0",
+  "description": "PCC2K DocHub — credential search, autofill, TOTP, password generator",
   "icons": {
     "16":  "icons/icon-16.png",
     "48":  "icons/icon-48.png",
@@ -20,7 +20,8 @@
   "permissions": [
     "activeTab",
     "storage",
-    "clipboardWrite"
+    "clipboardWrite",
+    "scripting"
   ],
   "host_permissions": [
     "https://dochub.pcc2k.com/*"

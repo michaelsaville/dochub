@@ -7,9 +7,11 @@ const STORAGE_KEY_APIKEY = "dochub_api_key"
 
 let apiKey = ""
 let currentDomain = ""
+let currentTabId = null
 let searchTimer = null
 let revealedData = {}   // credId → { password, totpCode, totpSecret }
 let totpTimer = null
+let showGenerator = false
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────
 
@@ -23,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (tab?.url) {
       const url = new URL(tab.url)
       currentDomain = url.hostname.replace(/^www\./, "")
+      currentTabId = tab.id
     }
   } catch {}
 
@@ -35,10 +38,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // ── Setup screen ──────────────────────────────────────────────────────────
 
+const PINEAPPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="15" rx="5" ry="6.5"/><line x1="12" y1="10" x2="12" y2="19"/><line x1="8.5" y1="12" x2="15.5" y2="18"/><line x1="15.5" y1="12" x2="8.5" y2="18"/><path d="M12 8.5L12 4M12 8.5L9 5M12 8.5L15 5M9 5L7.5 3M15 5L16.5 3"/></svg>`
+
 function renderSetup() {
   document.getElementById("app").innerHTML = `
     <div class="header">
-      <div class="header-title"><div class="header-logo">D</div>DocHub</div>
+      <div class="header-title"><div class="header-logo" style="background:none;width:auto;height:auto">${PINEAPPLE_SVG}</div>DocHub</div>
     </div>
     <div class="setup-section">
       <p style="color:#94a3b8;font-size:12px;margin-bottom:16px;line-height:1.6">
@@ -81,10 +86,25 @@ async function testApiKey(key) {
 function renderMain() {
   document.getElementById("app").innerHTML = `
     <div class="header">
-      <div class="header-title"><div class="header-logo">D</div>DocHub</div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div class="header-title"><div class="header-logo" style="background:none;width:auto;height:auto">${PINEAPPLE_SVG}</div>DocHub</div>
+      <div style="display:flex;align-items:center;gap:6px">
         ${currentDomain ? `<span class="header-domain">${currentDomain}</span>` : ""}
+        <button class="btn-sm" id="gen-toggle-btn" title="Password Generator">Gen</button>
         <button class="btn-sm" id="logout-btn">Key</button>
+      </div>
+    </div>
+    <div id="generator-section" class="gen-section" style="display:none">
+      <div class="gen-row">
+        <span id="gen-output" class="gen-output">Click Generate</span>
+        <button class="btn-copy" id="gen-copy-btn">Copy</button>
+        <button class="btn-copy btn-fill" id="gen-fill-btn" title="Fill into active page">Fill</button>
+      </div>
+      <div class="gen-opts">
+        <label>Length <input type="range" id="gen-length" min="8" max="64" value="20"><span id="gen-length-val">20</span></label>
+        <label><input type="checkbox" id="gen-upper" checked>A-Z</label>
+        <label><input type="checkbox" id="gen-digits" checked>0-9</label>
+        <label><input type="checkbox" id="gen-symbols" checked>!@#</label>
+        <button class="btn" id="gen-btn" style="width:auto;padding:4px 12px;font-size:11px">Generate</button>
       </div>
     </div>
     <div class="search-bar">
@@ -103,6 +123,33 @@ function renderMain() {
       apiKey = ""
       chrome.storage.local.remove(STORAGE_KEY_APIKEY)
       renderSetup()
+    }
+  })
+
+  // Generator
+  document.getElementById("gen-toggle-btn").addEventListener("click", () => {
+    const sec = document.getElementById("generator-section")
+    showGenerator = !showGenerator
+    sec.style.display = showGenerator ? "block" : "none"
+  })
+  document.getElementById("gen-length").addEventListener("input", (e) => {
+    document.getElementById("gen-length-val").textContent = e.target.value
+  })
+  document.getElementById("gen-btn").addEventListener("click", () => {
+    const len = parseInt(document.getElementById("gen-length").value)
+    const upper = document.getElementById("gen-upper").checked
+    const digits = document.getElementById("gen-digits").checked
+    const symbols = document.getElementById("gen-symbols").checked
+    document.getElementById("gen-output").textContent = generatePassword(len, upper, digits, symbols)
+  })
+  document.getElementById("gen-copy-btn").addEventListener("click", () => {
+    const pw = document.getElementById("gen-output").textContent
+    if (pw && pw !== "Click Generate") copyText(pw)
+  })
+  document.getElementById("gen-fill-btn").addEventListener("click", () => {
+    const pw = document.getElementById("gen-output").textContent
+    if (pw && pw !== "Click Generate" && currentTabId) {
+      fillInPage(currentTabId, { password: pw })
     }
   })
 
@@ -182,6 +229,7 @@ function credHtml(c) {
         <div>
           <span class="cred-label">${esc(c.label)}</span>
           ${isAutofill ? ' <span class="tag-autofill">autofill</span>' : ""}
+          ${c.notes ? ' <span class="tag-notes">notes</span>' : ""}
         </div>
         <span class="cred-client">${esc(c.clientName || "")}</span>
       </div>
@@ -193,6 +241,7 @@ function credHtml(c) {
             <div class="secret-row">
               <span class="secret-val">${esc(rev.password)}</span>
               <button class="btn-copy" data-action="copy-val" data-id="${c.id}" data-field="${esc(rev.password)}">Copy</button>
+              <button class="btn-copy btn-fill" data-action="fill" data-id="${c.id}">Fill</button>
             </div>
           ` : ""}
           ${rev.totpCode ? `
@@ -206,6 +255,7 @@ function credHtml(c) {
           <button class="btn-copy" data-action="reveal" data-id="${c.id}">Reveal</button>
         `}
       </div>
+      ${c.notes ? `<div class="cred-notes">${esc(c.notes)}</div>` : ""}
     </div>
   `
 }
@@ -213,6 +263,14 @@ function credHtml(c) {
 async function handleAction(action, id, field, creds) {
   if (action === "copy-username" || action === "copy-val") {
     await copyText(field)
+    return
+  }
+  if (action === "fill") {
+    const rev = revealedData[id]
+    const cred = creds.find(c => c.id === id)
+    if (rev && currentTabId) {
+      fillInPage(currentTabId, { username: cred?.username, password: rev.password })
+    }
     return
   }
   if (action === "reveal") {
@@ -299,6 +357,62 @@ async function copyText(text) {
     document.execCommand("copy")
     document.body.removeChild(ta)
     toast("Copied!")
+  }
+}
+
+// ── Password Generator ───────────────────────────────────────────────────
+
+function generatePassword(length = 20, upper = true, digits = true, symbols = true) {
+  let chars = "abcdefghijklmnopqrstuvwxyz"
+  if (upper) chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  if (digits) chars += "0123456789"
+  if (symbols) chars += "!@#$%^&*()-_=+[]{}|;:,.<>?"
+  const arr = new Uint32Array(length)
+  crypto.getRandomValues(arr)
+  return Array.from(arr, v => chars[v % chars.length]).join("")
+}
+
+// ── Inline Autofill (inject into active tab) ─────────────────────────────
+
+async function fillInPage(tabId, { username, password }) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (user, pass) => {
+        // Find username and password fields on the page
+        const inputs = document.querySelectorAll("input")
+        let userField = null
+        let passField = null
+        for (const input of inputs) {
+          const type = (input.type || "").toLowerCase()
+          const name = (input.name || "").toLowerCase()
+          const id = (input.id || "").toLowerCase()
+          const auto = (input.autocomplete || "").toLowerCase()
+          if (type === "password" || auto === "current-password" || auto === "new-password") {
+            passField = passField || input
+          } else if (type === "text" || type === "email" || auto === "username" || auto === "email" ||
+                     name.includes("user") || name.includes("email") || name.includes("login") ||
+                     id.includes("user") || id.includes("email") || id.includes("login")) {
+            userField = userField || input
+          }
+        }
+        if (user && userField) {
+          userField.value = user
+          userField.dispatchEvent(new Event("input", { bubbles: true }))
+          userField.dispatchEvent(new Event("change", { bubbles: true }))
+        }
+        if (pass && passField) {
+          passField.value = pass
+          passField.dispatchEvent(new Event("input", { bubbles: true }))
+          passField.dispatchEvent(new Event("change", { bubbles: true }))
+        }
+        return !!(userField || passField)
+      },
+      args: [username || null, password || null],
+    })
+    toast("Filled!")
+  } catch (e) {
+    toast("Could not fill — try copying instead", true)
   }
 }
 
