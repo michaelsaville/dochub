@@ -26,12 +26,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [status, router])
 
   useEffect(() => {
-    fetch("/api/alerts?days=90")
+    fetch("/api/alerts/unified")
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (!d) return
-        const count = (d.domains?.length ?? 0) + (d.sslCerts?.length ?? 0) + (d.licenses?.length ?? 0) + (d.credentials?.length ?? 0)
-        setAlertCount(count)
+        if (!d?.stats) return
+        // Count expired + critical as the badge number (actionable items)
+        setAlertCount((d.stats.expired ?? 0) + (d.stats.critical ?? 0))
       })
       .catch(() => {})
   }, [])

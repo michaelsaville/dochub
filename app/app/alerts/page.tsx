@@ -2,226 +2,257 @@
 
 import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 
-type AlertItem = {
+type AlertCategory = "ssl" | "domain" | "warranty" | "credential" | "license" | "operational"
+type AlertUrgency = "expired" | "critical" | "warning" | "upcoming" | "info"
+
+type UnifiedAlert = {
   id: string
-  domain?: string
-  label?: string
-  name?: string
-  vendor?: string | null
-  username?: string | null
-  expiresAt?: string | null
-  sslExpiresAt?: string | null
-  sslIssuer?: string | null
-  expiryDate?: string | null
-  renewalDate?: string | null
-  vendorRef?: { id: string; name: string } | null
-  client: { id: string; name: string }
+  category: AlertCategory
+  label: string
+  sublabel?: string
+  message?: string
+  severity?: string
+  status?: string
+  urgency: AlertUrgency
+  expiresAt: string | null
+  clientId: string
+  clientName: string
+  linkPath: string
+  alarmId?: string
+  createdAt?: string
 }
 
-type AlertsData = {
-  domains: AlertItem[]
-  sslCerts: AlertItem[]
-  licenses: AlertItem[]
-  credentials: AlertItem[]
+type Stats = { total: number; expired: number; critical: number; warning: number; upcoming: number }
+
+const CATEGORIES: { key: AlertCategory | "all"; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "ssl", label: "SSL" },
+  { key: "domain", label: "Domain" },
+  { key: "warranty", label: "Warranty" },
+  { key: "credential", label: "Credential" },
+  { key: "license", label: "License" },
+  { key: "operational", label: "Operational" },
+]
+
+const urgencyConfig: Record<AlertUrgency, { label: string; bg: string; color: string }> = {
+  expired:  { label: "Expired",  bg: "#fef2f2", color: "#dc2626" },
+  critical: { label: "Critical", bg: "#fef2f2", color: "#ef4444" },
+  warning:  { label: "Warning",  bg: "#fffbeb", color: "#f59e0b" },
+  upcoming: { label: "Upcoming", bg: "#f0fdf4", color: "#22c55e" },
+  info:     { label: "Info",     bg: "#f5f3ff", color: "#6366f1" },
 }
 
-function daysUntil(date: string | null | undefined): number | null {
-  if (!date) return null
-  return Math.floor((new Date(date).getTime() - Date.now()) / 86400000)
+const categoryIcons: Record<AlertCategory, string> = {
+  ssl: "🔒", domain: "🌐", warranty: "🛡", credential: "🔑", license: "📜", operational: "⚠",
 }
 
-function ExpiryBadge({ date }: { date: string | null | undefined }) {
-  const days = daysUntil(date)
-  if (days === null) return <span style={{ color: "var(--color-text-muted)", fontSize: "13px" }}>—</span>
-  const color = days < 0 ? "var(--color-text-danger)" : days <= 7 ? "var(--color-text-danger)" : days <= 30 ? "var(--color-text-warning)" : "var(--color-text-success)"
-  const bg = days < 0 ? "var(--color-background-danger)" : days <= 7 ? "var(--color-background-danger)" : days <= 30 ? "var(--color-background-warning)" : "var(--color-background-success)"
-  const label = days < 0 ? "Expired" : `${days}d`
-  return (
-    <span style={{ fontSize: "12px", padding: "2px 8px", borderRadius: "20px", background: bg, color, fontWeight: 500 }}>
-      {label}
-    </span>
-  )
+function daysUntil(dateStr: string): string {
+  const days = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000)
+  if (days < 0) return `${Math.abs(days)}d overdue`
+  if (days === 0) return "today"
+  return `${days}d`
 }
 
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  const [open, setOpen] = useState(true)
-  return (
-    <div style={{ marginBottom: "24px", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-      <div
-        onClick={() => setOpen(o => !o)}
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "var(--color-background-secondary)", cursor: "pointer", userSelect: "none" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "15px", fontWeight: 500 }}>{title}</span>
-          <span style={{
-            fontSize: "12px", padding: "2px 8px", borderRadius: "20px",
-            background: count > 0 ? "var(--color-background-danger)" : "var(--color-background-hover)",
-            color: count > 0 ? "var(--color-text-danger)" : "var(--color-text-muted)",
-          }}>{count}</span>
-        </div>
-        <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{open ? "▲" : "▼"}</span>
-      </div>
-      {open && children}
-    </div>
-  )
-}
-
-export default function AlertsPage() {
-  const [data, setData] = useState<AlertsData | null>(null)
+export default function UnifiedAlertsPage() {
+  const [alerts, setAlerts] = useState<UnifiedAlert[]>([])
+  const [stats, setStats] = useState<Stats>({ total: 0, expired: 0, critical: 0, warning: 0, upcoming: 0 })
   const [loading, setLoading] = useState(true)
-  const [days, setDays] = useState(90)
-  const router = useRouter()
+  const [category, setCategory] = useState<AlertCategory | "all">("all")
+  const [urgencyFilter, setUrgencyFilter] = useState<AlertUrgency | "all">("all")
+  const [creatingTicket, setCreatingTicket] = useState<string | null>(null)
+  const [ticketResult, setTicketResult] = useState<Record<string, { url?: string; error?: string }>>({})
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/alerts?days=${days}`)
+    const params = new URLSearchParams()
+    if (category !== "all") params.set("category", category)
+    fetch(`/api/alerts/unified?${params}`)
       .then(r => r.json())
-      .then(setData)
-      .catch(console.error)
+      .then(d => { setAlerts(d.items ?? []); setStats(d.stats ?? stats) })
+      .catch(() => {})
       .finally(() => setLoading(false))
-  }, [days])
+  }, [category])
 
-  const colStyle = { fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" } as const
-  const rowBase = { padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)", cursor: "pointer" } as const
-  const cellStyle = { fontSize: "13px", color: "var(--color-text-secondary)", alignSelf: "center" } as const
+  const filtered = urgencyFilter === "all" ? alerts : alerts.filter(a => a.urgency === urgencyFilter)
+
+  async function createTicket(alert: UnifiedAlert) {
+    setCreatingTicket(alert.id)
+    try {
+      const title = alert.category === "operational"
+        ? `[Alert] ${alert.label}: ${alert.message}`
+        : `[${alert.category.toUpperCase()}] ${alert.label} — ${alert.urgency === "expired" ? "expired" : "expiring " + (alert.expiresAt ? daysUntil(alert.expiresAt) : "")}`
+      const description = [
+        `Alert Type: ${alert.category}`,
+        `Client: ${alert.clientName}`,
+        alert.sublabel ? `Details: ${alert.sublabel}` : "",
+        alert.expiresAt ? `Expires: ${new Date(alert.expiresAt).toLocaleDateString()}` : "",
+        alert.message ? `Message: ${alert.message}` : "",
+        `\nSource: DocHub Alert ${alert.id}`,
+      ].filter(Boolean).join("\n")
+
+      const priority = alert.urgency === "expired" || alert.urgency === "critical" ? "HIGH" : "MEDIUM"
+
+      const res = await fetch("/api/alerts/create-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientName: alert.clientName, title, description, priority }),
+      })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        setTicketResult(prev => ({ ...prev, [alert.id]: { url: data.url } }))
+      } else {
+        setTicketResult(prev => ({ ...prev, [alert.id]: { error: data.error || "Failed" } }))
+      }
+    } catch {
+      setTicketResult(prev => ({ ...prev, [alert.id]: { error: "Network error" } }))
+    } finally {
+      setCreatingTicket(null)
+    }
+  }
 
   return (
     <AppShell>
-      <div style={{ padding: "32px", maxWidth: "960px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
-          <div>
-            <h1 style={{ fontSize: "22px", fontWeight: 500, marginBottom: "4px" }}>Alerts</h1>
-            <p style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>Expiring items across all clients</p>
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {[30, 60, 90].map(d => (
-              <button key={d} onClick={() => setDays(d)} style={{
-                fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
-                border: "0.5px solid var(--color-border-secondary)",
-                background: days === d ? "var(--color-text-primary)" : "var(--color-background-primary)",
-                color: days === d ? "var(--color-background-primary)" : "var(--color-text-secondary)",
-                cursor: "pointer",
-              }}>
-                {d}d
-              </button>
-            ))}
-          </div>
+      <div style={{ padding: "28px 32px", maxWidth: "1200px" }}>
+        <h1 style={{ fontFamily: "var(--mono)", fontSize: "22px", fontWeight: 600, color: "var(--text)", marginBottom: "4px" }}>
+          Alerts
+        </h1>
+        <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>
+          Expirations, operational alarms, and system alerts across all clients.
+        </p>
+
+        {/* Stat tiles */}
+        <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+          {[
+            { label: "Expired", value: stats.expired, color: "#ef4444", filter: "expired" as const },
+            { label: "Critical", value: stats.critical, color: "#f59e0b", filter: "critical" as const },
+            { label: "Warning", value: stats.warning, color: "#eab308", filter: "warning" as const },
+            { label: "Upcoming", value: stats.upcoming, color: "#22c55e", filter: "upcoming" as const },
+            { label: "Total", value: stats.total, color: "var(--muted)", filter: "all" as const },
+          ].map(s => (
+            <button
+              key={s.label}
+              onClick={() => setUrgencyFilter(s.filter)}
+              style={{
+                padding: "10px 16px", borderRadius: "8px", border: urgencyFilter === s.filter ? `2px solid ${s.color}` : "0.5px solid var(--color-border-tertiary)",
+                background: "var(--color-background-secondary)", cursor: "pointer", minWidth: "90px", textAlign: "left",
+              }}
+            >
+              <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--mono)", color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{s.label}</div>
+            </button>
+          ))}
         </div>
 
+        {/* Category tabs */}
+        <div style={{ display: "flex", gap: "4px", marginBottom: "16px", flexWrap: "wrap" }}>
+          {CATEGORIES.map(c => (
+            <button
+              key={c.key}
+              onClick={() => setCategory(c.key)}
+              style={{
+                padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: category === c.key ? 600 : 400,
+                border: "0.5px solid var(--color-border-tertiary)", cursor: "pointer",
+                background: category === c.key ? "rgba(61,111,255,0.1)" : "transparent",
+                color: category === c.key ? "var(--accent)" : "var(--muted)",
+              }}
+            >
+              {c.label}
+            </button>
+          ))}
+          {urgencyFilter !== "all" && (
+            <button
+              onClick={() => setUrgencyFilter("all")}
+              style={{ padding: "5px 12px", borderRadius: "6px", fontSize: "11px", border: "none", background: "none", cursor: "pointer", color: "var(--accent)" }}
+            >
+              Clear urgency filter
+            </button>
+          )}
+        </div>
+
+        {/* Alert list */}
         {loading ? (
-          <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
-        ) : !data ? (
-          <div style={{ color: "var(--color-text-danger)", fontSize: "14px" }}>Failed to load alerts.</div>
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)", fontSize: "13px" }}>Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)", fontSize: "13px" }}>No alerts matching filters.</div>
         ) : (
-          <>
-            {/* Domains */}
-            <Section title="Domain expiry" count={data.domains.length}>
-              {data.domains.length === 0 ? (
-                <div style={{ padding: "20px 16px", color: "var(--color-text-secondary)", fontSize: "13px" }}>None expiring within {days} days.</div>
-              ) : (
-                <>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 100px 120px", padding: "8px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                    {["Domain", "Client", "Expires", ""].map(h => <div key={h} style={colStyle}>{h}</div>)}
-                  </div>
-                  {data.domains.map(d => (
-                    <div key={d.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 100px 120px", ...rowBase }}
-                      onClick={() => router.push(`/clients/${d.client.id}?tab=Domains`)}
-                      onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}>
-                      <div style={{ alignSelf: "center" }}>
-                        <div style={{ fontSize: "14px", fontWeight: 500 }}>{d.domain}</div>
-                        {d.label && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{d.label}</div>}
-                      </div>
-                      <div style={cellStyle}>{d.client.name}</div>
-                      <div style={{ ...cellStyle, fontSize: "12px" }}>{d.expiresAt ? new Date(d.expiresAt).toLocaleDateString() : "—"}</div>
-                      <div style={{ alignSelf: "center" }}><ExpiryBadge date={d.expiresAt} /></div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </Section>
+          <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 100px", gap: "8px", padding: "8px 12px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: "10px", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div></div>
+              <div>Alert</div>
+              <div>Client</div>
+              <div>Urgency</div>
+              <div>Expires</div>
+              <div></div>
+            </div>
 
-            {/* SSL */}
-            <Section title="SSL certificate expiry" count={data.sslCerts.length}>
-              {data.sslCerts.length === 0 ? (
-                <div style={{ padding: "20px 16px", color: "var(--color-text-secondary)", fontSize: "13px" }}>None expiring within {days} days.</div>
-              ) : (
-                <>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 100px 120px", padding: "8px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                    {["Domain", "Client", "Issuer", "Expires", ""].map(h => <div key={h} style={colStyle}>{h}</div>)}
-                  </div>
-                  {data.sslCerts.map(d => (
-                    <div key={d.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 100px 120px", ...rowBase }}
-                      onClick={() => router.push(`/clients/${d.client.id}?tab=Domains`)}
-                      onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}>
-                      <div style={{ fontSize: "14px", fontWeight: 500, alignSelf: "center" }}>{d.domain}</div>
-                      <div style={cellStyle}>{d.client.name}</div>
-                      <div style={cellStyle}>{d.sslIssuer ?? "—"}</div>
-                      <div style={{ ...cellStyle, fontSize: "12px" }}>{d.sslExpiresAt ? new Date(d.sslExpiresAt).toLocaleDateString() : "—"}</div>
-                      <div style={{ alignSelf: "center" }}><ExpiryBadge date={d.sslExpiresAt} /></div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </Section>
+            {/* Rows */}
+            {filtered.map((alert, i) => {
+              const urg = urgencyConfig[alert.urgency]
+              const result = ticketResult[alert.id]
 
-            {/* Licenses */}
-            <Section title="License expiry" count={data.licenses.length}>
-              {data.licenses.length === 0 ? (
-                <div style={{ padding: "20px 16px", color: "var(--color-text-secondary)", fontSize: "13px" }}>None expiring within {days} days.</div>
-              ) : (
-                <>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 120px 120px", padding: "8px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                    {["License", "Client", "Vendor", "Expiry", "Renewal"].map(h => <div key={h} style={colStyle}>{h}</div>)}
+              return (
+                <div key={alert.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 100px", gap: "8px", padding: "10px 12px", alignItems: "center", borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                  {/* Icon */}
+                  <div style={{ fontSize: "16px", textAlign: "center" }}>
+                    {categoryIcons[alert.category]}
                   </div>
-                  {data.licenses.map(l => {
-                    const soonest = [l.expiryDate, l.renewalDate].filter(Boolean).sort()[0]
-                    return (
-                      <div key={l.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 120px 120px", ...rowBase }}
-                        onClick={() => router.push(`/clients/${l.client.id}?tab=Licenses`)}
-                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}>
-                        <div style={{ alignSelf: "center" }}>
-                          <div style={{ fontSize: "14px", fontWeight: 500 }}>{l.name}</div>
-                        </div>
-                        <div style={cellStyle}>{l.client.name}</div>
-                        <div style={cellStyle}>{l.vendorRef?.name ?? l.vendor ?? "—"}</div>
-                        <div style={{ alignSelf: "center" }}><ExpiryBadge date={l.expiryDate} /></div>
-                        <div style={{ alignSelf: "center" }}><ExpiryBadge date={l.renewalDate} /></div>
-                      </div>
-                    )
-                  })}
-                </>
-              )}
-            </Section>
 
-            {/* Credentials */}
-            <Section title="Credential expiry" count={data.credentials.length}>
-              {data.credentials.length === 0 ? (
-                <div style={{ padding: "20px 16px", color: "var(--color-text-secondary)", fontSize: "13px" }}>None expiring within {days} days.</div>
-              ) : (
-                <>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 120px", padding: "8px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                    {["Credential", "Client", "Username", "Expires"].map(h => <div key={h} style={colStyle}>{h}</div>)}
+                  {/* Label */}
+                  <div style={{ minWidth: 0 }}>
+                    <a href={alert.linkPath} style={{ fontSize: "13px", fontWeight: 500, color: "var(--accent)", textDecoration: "none" }}>
+                      {alert.label}
+                    </a>
+                    {alert.sublabel && <div style={{ fontSize: "11px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alert.sublabel}</div>}
+                    {alert.message && <div style={{ fontSize: "11px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alert.message}</div>}
                   </div>
-                  {data.credentials.map(c => (
-                    <div key={c.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 120px", ...rowBase }}
-                      onClick={() => router.push(`/clients/${c.client.id}?tab=Credentials`)}
-                      onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}>
-                      <div style={{ fontSize: "14px", fontWeight: 500, alignSelf: "center" }}>{c.label}</div>
-                      <div style={cellStyle}>{c.client.name}</div>
-                      <div style={cellStyle}>{c.username ?? "—"}</div>
-                      <div style={{ alignSelf: "center" }}><ExpiryBadge date={c.expiryDate} /></div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </Section>
-          </>
+
+                  {/* Client */}
+                  <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {alert.clientName}
+                  </div>
+
+                  {/* Urgency badge */}
+                  <div>
+                    <span style={{ fontSize: "10px", fontWeight: 600, padding: "2px 8px", borderRadius: "4px", background: urg.bg, color: urg.color }}>
+                      {urg.label}
+                    </span>
+                  </div>
+
+                  {/* Expiry */}
+                  <div style={{ fontSize: "11px", fontFamily: "var(--mono)", color: alert.urgency === "expired" ? "#ef4444" : "var(--muted)" }}>
+                    {alert.expiresAt ? daysUntil(alert.expiresAt) : "—"}
+                  </div>
+
+                  {/* Actions */}
+                  <div>
+                    {result?.url ? (
+                      <a href={result.url} target="_blank" rel="noopener" style={{ fontSize: "11px", color: "#22c55e", textDecoration: "none", fontWeight: 500 }}>
+                        View Ticket →
+                      </a>
+                    ) : result?.error ? (
+                      <span style={{ fontSize: "10px", color: "#ef4444" }}>{result.error}</span>
+                    ) : (
+                      <button
+                        onClick={() => createTicket(alert)}
+                        disabled={creatingTicket === alert.id}
+                        style={{
+                          fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
+                          border: "0.5px solid var(--color-border-secondary)",
+                          background: "transparent", cursor: "pointer",
+                          color: "var(--color-text-secondary)",
+                          opacity: creatingTicket === alert.id ? 0.5 : 1,
+                        }}
+                      >
+                        {creatingTicket === alert.id ? "..." : "Create Ticket"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </AppShell>
