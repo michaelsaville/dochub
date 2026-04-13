@@ -317,6 +317,9 @@ export default function ClientDetailPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [userSummary, setUserSummary] = useState<UserSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [savingUser, setSavingUser] = useState(false)
+  const [addUserForm, setAddUserForm] = useState({ name: "", email: "", phone: "", jobTitle: "", m365Upn: "" })
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
   const [assetSearch, setAssetSearch] = useState("")
   const [assetStatusFilter, setAssetStatusFilter] = useState("ALL")
@@ -1222,6 +1225,25 @@ export default function ClientDetailPage() {
     finally { setLoadingSummary(false) }
   }
 
+  async function createUser() {
+    if (!addUserForm.name.trim()) return
+    setSavingUser(true)
+    try {
+      const res = await fetch(`/api/clients/${id}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addUserForm),
+      })
+      if (res.ok) {
+        const newUser = await res.json()
+        setClient((c: any) => c ? { ...c, users: [...c.users, { id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone, m365Upn: newUser.m365Upn, jobTitle: newUser.jobTitle, isActive: true }] } : c)
+        setAddUserForm({ name: "", email: "", phone: "", jobTitle: "", m365Upn: "" })
+        setShowAddUser(false)
+      }
+    } catch {}
+    finally { setSavingUser(false) }
+  }
+
   async function fetchAssetTypes() {
     try {
       // Use admin seed endpoint which includes templates; fall back to basic endpoint
@@ -1700,8 +1722,50 @@ export default function ClientDetailPage() {
           <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
             {/* User list */}
             <div style={{ width: "240px", flexShrink: 0 }}>
-              {client.users.length === 0 ? (
-                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No users yet.</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                  Users ({client.users.length})
+                </div>
+                <button
+                  onClick={() => setShowAddUser(v => !v)}
+                  style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}
+                >
+                  {showAddUser ? "Cancel" : "+ Add"}
+                </button>
+              </div>
+
+              {showAddUser && (
+                <div style={{ marginBottom: "12px", padding: "10px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
+                  {[
+                    { key: "name", label: "Name *", placeholder: "John Smith" },
+                    { key: "email", label: "Email", placeholder: "john@company.com" },
+                    { key: "phone", label: "Phone", placeholder: "(555) 123-4567" },
+                    { key: "jobTitle", label: "Job Title", placeholder: "Office Manager" },
+                    { key: "m365Upn", label: "M365 UPN", placeholder: "john@company.com" },
+                  ].map(f => (
+                    <div key={f.key} style={{ marginBottom: "6px" }}>
+                      <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{f.label}</label>
+                      <input
+                        value={(addUserForm as any)[f.key]}
+                        onChange={e => setAddUserForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}
+                      />
+                    </div>
+                  ))}
+                  <button
+                    onClick={createUser}
+                    disabled={savingUser || !addUserForm.name.trim()}
+                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingUser || !addUserForm.name.trim() ? 0.5 : 1 }}
+                  >
+                    {savingUser ? "Saving..." : "Save"}
+                  </button>
+                  <span style={{ fontSize: "10px", color: "var(--color-text-muted)", marginLeft: "8px" }}>Also syncs to TicketHub</span>
+                </div>
+              )}
+
+              {client.users.length === 0 && !showAddUser ? (
+                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No users yet. Click + Add to create one.</div>
               ) : client.users.map((user) => (
                 <div key={user.id} onClick={() => selectUser(user.id)} style={{
                   background: selectedUserId === user.id ? "var(--color-background-secondary)" : "transparent",
