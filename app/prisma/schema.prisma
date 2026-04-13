@@ -14,7 +14,7 @@ model StaffUser {
   name                String?
   role                UserRole              @default(TECH)
   microsoftId         String?               @unique
-  passkeyChallenge    String?               // ephemeral, cleared after each WebAuthn ceremony
+  passkeyChallenge    String? // ephemeral, cleared after each WebAuthn ceremony
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   activityEvents      ActivityEvent[]
@@ -69,44 +69,44 @@ model ApiKey {
 }
 
 model Client {
-  id             String             @id @default(cuid())
-  name           String
-  type           ClientType         @default(BUSINESS)
-  syncroId       String?            @unique
-  notes          String?
-  isActive       Boolean            @default(true)
-  lastSyncedAt   DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  activityEvents ActivityEvent[]
-  alarms         Alarm[]
-  applications   Application[]
-  attachments     ClientAttachment[]
-  documents       ClientDocument[]
-  documentFolders DocumentFolder[]
-  users          ClientUser[]
-  contacts       Contact[]
-  credentials    Credential[]
-  licenses       License[]
-  locations      Location[]
-  networkDevices NetworkDevice[]
-  runbooks       Runbook[]
-  runbookRuns    RunbookRun[]
-  subnets        Subnet[]
-  vlans          Vlan[]
-  websites       Website[]
-  vendors        Vendor[]           @relation("ClientVendors")
-  adDomains      AdDomain[]
-  networkShares  NetworkShare[]
-  vpnGateways    VpnGateway[]
-  phoneSystems   PhoneSystem[]
-  cameraSystems  CameraSystem[]
-  wifiControllers WifiController[]
-  ptpLinks        PtpLink[]
-  portalUsers     PortalUser[]
+  id                String             @id @default(cuid())
+  name              String
+  type              ClientType         @default(BUSINESS)
+  syncroId          String?            @unique
+  notes             String?
+  isActive          Boolean            @default(true)
+  lastSyncedAt      DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  activityEvents    ActivityEvent[]
+  alarms            Alarm[]
+  applications      Application[]
+  attachments       ClientAttachment[]
+  documents         ClientDocument[]
+  documentFolders   DocumentFolder[]
+  users             ClientUser[]
+  contacts          Contact[]
+  credentials       Credential[]
+  licenses          License[]
+  locations         Location[]
+  networkDevices    NetworkDevice[]
+  runbooks          Runbook[]
+  runbookRuns       RunbookRun[]
+  subnets           Subnet[]
+  vlans             Vlan[]
+  websites          Website[]
+  vendors           Vendor[]           @relation("ClientVendors")
+  adDomains         AdDomain[]
+  networkShares     NetworkShare[]
+  vpnGateways       VpnGateway[]
+  phoneSystems      PhoneSystem[]
+  cameraSystems     CameraSystem[]
+  wifiControllers   WifiController[]
+  ptpLinks          PtpLink[]
+  portalUsers       PortalUser[]
   portalCredentials PortalCredential[]
-  networkDiagram  NetworkDiagram?
-  backupConfigs   BackupConfig[]
+  networkDiagram    NetworkDiagram?
+  backupConfigs     BackupConfig[]
 }
 
 model Location {
@@ -119,7 +119,7 @@ model Location {
   zip            String?
   ispName        String?
   wanIp          String?
-  tailscaleIp    String?         // Tailscale IP for on-site UCG/controller — enables live port, DHCP, VLAN, WiFi sync
+  tailscaleIp    String? // Tailscale IP for on-site UCG/controller — enables live port, DHCP, VLAN, WiFi sync
   notes          String?
   isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())
@@ -130,31 +130,31 @@ model Location {
   racks          Rack[]
   subnets        Subnet[]
   userLocations  UserLocation[]
-  ptpSideA       PtpLink[]      @relation("PtpSideA")
-  ptpSideB       PtpLink[]      @relation("PtpSideB")
+  ptpSideA       PtpLink[]       @relation("PtpSideA")
+  ptpSideB       PtpLink[]       @relation("PtpSideB")
 }
 
 model ClientUser {
-  id            String         @id @default(cuid())
-  clientId      String
-  name          String
-  email         String?
-  phone         String?
-  m365Upn       String?
-  jobTitle      String?
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  applications  Application[]  @relation("ApplicationAssignedUser")
-  assets        Asset[]        @relation("AssetPrimaryUser")
-  client        Client         @relation(fields: [clientId], references: [id])
-  credentials   Credential[]   @relation("CredentialUser")
-  ipAssignments IpAssignment[] @relation("UserIpAssignment")
-  licenses      License[]      @relation("LicenseAssignedUser")
-  userLocations UserLocation[]
-  vpnAccess        VpnAccessor[]    @relation("ClientUserVpnAccess")
-  phoneExtensions  PhoneExtension[] @relation("ClientUserExtension")
-  appSeats         AppSeatAssignment[] @relation("AppSeatUser")
+  id              String              @id @default(cuid())
+  clientId        String
+  name            String
+  email           String?
+  phone           String?
+  m365Upn         String?
+  jobTitle        String?
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  applications    Application[]       @relation("ApplicationAssignedUser")
+  assets          Asset[]             @relation("AssetPrimaryUser")
+  client          Client              @relation(fields: [clientId], references: [id])
+  credentials     Credential[]        @relation("CredentialUser")
+  ipAssignments   IpAssignment[]      @relation("UserIpAssignment")
+  licenses        License[]           @relation("LicenseAssignedUser")
+  userLocations   UserLocation[]
+  vpnAccess       VpnAccessor[]       @relation("ClientUserVpnAccess")
+  phoneExtensions PhoneExtension[]    @relation("ClientUserExtension")
+  appSeats        AppSeatAssignment[] @relation("AppSeatUser")
 }
 
 model UserLocation {
@@ -183,7 +183,7 @@ model AssetType {
 model AssetTypeTemplate {
   id              String    @id @default(cuid())
   assetTypeId     String    @unique
-  standardFields  String[]  // ordered list of standard field keys to surface in forms/cards
+  standardFields  String[] // ordered list of standard field keys to surface in forms/cards
   customFieldDefs Json      @default("[]") // [{ key, label, type, required }]
   showSwitchPanel Boolean   @default(false)
   showCameraPhoto Boolean   @default(false)
@@ -193,72 +193,82 @@ model AssetTypeTemplate {
 }
 
 model Asset {
-  id             String         @id @default(cuid())
-  locationId     String
-  primaryUserId  String?
-  category       AssetCategory  @default(OTHER)
-  status         AssetStatus    @default(ACTIVE)
-  name           String
-  make           String?
-  model          String?
-  serial         String?
-  assetTag       String?
-  ipAddress      String?
-  macAddress     String?
-  vlan           String?
-  switchPort     String?
-  managementUrl  String?
-  purchaseDate   DateTime?
-  warrantyExpiry DateTime?
-  room           String?
-  syncroAssetId  String?        @unique
-  notes          String?
-  successorId    String?        @unique
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  splashtopUrl   String?
-  driverUrl      String?
-  friendlyName   String?
-  isFavorite     Boolean  @default(false)
-  rdpEnabled     Boolean  @default(false)
-  rdpHost        String?
-  rdpPort        Int?
-  vncEnabled     Boolean  @default(false)
-  vncHost        String?
-  vncPort        Int?
-  assetTypeId    String?
-  contactId      String?
-  dataSource     String         @default("MANUAL")
+  id                 String                 @id @default(cuid())
+  locationId         String
+  primaryUserId      String?
+  category           AssetCategory          @default(OTHER)
+  status             AssetStatus            @default(ACTIVE)
+  name               String
+  make               String?
+  model              String?
+  serial             String?
+  assetTag           String?
+  ipAddress          String?
+  macAddress         String?
+  vlan               String?
+  switchPort         String?
+  managementUrl      String?
+  purchaseDate       DateTime?
+  warrantyExpiry     DateTime?
+  room               String?
+  syncroAssetId      String?                @unique
+  notes              String?
+  successorId        String?                @unique
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  splashtopUrl       String?
+  driverUrl          String?
+  friendlyName       String?
+  isFavorite         Boolean                @default(false)
+  rdpEnabled         Boolean                @default(false)
+  rdpHost            String?
+  rdpPort            Int?
+  vncEnabled         Boolean                @default(false)
+  vncHost            String?
+  vncPort            Int?
+  assetTypeId        String?
+  contactId          String?
+  dataSource         String                 @default("MANUAL")
   // Typed extended fields (surfaced based on AssetTypeTemplate.standardFields)
-  firmwareVersion  String?
-  portCount        Int?
-  os               String?      // e.g. "Windows 11 Pro", "Ubuntu 22.04"
-  ram              String?      // e.g. "16GB", "32GB DDR5"
-  cpu              String?      // e.g. "Intel i7-13700", "AMD Ryzen 9"
-  storageCapacity  String?      // e.g. "1TB NVMe SSD", "2x4TB RAID1"
-  customFields     Json?        // { [key: string]: string } from template custom field defs
-  assetType      AssetType?     @relation(fields: [assetTypeId], references: [id])
-  contact        Contact?       @relation("AssetContact", fields: [contactId], references: [id])
-  location       Location       @relation(fields: [locationId], references: [id])
-  primaryUser    ClientUser?    @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
-  successor      Asset?         @relation("AssetSuccessor", fields: [successorId], references: [id])
-  predecessor    Asset?         @relation("AssetSuccessor")
-  credentials    Credential[]
-  exitInterview  ExitInterview?
-  ipAssignments  IpAssignment[]  @relation("AssetIpAssignment")
-  rackSlots      RackSlot[]      @relation("AssetRackSlot")
-  networkShares    NetworkShare[]   @relation("AssetNetworkShare")
-  interfaces       AssetInterface[]
-  switchPorts      SwitchPort[]
-  vpnGateways      VpnGateway[]     @relation("AssetVpnGateway")
-  phoneSystems     PhoneSystem[]    @relation("AssetPhoneSystem")
-  phoneExtensions  PhoneExtension[] @relation("AssetPhoneExtension")
-  cameraSystems    CameraSystem[]   @relation("AssetCameraSystem")
-  cameras          Camera[]         @relation("AssetCamera")
-  wifiControllers  WifiController[] @relation("AssetWifiController")
-  networkDevice    NetworkDevice?   // if migrated from NetworkDevice
-  synologyConfig   SynologyConfig?
-  backupProtections BackupProtectedAsset[]
+  firmwareVersion    String?
+  portCount          Int?
+  os                 String? // e.g. "Windows 11 Pro", "Ubuntu 22.04"
+  ram                String? // e.g. "16GB", "32GB DDR5"
+  cpu                String? // e.g. "Intel i7-13700", "AMD Ryzen 9"
+  storageCapacity    String? // e.g. "1TB NVMe SSD", "2x4TB RAID1"
+  customFields       Json? // { [key: string]: string } from template custom field defs
+  assetType          AssetType?             @relation(fields: [assetTypeId], references: [id])
+  contact            Contact?               @relation("AssetContact", fields: [contactId], references: [id])
+  location           Location               @relation(fields: [locationId], references: [id])
+  primaryUser        ClientUser?            @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
+  successor          Asset?                 @relation("AssetSuccessor", fields: [successorId], references: [id])
+  predecessor        Asset?                 @relation("AssetSuccessor")
+  credentials        Credential[]
+  exitInterview      ExitInterview?
+  ipAssignments      IpAssignment[]         @relation("AssetIpAssignment")
+  rackSlots          RackSlot[]             @relation("AssetRackSlot")
+  networkShares      NetworkShare[]         @relation("AssetNetworkShare")
+  interfaces         AssetInterface[]
+  switchPorts        SwitchPort[]
+  vpnGateways        VpnGateway[]           @relation("AssetVpnGateway")
+  phoneSystems       PhoneSystem[]          @relation("AssetPhoneSystem")
+  phoneExtensions    PhoneExtension[]       @relation("AssetPhoneExtension")
+  cameraSystems      CameraSystem[]         @relation("AssetCameraSystem")
+  cameras            Camera[]               @relation("AssetCamera")
+  wifiControllers    WifiController[]       @relation("AssetWifiController")
+  networkDevice      NetworkDevice? // if migrated from NetworkDevice
+  synologyConfig     SynologyConfig?
+  backupProtections  BackupProtectedAsset[]
+  assetLinksFrom     AssetLink[]            @relation("AssetLinksFrom")
+  assetLinksTo       AssetLink[]            @relation("AssetLinksTo")
+  linkedLicenses     License[]              @relation("LicenseAsset")
+  linkedApplications Application[]          @relation("ApplicationAsset")
+  linkedDocuments    ClientDocument[]       @relation("DocumentAsset")
+  linkedRunbooks     Runbook[]              @relation("RunbookAsset")
+  linkedWebsites     Website[]              @relation("WebsiteAsset")
+  ptpLinksSideA      PtpLink[]              @relation("PtpLinkSideA")
+  ptpLinksSideB      PtpLink[]              @relation("PtpLinkSideB")
+  linkedAlarms       Alarm[]                @relation("AlarmAsset")
 }
 
 model SynologyConfig {
@@ -281,8 +291,8 @@ model SynologyBackupJob {
   configId    String
   taskId      String
   name        String
-  type        String         // "hyper_backup" | "active_backup"
-  lastResult  String?        // "success" | "error" | "warning" | "running" | "unfinished" | "none"
+  type        String // "hyper_backup" | "active_backup"
+  lastResult  String? // "success" | "error" | "warning" | "running" | "unfinished" | "none"
   lastRunAt   DateTime?
   nextRunAt   DateTime?
   destination String?
@@ -296,38 +306,51 @@ model SynologyBackupJob {
 // ─── Backup Documentation ─────────────────────────────────────────────────────
 
 model BackupConfig {
-  id               String    @id @default(cuid())
-  clientId         String
-  name             String    // e.g. "All Servers — Veeam", "Workstations — Datto"
-  technology       String    // e.g. "Veeam", "Datto SIRIS", "Acronis", "Windows Server Backup", "Synology Active Backup"
-  type             String    @default("image") // "image" | "file" | "cloud" | "hybrid"
-  frequency        String?   // e.g. "Every 4 hours", "Nightly", "Hourly"
-  window           String?   // e.g. "10PM-6AM", "Continuous"
-  retentionPolicy  String?   // e.g. "30 days local, 90 days cloud"
-  target           String?   // e.g. "Local NAS + Wasabi S3", "Datto Cloud"
-  encryptionEnabled Boolean  @default(false)
-  lastVerifiedAt   DateTime? // last test restore or verification
-  nextVerifyBy     DateTime? // when next verification is due (triggers alarm)
-  verifiedBy       String?   // who last verified
-  status           String    @default("active") // "active" | "paused" | "retired"
-  notes            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  protectedAssets  BackupProtectedAsset[]
+  id                String                 @id @default(cuid())
+  clientId          String
+  name              String // e.g. "All Servers — Veeam", "Workstations — Datto"
+  technology        String // e.g. "Veeam", "Datto SIRIS", "Acronis", "Windows Server Backup", "Synology Active Backup"
+  type              String                 @default("image") // "image" | "file" | "cloud" | "hybrid"
+  frequency         String? // e.g. "Every 4 hours", "Nightly", "Hourly"
+  window            String? // e.g. "10PM-6AM", "Continuous"
+  retentionPolicy   String? // e.g. "30 days local, 90 days cloud"
+  target            String? // e.g. "Local NAS + Wasabi S3", "Datto Cloud"
+  encryptionEnabled Boolean                @default(false)
+  lastVerifiedAt    DateTime? // last test restore or verification
+  nextVerifyBy      DateTime? // when next verification is due (triggers alarm)
+  verifiedBy        String? // who last verified
+  status            String                 @default("active") // "active" | "paused" | "retired"
+  notes             String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  client            Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  protectedAssets   BackupProtectedAsset[]
 }
 
 model BackupProtectedAsset {
   id             String       @id @default(cuid())
   backupConfigId String
-  assetId        String?      // linked DocHub asset (optional)
-  hostname       String?      // if no asset link, manual hostname
+  assetId        String? // linked DocHub asset (optional)
+  hostname       String? // if no asset link, manual hostname
   type           String       @default("server") // "server" | "workstation" | "nas" | "vm" | "cloud" | "other"
   notes          String?
   backupConfig   BackupConfig @relation(fields: [backupConfigId], references: [id], onDelete: Cascade)
   asset          Asset?       @relation(fields: [assetId], references: [id])
 
   @@unique([backupConfigId, assetId])
+}
+
+model AssetLink {
+  id            String   @id @default(cuid())
+  assetId       String
+  linkedAssetId String
+  relationType  String // e.g. "POWERS", "RECORDS_TO", "CONNECTS_TO", "HOSTS", "MONITORS", "BACKS_UP", "REPLACED_BY", "RELATED"
+  notes         String?
+  createdAt     DateTime @default(now())
+  asset         Asset    @relation("AssetLinksFrom", fields: [assetId], references: [id], onDelete: Cascade)
+  linkedAsset   Asset    @relation("AssetLinksTo", fields: [linkedAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, linkedAssetId, relationType])
 }
 
 model ExitInterview {
@@ -342,39 +365,39 @@ model ExitInterview {
 }
 
 model Credential {
-  id                String      @id @default(cuid())
-  clientId          String
-  assetId           String?
-  label             String
-  username          String?
-  encryptedPassword String
-  encryptedTotp     String?
-  url               String?
-  notes             String?
-  isRetired         Boolean     @default(false)
-  isFavorite        Boolean     @default(false)
-  lastRotated       DateTime?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  userId            String?
-  contactId         String?
-  expiryDate        DateTime?
-  dataSource        String      @default("MANUAL")
-  asset             Asset?       @relation(fields: [assetId], references: [id])
-  client            Client       @relation(fields: [clientId], references: [id])
-  contact           Contact?     @relation("CredentialContact", fields: [contactId], references: [id])
-  user              ClientUser?  @relation("CredentialUser", fields: [userId], references: [id])
-  vpnGateways          VpnGateway[]     @relation("CredentialVpnGateway")
-  vpnAccessors         VpnAccessor[]    @relation("CredentialVpnAccessor")
-  phoneSystems         PhoneSystem[]    @relation("CredentialPhoneSystem")
-  phoneExtensions      PhoneExtension[] @relation("CredentialPhoneExtension")
-  voicemailExtensions  PhoneExtension[] @relation("CredentialVoicemail")
-  cameraSystems        CameraSystem[]   @relation("CredentialCameraSystem")
-  wifiControllers      WifiController[] @relation("CredentialWifiController")
-  wifiNetworks         WifiNetwork[]    @relation("CredentialWifiNetwork")
-  ptpLinks             PtpLink[]        @relation("CredentialPtpLink")
-  adDomains            AdDomain[]       @relation("CredentialAdDomain")
-  assetInterfaces      AssetInterface[]
+  id                  String           @id @default(cuid())
+  clientId            String
+  assetId             String?
+  label               String
+  username            String?
+  encryptedPassword   String
+  encryptedTotp       String?
+  url                 String?
+  notes               String?
+  isRetired           Boolean          @default(false)
+  isFavorite          Boolean          @default(false)
+  lastRotated         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  userId              String?
+  contactId           String?
+  expiryDate          DateTime?
+  dataSource          String           @default("MANUAL")
+  asset               Asset?           @relation(fields: [assetId], references: [id])
+  client              Client           @relation(fields: [clientId], references: [id])
+  contact             Contact?         @relation("CredentialContact", fields: [contactId], references: [id])
+  user                ClientUser?      @relation("CredentialUser", fields: [userId], references: [id])
+  vpnGateways         VpnGateway[]     @relation("CredentialVpnGateway")
+  vpnAccessors        VpnAccessor[]    @relation("CredentialVpnAccessor")
+  phoneSystems        PhoneSystem[]    @relation("CredentialPhoneSystem")
+  phoneExtensions     PhoneExtension[] @relation("CredentialPhoneExtension")
+  voicemailExtensions PhoneExtension[] @relation("CredentialVoicemail")
+  cameraSystems       CameraSystem[]   @relation("CredentialCameraSystem")
+  wifiControllers     WifiController[] @relation("CredentialWifiController")
+  wifiNetworks        WifiNetwork[]    @relation("CredentialWifiNetwork")
+  ptpLinks            PtpLink[]        @relation("CredentialPtpLink")
+  adDomains           AdDomain[]       @relation("CredentialAdDomain")
+  assetInterfaces     AssetInterface[]
 }
 
 model License {
@@ -400,80 +423,84 @@ model License {
   dataSource     String      @default("MANUAL")
   billingTerm    String?
   status         String?
+  assetId        String?
   assignedUser   ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
+  asset          Asset?      @relation("LicenseAsset", fields: [assetId], references: [id])
   client         Client      @relation(fields: [clientId], references: [id])
   contact        Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
   vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
 }
 
 model Application {
-  id             String      @id @default(cuid())
-  clientId       String
-  name           String
-  vendor         String?
-  version        String?
-  supportUrl     String?
-  notes          String?
-  isActive       Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  assignedUserId String?
-  contactId      String?
-  vendorId       String?
+  id              String              @id @default(cuid())
+  clientId        String
+  name            String
+  vendor          String?
+  version         String?
+  supportUrl      String?
+  notes           String?
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  assignedUserId  String?
+  contactId       String?
+  vendorId        String?
   // LOB fields
-  isLob          Boolean     @default(false)
-  accessType     String?     // "rdp" | "url" | null
-  rdpHost        String?     // RDP server hostname/IP
-  rdpPort        Int?        // RDP port (default 3389)
-  rdpGateway     String?     // RD Gateway (optional)
-  appUrl         String?     // Web application URL
-  totalSeats     Int?        // licensed seat count
-  assignedUser   ClientUser? @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
-  client         Client      @relation(fields: [clientId], references: [id])
-  contact        Contact?    @relation("ApplicationContact", fields: [contactId], references: [id])
-  vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
+  isLob           Boolean             @default(false)
+  accessType      String? // "rdp" | "url" | null
+  rdpHost         String? // RDP server hostname/IP
+  rdpPort         Int? // RDP port (default 3389)
+  rdpGateway      String? // RD Gateway (optional)
+  appUrl          String? // Web application URL
+  totalSeats      Int? // licensed seat count
+  assetId         String?
+  assignedUser    ClientUser?         @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
+  asset           Asset?              @relation("ApplicationAsset", fields: [assetId], references: [id])
+  client          Client              @relation(fields: [clientId], references: [id])
+  contact         Contact?            @relation("ApplicationContact", fields: [contactId], references: [id])
+  vendorRef       Vendor?             @relation(fields: [vendorId], references: [id])
   seatAssignments AppSeatAssignment[]
 }
 
 model AppSeatAssignment {
-  id               String    @id @default(cuid())
-  applicationId    String
-  clientUserId     String?   // DocHub user this seat is assigned to
-  contactId        String?   // or a contact
-  seatUsername      String?   // the app-specific username (e.g. "user01")
-  seatPassword     String?   // encrypted app-specific password
+  id                 String      @id @default(cuid())
+  applicationId      String
+  clientUserId       String? // DocHub user this seat is assigned to
+  contactId          String? // or a contact
+  seatUsername       String? // the app-specific username (e.g. "user01")
+  seatPassword       String? // encrypted app-specific password
   portalCredentialId String? // auto-created portal vault entry
-  notes            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  clientUser       ClientUser? @relation("AppSeatUser", fields: [clientUserId], references: [id])
-  contact          Contact?   @relation("AppSeatContact", fields: [contactId], references: [id])
+  notes              String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  clientUser         ClientUser? @relation("AppSeatUser", fields: [clientUserId], references: [id])
+  contact            Contact?    @relation("AppSeatContact", fields: [contactId], references: [id])
 
   @@unique([applicationId, seatUsername])
 }
 
 model Contact {
-  id              String        @id @default(cuid())
+  id              String              @id @default(cuid())
   clientId        String
   name            String
   role            String?
   email           String?
   phone           String?
-  isPrimary       Boolean       @default(false)
-  isBilling       Boolean       @default(false)
-  isEscalation    Boolean       @default(false)
+  isPrimary       Boolean             @default(false)
+  isBilling       Boolean             @default(false)
+  isEscalation    Boolean             @default(false)
   notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
   mobile          String?
-  syncroContactId String?       @unique
-  applications    Application[] @relation("ApplicationContact")
-  assets          Asset[]       @relation("AssetContact")
-  client          Client        @relation(fields: [clientId], references: [id])
-  credentials     Credential[]  @relation("CredentialContact")
-  licenses        License[]     @relation("LicenseContact")
-  vpnAccess       VpnAccessor[] @relation("ContactVpnAccess")
+  syncroContactId String?             @unique
+  applications    Application[]       @relation("ApplicationContact")
+  assets          Asset[]             @relation("AssetContact")
+  client          Client              @relation(fields: [clientId], references: [id])
+  credentials     Credential[]        @relation("CredentialContact")
+  licenses        License[]           @relation("LicenseContact")
+  vpnAccess       VpnAccessor[]       @relation("ContactVpnAccess")
   appSeats        AppSeatAssignment[] @relation("AppSeatContact")
 }
 
@@ -488,8 +515,10 @@ model Alarm {
   visibleToClient Boolean       @default(false)
   dismissedAt     DateTime?
   resolvedAt      DateTime?
+  assetId         String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  asset           Asset?        @relation("AlarmAsset", fields: [assetId], references: [id])
   client          Client        @relation(fields: [clientId], references: [id])
 }
 
@@ -577,31 +606,33 @@ model Vendor {
 }
 
 model Website {
-  id            String    @id @default(cuid())
-  clientId      String
-  label         String?
-  domain        String
-  registrar     String?
-  expiresAt     DateTime?
-  lastChecked   DateTime?
-  dnsRecords    Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accountNumber String?
-  autoRenew     Boolean   @default(false)
-  notes         String?
-  registrarUrl  String?
-  sslExpiresAt  DateTime?
-  sslIssuer     String?
+  id              String    @id @default(cuid())
+  clientId        String
+  label           String?
+  domain          String
+  registrar       String?
+  expiresAt       DateTime?
+  lastChecked     DateTime?
+  dnsRecords      Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  accountNumber   String?
+  autoRenew       Boolean   @default(false)
+  notes           String?
+  registrarUrl    String?
+  sslExpiresAt    DateTime?
+  sslIssuer       String?
   // Uptime monitoring
   uptimeEnabled   Boolean   @default(false)
-  httpStatus      Int?      // last HTTP status code
-  responseTimeMs  Int?      // last response time in ms
+  httpStatus      Int? // last HTTP status code
+  responseTimeMs  Int? // last response time in ms
   isUp            Boolean   @default(true)
   lastUpAt        DateTime?
   lastDownAt      DateTime?
   uptimeCheckedAt DateTime?
-  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assetId         String?
+  asset           Asset?    @relation("WebsiteAsset", fields: [assetId], references: [id])
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 model AppSetting {
@@ -625,24 +656,26 @@ model DocumentFolder {
 }
 
 model ClientDocument {
-  id          String              @id @default(cuid())
+  id          String             @id @default(cuid())
   clientId    String
   folderId    String?
   title       String
   content     String?
   category    String?
-  isPinned      Boolean             @default(false)
-  needsReview   Boolean             @default(false)
-  reviewNote    String?             // reason it was flagged
-  flaggedAt     DateTime?
-  flaggedBy     String?             // staff user name who flagged
-  reviewedAt    DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  attachments   ClientAttachment[]
-  versions      DocumentVersion[]
-  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  folder        DocumentFolder?     @relation(fields: [folderId], references: [id])
+  isPinned    Boolean            @default(false)
+  needsReview Boolean            @default(false)
+  reviewNote  String? // reason it was flagged
+  flaggedAt   DateTime?
+  flaggedBy   String? // staff user name who flagged
+  reviewedAt  DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  assetId     String?
+  attachments ClientAttachment[]
+  versions    DocumentVersion[]
+  asset       Asset?             @relation("DocumentAsset", fields: [assetId], references: [id])
+  client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folder      DocumentFolder?    @relation(fields: [folderId], references: [id])
 }
 
 model DocumentVersion {
@@ -696,6 +729,8 @@ model Runbook {
   isPublished Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  assetId     String?
+  asset       Asset?           @relation("RunbookAsset", fields: [assetId], references: [id])
   category    RunbookCategory? @relation(fields: [categoryId], references: [id])
   client      Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   steps       RunbookStep[]
@@ -774,29 +809,29 @@ model VendorContact {
 }
 
 model NetworkDevice {
-  id              String            @id @default(cuid())
-  clientId        String
-  locationId      String?
-  assetId         String?           @unique // set after migrating to Asset
-  name            String
-  type            NetworkDeviceType @default(OTHER)
-  make            String?
-  model           String?
-  ipAddress       String?
-  macAddress      String?
-  serial          String?
-  firmwareVersion String?
+  id               String            @id @default(cuid())
+  clientId         String
+  locationId       String?
+  assetId          String?           @unique // set after migrating to Asset
+  name             String
+  type             NetworkDeviceType @default(OTHER)
+  make             String?
+  model            String?
+  ipAddress        String?
+  macAddress       String?
+  serial           String?
+  firmwareVersion  String?
   managementUrl    String?
   notes            String?
-  portCount        Int?              // number of physical ports (switches)
+  portCount        Int? // number of physical ports (switches)
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   dataSource       String            @default("MANUAL")
-  externalId       String?           // ID from external system (Unifi _id, Meraki serial, etc.)
+  externalId       String? // ID from external system (Unifi _id, Meraki serial, etc.)
   lastSeenAt       DateTime?
-  uptime           Int?              // uptime in seconds
-  connectedClients Int?              // number of connected clients (APs/switches)
+  uptime           Int? // uptime in seconds
+  connectedClients Int? // number of connected clients (APs/switches)
   client           Client            @relation(fields: [clientId], references: [id])
   location         Location?         @relation(fields: [locationId], references: [id])
   asset            Asset?            @relation(fields: [assetId], references: [id])
@@ -824,8 +859,8 @@ model Vlan {
 
 model SwitchPort {
   id              String           @id @default(cuid())
-  networkDeviceId String?          // legacy — null once migrated to assetId
-  assetId         String?          // set when switch is an Asset
+  networkDeviceId String? // legacy — null once migrated to assetId
+  assetId         String? // set when switch is an Asset
   portNumber      Int
   label           String?
   isUplink        Boolean          @default(false)
@@ -841,49 +876,49 @@ model SwitchPort {
 }
 
 model AssetInterface {
-  id           String      @id @default(cuid())
+  id           String  @id @default(cuid())
   assetId      String
-  name         String      // e.g. "eth0", "NIC 1", "Management", "iDRAC", "Tailscale"
-  type         String      @default("ETHERNET") // ETHERNET | TAILSCALE | WIFI | VPN
+  name         String // e.g. "eth0", "NIC 1", "Management", "iDRAC", "Tailscale"
+  type         String  @default("ETHERNET") // ETHERNET | TAILSCALE | WIFI | VPN
   macAddress   String?
   ipAddress    String?
   vlanId       String?
   switchPortId String?
-  isPrimary    Boolean     @default(false)
+  isPrimary    Boolean @default(false)
   notes        String?
 
   // Tailscale-specific fields
-  tailscaleIp        String?  // 100.x.x.x Tailscale IP
-  tailscaleHostname  String?  // machine hostname in Tailscale admin
-  tailscaleDeviceId  String?  // Tailscale device/node ID
-  tailscaleIsExitNode    Boolean @default(false)
-  tailscaleIsSubnetRouter Boolean @default(false)
-  tailscaleSubnets   String?  // comma-separated advertised subnets e.g. "192.168.1.0/24,10.0.0.0/8"
-  tailscaleTags      String?  // comma-separated ACL tags e.g. "tag:server,tag:prod"
-  tailscaleLastSeen  DateTime?
-  tailscaleOs        String?  // OS reported by Tailscale agent
-  tailscaleVersion   String?  // Tailscale client version
-  credentialId       String?  // linked Tailscale admin login credential
+  tailscaleIp             String? // 100.x.x.x Tailscale IP
+  tailscaleHostname       String? // machine hostname in Tailscale admin
+  tailscaleDeviceId       String? // Tailscale device/node ID
+  tailscaleIsExitNode     Boolean   @default(false)
+  tailscaleIsSubnetRouter Boolean   @default(false)
+  tailscaleSubnets        String? // comma-separated advertised subnets e.g. "192.168.1.0/24,10.0.0.0/8"
+  tailscaleTags           String? // comma-separated ACL tags e.g. "tag:server,tag:prod"
+  tailscaleLastSeen       DateTime?
+  tailscaleOs             String? // OS reported by Tailscale agent
+  tailscaleVersion        String? // Tailscale client version
+  credentialId            String? // linked Tailscale admin login credential
 
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  asset        Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  vlan         Vlan?       @relation(fields: [vlanId], references: [id])
-  switchPort   SwitchPort? @relation(fields: [switchPortId], references: [id])
-  credential   Credential? @relation(fields: [credentialId], references: [id])
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  asset      Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  vlan       Vlan?       @relation(fields: [vlanId], references: [id])
+  switchPort SwitchPort? @relation(fields: [switchPortId], references: [id])
+  credential Credential? @relation(fields: [credentialId], references: [id])
 }
 
 model Rack {
-  id                String     @id @default(cuid())
-  locationId        String
-  name              String
-  totalU            Int        @default(42)
-  notes             String?
-  photoStorageName  String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  location          Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  slots             RackSlot[]
+  id               String     @id @default(cuid())
+  locationId       String
+  name             String
+  totalU           Int        @default(42)
+  notes            String?
+  photoStorageName String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  location         Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  slots            RackSlot[]
 }
 
 model RackSlot {
@@ -1039,10 +1074,10 @@ enum NetworkDeviceType {
 model AdDomain {
   id              String         @id @default(cuid())
   clientId        String
-  name            String         // e.g. corp.client.local
-  netbiosName     String?        // e.g. CORP
-  functionalLevel String?        // e.g. Windows Server 2019
-  credentialId    String?        // domain admin credential in vault
+  name            String // e.g. corp.client.local
+  netbiosName     String? // e.g. CORP
+  functionalLevel String? // e.g. Windows Server 2019
+  credentialId    String? // domain admin credential in vault
   notes           String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -1055,10 +1090,10 @@ model AdDomain {
 model DomainGroup {
   id          String            @id @default(cuid())
   domainId    String
-  name        String            // e.g. Finance_Users
-  scope       String?           // Global / Universal / Domain Local
+  name        String // e.g. Finance_Users
+  scope       String? // Global / Universal / Domain Local
   purpose     String?
-  members     String[]          // samAccountNames
+  members     String[] // samAccountNames
   notes       String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -1067,16 +1102,16 @@ model DomainGroup {
 }
 
 model NetworkShare {
-  id            String            @id @default(cuid())
-  clientId      String
-  domainId      String?
-  assetId       String?           // file server / NAS asset
-  name          String            // e.g. Finance
-  uncPath       String            // e.g. \\FS01\Finance
-  shareType     ShareType         @default(SMB)
-  driveLetter   String?           // e.g. "F", "Z" — desired mapped drive letter
-  purpose       String?
-  notes         String?
+  id          String            @id @default(cuid())
+  clientId    String
+  domainId    String?
+  assetId     String? // file server / NAS asset
+  name        String // e.g. Finance
+  uncPath     String // e.g. \\FS01\Finance
+  shareType   ShareType         @default(SMB)
+  driveLetter String? // e.g. "F", "Z" — desired mapped drive letter
+  purpose     String?
+  notes       String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   client      Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -1088,7 +1123,7 @@ model NetworkShare {
 model SharePermission {
   id            String          @id @default(cuid())
   shareId       String
-  principal     String          // e.g. CORP\Finance_Users
+  principal     String // e.g. CORP\Finance_Users
   principalType PrincipalType   @default(GROUP)
   domainGroupId String?
   accessLevel   ShareAccess     @default(READ)
@@ -1125,26 +1160,26 @@ enum PermissionLayer {
 }
 
 model VpnGateway {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   clientId        String
-  assetId         String?       // Windows/Linux box hosting OpenVPN etc.
-  networkDeviceId String?       // SonicWall, Meraki firewall, etc.
-  credentialId    String?       // PSK or admin credential in vault
-  name            String        // e.g. "OpenVPN Server", "SonicWall Global VPN"
+  assetId         String? // Windows/Linux box hosting OpenVPN etc.
+  networkDeviceId String? // SonicWall, Meraki firewall, etc.
+  credentialId    String? // PSK or admin credential in vault
+  name            String // e.g. "OpenVPN Server", "SonicWall Global VPN"
   type            VpnType
-  serverAddress   String?       // IP or hostname clients connect to
+  serverAddress   String? // IP or hostname clients connect to
   port            Int?
-  protocol        String?       // UDP / TCP
-  serverConfig    String?       // server-side config blob (markdown/text)
-  clientConfig    String?       // .ovpn template or profile blob
+  protocol        String? // UDP / TCP
+  serverConfig    String? // server-side config blob (markdown/text)
+  clientConfig    String? // .ovpn template or profile blob
   notes           String?
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  asset           Asset?        @relation("AssetVpnGateway", fields: [assetId], references: [id])
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset           Asset?         @relation("AssetVpnGateway", fields: [assetId], references: [id])
   networkDevice   NetworkDevice? @relation("NetworkDeviceVpnGateway", fields: [networkDeviceId], references: [id])
-  credential      Credential?   @relation("CredentialVpnGateway", fields: [credentialId], references: [id])
+  credential      Credential?    @relation("CredentialVpnGateway", fields: [credentialId], references: [id])
   accessors       VpnAccessor[]
 }
 
@@ -1154,12 +1189,12 @@ model VpnAccessor {
   accessorType   VpnAccessorType
   clientUserId   String?
   vendorId       String?
-  staffUserId    String?         // PCC tech accessing this client
+  staffUserId    String? // PCC tech accessing this client
   contactId      String?
-  thirdPartyName String?         // fallback: "Ricoh copier tech"
-  credentialId   String?         // their VPN credential/cert in vault
+  thirdPartyName String? // fallback: "Ricoh copier tech"
+  credentialId   String? // their VPN credential/cert in vault
   mfaEnabled     Boolean         @default(false)
-  accessScope    String?         // "Full network" / "Backup subnet only"
+  accessScope    String? // "Full network" / "Backup subnet only"
   certExpiry     DateTime?
   isActive       Boolean         @default(true)
   notes          String?
@@ -1198,11 +1233,11 @@ enum VpnAccessorType {
 model PhoneSystem {
   id            String           @id @default(cuid())
   clientId      String
-  assetId       String?          // UCM/PBX box as asset
-  credentialId  String?          // admin credential in vault
-  name          String           // e.g. "Grandstream UCM6304"
+  assetId       String? // UCM/PBX box as asset
+  credentialId  String? // admin credential in vault
+  name          String // e.g. "Grandstream UCM6304"
   type          PhoneSystemType
-  sipDomain     String?          // SIP realm / domain
+  sipDomain     String? // SIP realm / domain
   managementUrl String?
   notes         String?
   isActive      Boolean          @default(true)
@@ -1219,8 +1254,8 @@ model PhoneSystem {
 model SipTrunk {
   id            String      @id @default(cuid())
   systemId      String
-  vendorId      String?     // FK to Vendor (preferred)
-  carrier       String      // fallback name if vendor not in system
+  vendorId      String? // FK to Vendor (preferred)
+  carrier       String // fallback name if vendor not in system
   accountNumber String?
   supportPhone  String?
   notes         String?
@@ -1232,72 +1267,72 @@ model SipTrunk {
 }
 
 model SipDid {
-  id          String         @id @default(cuid())
+  id          String          @id @default(cuid())
   trunkId     String
-  number      String         // e.g. "+13045550100"
-  designation String?        // e.g. "Line 1", "Main", "Fax", "Toll-Free"
-  extensionId String?        // optionally routed to an extension
+  number      String // e.g. "+13045550100"
+  designation String? // e.g. "Line 1", "Main", "Fax", "Toll-Free"
+  extensionId String? // optionally routed to an extension
   notes       String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  trunk       SipTrunk       @relation(fields: [trunkId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  trunk       SipTrunk        @relation(fields: [trunkId], references: [id], onDelete: Cascade)
   extension   PhoneExtension? @relation("ExtensionSipDid", fields: [extensionId], references: [id])
 }
 
 model PotsLine {
-  id            String         @id @default(cuid())
+  id            String       @id @default(cuid())
   systemId      String
-  vendorId      String?        // FK to Vendor (preferred)
-  carrier       String         // fallback carrier name e.g. "AT&T", "Lumen"
+  vendorId      String? // FK to Vendor (preferred)
+  carrier       String // fallback carrier name e.g. "AT&T", "Lumen"
   accountNumber String?
   supportPhone  String?
-  circuitId     String?        // billing / circuit ID from the carrier
+  circuitId     String? // billing / circuit ID from the carrier
   notes         String?
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  system        PhoneSystem    @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  vendor        Vendor?        @relation("VendorPotsLines", fields: [vendorId], references: [id])
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  system        PhoneSystem  @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  vendor        Vendor?      @relation("VendorPotsLines", fields: [vendorId], references: [id])
   numbers       PotsNumber[]
 }
 
 model PotsNumber {
-  id          String         @id @default(cuid())
+  id          String          @id @default(cuid())
   lineId      String
-  number      String         // e.g. "+13045550105"
-  designation String?        // e.g. "Line 1", "Line 2", "Fax"
-  port        String?        // physical port label e.g. "FXO 1", "Port 2"
-  extensionId String?        // optionally routed to an extension
+  number      String // e.g. "+13045550105"
+  designation String? // e.g. "Line 1", "Line 2", "Fax"
+  port        String? // physical port label e.g. "FXO 1", "Port 2"
+  extensionId String? // optionally routed to an extension
   notes       String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  line        PotsLine       @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  line        PotsLine        @relation(fields: [lineId], references: [id], onDelete: Cascade)
   extension   PhoneExtension? @relation("ExtensionPotsNumber", fields: [extensionId], references: [id])
 }
 
 model PhoneExtension {
-  id               String              @id @default(cuid())
+  id               String             @id @default(cuid())
   systemId         String
-  clientUserId     String?             // linked client user
-  assetId          String?             // handset asset
-  credentialId     String?             // SIP credential in vault
-  voicemailCredId  String?             // voicemail PIN credential in vault
-  extension        String              // e.g. "101"
-  displayName      String              // e.g. "Jane Smith" or "Reception"
-  type             PhoneExtensionType  @default(USER)
-  did              String?             // direct inward dial number
-  voicemailEnabled Boolean             @default(false)
+  clientUserId     String? // linked client user
+  assetId          String? // handset asset
+  credentialId     String? // SIP credential in vault
+  voicemailCredId  String? // voicemail PIN credential in vault
+  extension        String // e.g. "101"
+  displayName      String // e.g. "Jane Smith" or "Reception"
+  type             PhoneExtensionType @default(USER)
+  did              String? // direct inward dial number
+  voicemailEnabled Boolean            @default(false)
   notes            String?
-  isActive         Boolean             @default(true)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  system           PhoneSystem         @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  clientUser       ClientUser?         @relation("ClientUserExtension", fields: [clientUserId], references: [id])
-  asset            Asset?              @relation("AssetPhoneExtension", fields: [assetId], references: [id])
-  credential       Credential?         @relation("CredentialPhoneExtension", fields: [credentialId], references: [id])
-  voicemailCred    Credential?         @relation("CredentialVoicemail", fields: [voicemailCredId], references: [id])
-  sipDids          SipDid[]            @relation("ExtensionSipDid")
-  potsNumbers      PotsNumber[]        @relation("ExtensionPotsNumber")
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  system           PhoneSystem        @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  clientUser       ClientUser?        @relation("ClientUserExtension", fields: [clientUserId], references: [id])
+  asset            Asset?             @relation("AssetPhoneExtension", fields: [assetId], references: [id])
+  credential       Credential?        @relation("CredentialPhoneExtension", fields: [credentialId], references: [id])
+  voicemailCred    Credential?        @relation("CredentialVoicemail", fields: [voicemailCredId], references: [id])
+  sipDids          SipDid[]           @relation("ExtensionSipDid")
+  potsNumbers      PotsNumber[]       @relation("ExtensionPotsNumber")
 }
 
 enum PhoneSystemType {
@@ -1326,13 +1361,13 @@ enum PhoneExtensionType {
 model CameraSystem {
   id            String           @id @default(cuid())
   clientId      String
-  assetId       String?          // NVR/DVR as asset
-  credentialId  String?          // admin credential in vault
-  name          String           // e.g. "Unifi Protect NVR", "Front Office DVR"
+  assetId       String? // NVR/DVR as asset
+  credentialId  String? // admin credential in vault
+  name          String // e.g. "Unifi Protect NVR", "Front Office DVR"
   type          CameraSystemType
   managementUrl String?
   retentionDays Int?
-  storageNote   String?          // e.g. "2TB HDD, ~30 days at 1080p"
+  storageNote   String? // e.g. "2TB HDD, ~30 days at 1080p"
   notes         String?
   isActive      Boolean          @default(true)
   createdAt     DateTime         @default(now())
@@ -1346,20 +1381,20 @@ model CameraSystem {
 model Camera {
   id                String       @id @default(cuid())
   systemId          String
-  assetId           String?      // Unifi camera linked as an asset
-  name              String       // e.g. "Front Door", "Parking Lot NE"
+  assetId           String? // Unifi camera linked as an asset
+  name              String // e.g. "Front Door", "Parking Lot NE"
   type              CameraType   @default(IP_POE)
   make              String?
   model             String?
   ipAddress         String?
   macAddress        String?
-  resolution        String?      // e.g. "4MP", "1080p"
-  location          String?      // physical description
-  recordingSchedule String?      // "24_7", "MOTION", "SCHEDULE", "NONE"
-  coverageNotes     String?      // description of what the camera covers
-  photoStorageName  String?      // field-of-view reference photo
-  unifiCameraId     String?      // UniFi Protect camera ID for API snapshot sync
-  photoRefreshedAt  DateTime?    // last time thumbnail was auto-synced from NVR
+  resolution        String? // e.g. "4MP", "1080p"
+  location          String? // physical description
+  recordingSchedule String? // "24_7", "MOTION", "SCHEDULE", "NONE"
+  coverageNotes     String? // description of what the camera covers
+  photoStorageName  String? // field-of-view reference photo
+  unifiCameraId     String? // UniFi Protect camera ID for API snapshot sync
+  photoRefreshedAt  DateTime? // last time thumbnail was auto-synced from NVR
   notes             String?
   isActive          Boolean      @default(true)
   createdAt         DateTime     @default(now())
@@ -1388,46 +1423,46 @@ enum CameraType {
 // ─── Wireless ─────────────────────────────────────────────────────────────────
 
 model WifiController {
-  id              String            @id @default(cuid())
+  id              String             @id @default(cuid())
   clientId        String
-  assetId         String?           // on-prem controller hardware as asset
-  networkDeviceId String?           // controller as a network device record
-  credentialId    String?           // admin credential in vault
-  name            String            // e.g. "Unifi Controller", "Meraki Dashboard"
+  assetId         String? // on-prem controller hardware as asset
+  networkDeviceId String? // controller as a network device record
+  credentialId    String? // admin credential in vault
+  name            String // e.g. "Unifi Controller", "Meraki Dashboard"
   type            WifiControllerType
   managementUrl   String?
   notes           String?
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  asset           Asset?            @relation("AssetWifiController", fields: [assetId], references: [id])
-  networkDevice   NetworkDevice?    @relation("NetworkDeviceWifiController", fields: [networkDeviceId], references: [id])
-  credential      Credential?       @relation("CredentialWifiController", fields: [credentialId], references: [id])
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  client          Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset           Asset?             @relation("AssetWifiController", fields: [assetId], references: [id])
+  networkDevice   NetworkDevice?     @relation("NetworkDeviceWifiController", fields: [networkDeviceId], references: [id])
+  credential      Credential?        @relation("CredentialWifiController", fields: [credentialId], references: [id])
   networks        WifiNetwork[]
 }
 
 model WifiNetwork {
-  id              String          @id @default(cuid())
+  id              String         @id @default(cuid())
   controllerId    String
-  credentialId    String?         // PSK credential in vault
-  subnetId        String?         // optional link to IPAM subnet
+  credentialId    String? // PSK credential in vault
+  subnetId        String? // optional link to IPAM subnet
   ssid            String
-  band            WifiBand        @default(DUAL)
-  security        WifiSecurity    @default(WPA2_PERSONAL)
-  purpose         WifiPurpose     @default(CORPORATE)
-  vlanId          Int?            // VLAN tag (fallback if no subnet linked)
-  vlanName        String?         // e.g. "Corp", "Guest", "IoT"
-  isHidden        Boolean         @default(false)
-  clientIsolation Boolean         @default(false)
-  bandSteering    Boolean         @default(false)
-  isActive        Boolean         @default(true)
+  band            WifiBand       @default(DUAL)
+  security        WifiSecurity   @default(WPA2_PERSONAL)
+  purpose         WifiPurpose    @default(CORPORATE)
+  vlanId          Int? // VLAN tag (fallback if no subnet linked)
+  vlanName        String? // e.g. "Corp", "Guest", "IoT"
+  isHidden        Boolean        @default(false)
+  clientIsolation Boolean        @default(false)
+  bandSteering    Boolean        @default(false)
+  isActive        Boolean        @default(true)
   notes           String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  controller      WifiController  @relation(fields: [controllerId], references: [id], onDelete: Cascade)
-  credential      Credential?     @relation("CredentialWifiNetwork", fields: [credentialId], references: [id])
-  subnet          Subnet?         @relation(fields: [subnetId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  controller      WifiController @relation(fields: [controllerId], references: [id], onDelete: Cascade)
+  credential      Credential?    @relation("CredentialWifiNetwork", fields: [credentialId], references: [id])
+  subnet          Subnet?        @relation(fields: [subnetId], references: [id])
 }
 
 enum WifiControllerType {
@@ -1470,77 +1505,81 @@ enum WifiPurpose {
 // ─── Wireless PTP Bridges ─────────────────────────────────────────────────────
 
 model PtpLink {
-  id             String    @id @default(cuid())
-  clientId       String
-  credentialId   String?   // admin credential in vault
-  name           String    // e.g. "Main Office to Warehouse"
-  make           String?   // Ubiquiti, MikroTik, Cambium, etc.
-  model          String?   // e.g. "airMAX LiteBeam 5AC Gen2"
-  frequencyBand  String?   // e.g. "5.8 GHz", "60 GHz", "24 GHz"
-  channelWidth   String?   // e.g. "40 MHz", "80 MHz"
-  distanceFt     Int?      // link distance in feet
-  managementUrl  String?   // usually the master/AP-side URL
-  notes          String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id            String   @id @default(cuid())
+  clientId      String
+  credentialId  String? // admin credential in vault
+  name          String // e.g. "Main Office to Warehouse"
+  make          String? // Ubiquiti, MikroTik, Cambium, etc.
+  model         String? // e.g. "airMAX LiteBeam 5AC Gen2"
+  frequencyBand String? // e.g. "5.8 GHz", "60 GHz", "24 GHz"
+  channelWidth  String? // e.g. "40 MHz", "80 MHz"
+  distanceFt    Int? // link distance in feet
+  managementUrl String? // usually the master/AP-side URL
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Side A (local / near end)
-  sideAName      String?   // descriptive label e.g. "Main Office Rooftop"
-  sideALocationId String?  // link to a Location record
-  sideAIp        String?
-  sideAMac       String?
-  sideASerial    String?
-  sideASignalDbm Int?      // documented receive signal level in dBm
-  sideATxPower   String?   // e.g. "23 dBm", "Auto"
+  sideAName       String? // descriptive label e.g. "Main Office Rooftop"
+  sideALocationId String? // link to a Location record
+  sideAIp         String?
+  sideAMac        String?
+  sideASerial     String?
+  sideASignalDbm  Int? // documented receive signal level in dBm
+  sideATxPower    String? // e.g. "23 dBm", "Auto"
 
   // Side B (remote / far end)
-  sideBName      String?
+  sideBName       String?
   sideBLocationId String?
-  sideBIp        String?
-  sideBMac       String?
-  sideBSerial    String?
-  sideBSignalDbm Int?
-  sideBTxPower   String?
+  sideBIp         String?
+  sideBMac        String?
+  sideBSerial     String?
+  sideBSignalDbm  Int?
+  sideBTxPower    String?
 
-  client         Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  credential     Credential? @relation("CredentialPtpLink", fields: [credentialId], references: [id])
-  sideALocation  Location?   @relation("PtpSideA", fields: [sideALocationId], references: [id])
-  sideBLocation  Location?   @relation("PtpSideB", fields: [sideBLocationId], references: [id])
+  sideAAssetId  String?
+  sideBAssetId  String?
+  client        Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credential    Credential? @relation("CredentialPtpLink", fields: [credentialId], references: [id])
+  sideAAsset    Asset?      @relation("PtpLinkSideA", fields: [sideAAssetId], references: [id])
+  sideBAsset    Asset?      @relation("PtpLinkSideB", fields: [sideBAssetId], references: [id])
+  sideALocation Location?   @relation("PtpSideA", fields: [sideALocationId], references: [id])
+  sideBLocation Location?   @relation("PtpSideB", fields: [sideBLocationId], references: [id])
 }
 
 // ─── Field History (audit trail) ──────────────────────────────────────────────
 
 model FieldHistory {
-  id          String   @id @default(cuid())
-  entityType  String   // "asset", "networkDevice", "license"
-  entityId    String
-  field       String   // e.g. "ipAddress", "status", "isActive"
-  oldValue    String?
-  newValue    String?
-  changedBy   String?  // staff user name
-  changedAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  entityType String // "asset", "networkDevice", "license"
+  entityId   String
+  field      String // e.g. "ipAddress", "status", "isActive"
+  oldValue   String?
+  newValue   String?
+  changedBy  String? // staff user name
+  changedAt  DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([changedAt])
 }
 
 model PortalUser {
-  id             String              @id @default(cuid())
-  clientId       String
-  name           String
-  email          String              @unique
-  passwordHash   String?
-  isActive       Boolean             @default(true)
-  isPortalOwner  Boolean             @default(false)
-  permissions    Json                @default("{}")
-  lastLoginAt    DateTime?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  client         Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sessions       PortalSession[]
-  credentials    PortalCredential[]
-  vaultSession   PortalVaultSession?
+  id            String              @id @default(cuid())
+  clientId      String
+  name          String
+  email         String              @unique
+  passwordHash  String?
+  isActive      Boolean             @default(true)
+  isPortalOwner Boolean             @default(false)
+  permissions   Json                @default("{}")
+  lastLoginAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessions      PortalSession[]
+  credentials   PortalCredential[]
+  vaultSession  PortalVaultSession?
 }
 
 model PortalSession {
@@ -1599,12 +1638,12 @@ model CustomReport {
 // ─── Network Topology Diagram ──────────────────────────────────────────────────
 
 model NetworkDiagram {
-  id         String   @id @default(cuid())
-  clientId   String   @unique
-  xml        String   @db.Text
-  updatedAt  DateTime @updatedAt
-  updatedBy  String?
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  xml       String   @db.Text
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 // ─── Ephemeral One-Time Notes ─────────────────────────────────────────────────
@@ -1612,23 +1651,23 @@ model NetworkDiagram {
 model EphemeralNote {
   id               String    @id @default(cuid())
   encryptedContent String    @db.Text
-  passphrase       String?   // optional bcrypt hash of passphrase
+  passphrase       String? // optional bcrypt hash of passphrase
   expiresAt        DateTime
   burnedAt         DateTime? // set on first read — note is then deleted async
-  createdBy        String?   // staff user name
+  createdBy        String? // staff user name
   createdAt        DateTime  @default(now())
 }
 
 // ─── Secure Share Links ───────────────────────────────────────────────────────
 
 model SecureShareLink {
-  id               String    @id @default(cuid())
-  resourceType     String    // "credential" | "document"
-  resourceId       String
-  passphrase       String?   // optional bcrypt hash
-  expiresAt        DateTime
-  maxViews         Int       @default(1)
-  viewCount        Int       @default(0)
-  createdBy        String?
-  createdAt        DateTime  @default(now())
+  id           String   @id @default(cuid())
+  resourceType String // "credential" | "document"
+  resourceId   String
+  passphrase   String? // optional bcrypt hash
+  expiresAt    DateTime
+  maxViews     Int      @default(1)
+  viewCount    Int      @default(0)
+  createdBy    String?
+  createdAt    DateTime @default(now())
 }

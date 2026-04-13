@@ -179,6 +179,18 @@ export default function AssetDetailPage() {
   const [editingIface, setEditingIface] = useState<string | null>(null)
   const [ifaceEditForm, setIfaceEditForm] = useState<any>({})
 
+  // Asset links
+  const [assetLinks, setAssetLinks] = useState<any[]>([])
+  const [linkedDocuments, setLinkedDocuments] = useState<any[]>([])
+  const [linkedLicenses, setLinkedLicenses] = useState<any[]>([])
+  const [linkedApplications, setLinkedApplications] = useState<any[]>([])
+  const [showAddLink, setShowAddLink] = useState(false)
+  const [linkForm, setLinkForm] = useState({ linkedAssetId: "", relationType: "RELATED", notes: "" })
+  const [savingLink, setSavingLink] = useState(false)
+  const [assetSearchResults, setAssetSearchResults] = useState<any[]>([])
+  const [assetSearchQuery, setAssetSearchQuery] = useState("")
+  const [loadingAssetSearch, setLoadingAssetSearch] = useState(false)
+
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealingId, setRevealingId] = useState<string | null>(null)
 
@@ -245,6 +257,7 @@ export default function AssetDetailPage() {
         .catch(() => router.back())
         .finally(() => setLoading(false))
       fetchInterfaces()
+      fetchAssetLinks()
     }
   }, [id])
 
@@ -342,6 +355,61 @@ export default function AssetDetailPage() {
     if (!confirm("Remove this interface?")) return
     const res = await fetch(`/api/assets/${id}/interfaces/${ifaceId}`, { method: "DELETE" })
     if (res.ok) setInterfaces(prev => prev.filter(i => i.id !== ifaceId))
+  }
+
+  async function fetchAssetLinks() {
+    try {
+      const res = await fetch(`/api/assets/${id}/links`)
+      if (res.ok) {
+        const data = await res.json()
+        setAssetLinks(data.links || [])
+        setLinkedDocuments(data.documents || [])
+        setLinkedLicenses(data.licenses || [])
+        setLinkedApplications(data.applications || [])
+      }
+    } catch {}
+  }
+
+  async function searchAssets(query: string) {
+    setAssetSearchQuery(query)
+    if (!query.trim() || !asset) return
+    setLoadingAssetSearch(true)
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      if (res.ok) {
+        const data = await res.json()
+        const clientId = asset.location.client.id
+        const filtered = (data.assets || []).filter((a: any) =>
+          a.id !== id && a.location?.client?.id === clientId
+        )
+        setAssetSearchResults(filtered)
+      }
+    } catch {}
+    finally { setLoadingAssetSearch(false) }
+  }
+
+  async function addAssetLink() {
+    if (!linkForm.linkedAssetId || !linkForm.relationType) return
+    setSavingLink(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/links`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(linkForm),
+      })
+      if (res.ok) {
+        await fetchAssetLinks()
+        setLinkForm({ linkedAssetId: "", relationType: "RELATED", notes: "" })
+        setAssetSearchQuery("")
+        setAssetSearchResults([])
+        setShowAddLink(false)
+      }
+    } finally { setSavingLink(false) }
+  }
+
+  async function removeAssetLink(linkId: string) {
+    if (!confirm("Remove this link?")) return
+    const res = await fetch(`/api/assets/${id}/links/${linkId}`, { method: "DELETE" })
+    if (res.ok) setAssetLinks(prev => prev.filter(l => l.id !== linkId))
   }
 
   async function revealPassword(credId: string) {
@@ -999,6 +1067,176 @@ export default function AssetDetailPage() {
                       <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Camera System</div>
                     </div>
                   </a>
+                ))}
+              </div>
+            )}
+
+            {/* Linked Assets */}
+            <div style={card}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div style={cardTitle}>Linked Assets</div>
+                <button onClick={() => setShowAddLink(v => !v)} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                  {showAddLink ? "Cancel" : "+ Link"}
+                </button>
+              </div>
+
+              {showAddLink && (
+                <div style={{ marginBottom: "12px", padding: "10px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
+                  <div style={{ marginBottom: "6px" }}>
+                    <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>Search asset</label>
+                    <input
+                      value={assetSearchQuery}
+                      onChange={e => {
+                        const v = e.target.value
+                        setAssetSearchQuery(v)
+                        if (v.length >= 2) searchAssets(v)
+                        else setAssetSearchResults([])
+                      }}
+                      placeholder="Type to search..."
+                      style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}
+                    />
+                    {assetSearchResults.length > 0 && (
+                      <div style={{ maxHeight: "150px", overflowY: "auto", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "6px", marginTop: "4px", background: "var(--color-background-secondary)" }}>
+                        {assetSearchResults.map((a: any) => (
+                          <div
+                            key={a.id}
+                            onClick={() => {
+                              setLinkForm(f => ({ ...f, linkedAssetId: a.id }))
+                              setAssetSearchQuery(a.friendlyName || a.name)
+                              setAssetSearchResults([])
+                            }}
+                            style={{
+                              padding: "6px 8px", cursor: "pointer", fontSize: "12px",
+                              borderBottom: "0.5px solid var(--color-border-tertiary)",
+                              background: linkForm.linkedAssetId === a.id ? "var(--color-background-hover)" : "transparent",
+                            }}
+                          >
+                            <div style={{ fontWeight: 500 }}>{a.friendlyName || a.name}</div>
+                            {a.make || a.model ? <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{[a.make, a.model].filter(Boolean).join(" ")}</div> : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {loadingAssetSearch && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Searching...</div>}
+                  </div>
+                  <div style={{ marginBottom: "6px" }}>
+                    <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>Relation type</label>
+                    <select
+                      value={linkForm.relationType}
+                      onChange={e => setLinkForm(f => ({ ...f, relationType: e.target.value }))}
+                      style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}
+                    >
+                      <option value="POWERS">Powers</option>
+                      <option value="RECORDS_TO">Records to</option>
+                      <option value="CONNECTS_TO">Connects to</option>
+                      <option value="HOSTS">Hosts</option>
+                      <option value="MONITORS">Monitors</option>
+                      <option value="BACKS_UP">Backs up</option>
+                      <option value="REPLACED_BY">Replaced by</option>
+                      <option value="RELATED">Related</option>
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: "6px" }}>
+                    <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>Notes (optional)</label>
+                    <input
+                      value={linkForm.notes}
+                      onChange={e => setLinkForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder=""
+                      style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}
+                    />
+                  </div>
+                  <button onClick={addAssetLink} disabled={savingLink || !linkForm.linkedAssetId}
+                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    {savingLink ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              )}
+
+              {assetLinks.length === 0 && !showAddLink ? (
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>No linked assets.</div>
+              ) : (
+                assetLinks.map((link: any, i: number) => {
+                  const isFrom = link.assetId === id
+                  const other = isFrom ? link.linkedAsset : link.asset
+                  const relationLabels: Record<string, [string, string]> = {
+                    POWERS: ["Powers", "Powered by"],
+                    RECORDS_TO: ["Records to", "Recorded by"],
+                    CONNECTS_TO: ["Connects to", "Connected from"],
+                    HOSTS: ["Hosts", "Hosted on"],
+                    MONITORS: ["Monitors", "Monitored by"],
+                    BACKS_UP: ["Backs up", "Backed up by"],
+                    REPLACED_BY: ["Replaced by", "Replaces"],
+                    RELATED: ["Related to", "Related to"],
+                  }
+                  const labels = relationLabels[link.relationType] || ["Linked", "Linked"]
+                  const label = isFrom ? labels[0] : labels[1]
+                  const arrow = isFrom ? " \u2192 " : " \u2190 "
+
+                  return (
+                    <div key={link.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < assetLinks.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>{label}</span>
+                            <a href={`/assets/${other.id}`} style={{ fontSize: "13px", color: "var(--color-accent)", textDecoration: "none", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {other.friendlyName || other.name}
+                            </a>
+                          </div>
+                          {other.ipAddress && (
+                            <div style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--color-text-muted)", marginTop: "1px" }}>{other.ipAddress}</div>
+                          )}
+                          {link.notes && (
+                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontStyle: "italic", marginTop: "1px" }}>{link.notes}</div>
+                          )}
+                        </div>
+                        <button onClick={() => removeAssetLink(link.id)}
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: 0, flexShrink: 0 }}>
+                          x
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Documents linked to this asset */}
+            {linkedDocuments.length > 0 && (
+              <div style={card}>
+                <div style={cardTitle}>Documents</div>
+                {linkedDocuments.map((doc: any, i: number) => (
+                  <div key={doc.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedDocuments.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                    <a href={`/clients/${doc.clientId}?tab=Documents`} style={{ fontSize: "13px", color: "var(--color-accent)", textDecoration: "none", fontWeight: 500 }}>
+                      {doc.title}
+                    </a>
+                    {doc.category && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{doc.category}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Licenses linked to this asset */}
+            {linkedLicenses.length > 0 && (
+              <div style={card}>
+                <div style={cardTitle}>Licenses</div>
+                {linkedLicenses.map((lic: any, i: number) => (
+                  <div key={lic.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedLicenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 500 }}>{lic.name}</div>
+                    {lic.vendor && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{lic.vendor}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Applications linked to this asset */}
+            {linkedApplications.length > 0 && (
+              <div style={card}>
+                <div style={cardTitle}>Applications</div>
+                {linkedApplications.map((app: any, i: number) => (
+                  <div key={app.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 500 }}>{app.name}</div>
+                    {app.vendor && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{app.vendor}</div>}
+                  </div>
                 ))}
               </div>
             )}
