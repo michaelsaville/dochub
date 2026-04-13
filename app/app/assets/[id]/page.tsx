@@ -16,10 +16,23 @@ type Credential = {
 type AssetInterface = {
   id: string
   name: string
+  type: string
   macAddress: string | null
   ipAddress: string | null
   isPrimary: boolean
   notes: string | null
+  tailscaleIp: string | null
+  tailscaleHostname: string | null
+  tailscaleDeviceId: string | null
+  tailscaleIsExitNode: boolean
+  tailscaleIsSubnetRouter: boolean
+  tailscaleSubnets: string | null
+  tailscaleTags: string | null
+  tailscaleLastSeen: string | null
+  tailscaleOs: string | null
+  tailscaleVersion: string | null
+  credentialId: string | null
+  credential: { id: string; label: string; username: string | null } | null
   vlan: { id: string; vlanNumber: number; name: string; color: string } | null
   switchPort: {
     id: string
@@ -156,7 +169,12 @@ export default function AssetDetailPage() {
   const [interfaces, setInterfaces] = useState<AssetInterface[]>([])
   const [loadingIfaces, setLoadingIfaces] = useState(false)
   const [showAddIface, setShowAddIface] = useState(false)
-  const [ifaceForm, setIfaceForm] = useState({ name: "eth0", macAddress: "", ipAddress: "", notes: "" })
+  const [ifaceForm, setIfaceForm] = useState({
+    name: "eth0", type: "ETHERNET", macAddress: "", ipAddress: "", notes: "",
+    tailscaleIp: "", tailscaleHostname: "", tailscaleDeviceId: "",
+    tailscaleIsExitNode: false, tailscaleIsSubnetRouter: false,
+    tailscaleSubnets: "", tailscaleTags: "", tailscaleOs: "", tailscaleVersion: "",
+  })
   const [savingIface, setSavingIface] = useState(false)
   const [editingIface, setEditingIface] = useState<string | null>(null)
   const [ifaceEditForm, setIfaceEditForm] = useState<any>({})
@@ -290,7 +308,12 @@ export default function AssetDetailPage() {
       if (res.ok) {
         const iface = await res.json()
         setInterfaces(prev => [...prev, iface])
-        setIfaceForm({ name: "eth0", macAddress: "", ipAddress: "", notes: "" })
+        setIfaceForm({
+          name: "eth0", type: "ETHERNET", macAddress: "", ipAddress: "", notes: "",
+          tailscaleIp: "", tailscaleHostname: "", tailscaleDeviceId: "",
+          tailscaleIsExitNode: false, tailscaleIsSubnetRouter: false,
+          tailscaleSubnets: "", tailscaleTags: "", tailscaleOs: "", tailscaleVersion: "",
+        })
         setShowAddIface(false)
       }
     } finally {
@@ -590,11 +613,22 @@ export default function AssetDetailPage() {
               </div>
               {showAddIface && (
                 <div style={{ marginBottom: "12px", padding: "10px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
+                  <div style={{ marginBottom: "6px" }}>
+                    <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>Type</label>
+                    <select value={ifaceForm.type} onChange={e => {
+                      const t = e.target.value
+                      setIfaceForm(f => ({ ...f, type: t, name: t === "TAILSCALE" ? "Tailscale" : t === "WIFI" ? "Wi-Fi" : t === "VPN" ? "VPN" : "eth0" }))
+                    }} style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="ETHERNET">Ethernet</option>
+                      <option value="TAILSCALE">Tailscale</option>
+                      <option value="WIFI">Wi-Fi</option>
+                      <option value="VPN">VPN</option>
+                    </select>
+                  </div>
                   {[
-                    { key: "name", label: "Name", placeholder: "eth0" },
+                    { key: "name", label: "Name", placeholder: ifaceForm.type === "TAILSCALE" ? "Tailscale" : "eth0" },
                     { key: "ipAddress", label: "IP address", placeholder: "192.168.1.10" },
                     { key: "macAddress", label: "MAC address", placeholder: "aa:bb:cc:dd:ee:ff" },
-                    { key: "notes", label: "Notes", placeholder: "" },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key} style={{ marginBottom: "6px" }}>
                       <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{label}</label>
@@ -602,6 +636,40 @@ export default function AssetDetailPage() {
                         style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                     </div>
                   ))}
+                  {ifaceForm.type === "TAILSCALE" && (
+                    <>
+                      {[
+                        { key: "tailscaleIp", label: "Tailscale IP", placeholder: "100.x.x.x" },
+                        { key: "tailscaleHostname", label: "Tailscale hostname", placeholder: "server-01" },
+                        { key: "tailscaleDeviceId", label: "Device ID", placeholder: "nXXXXXXXXXXXCNTRL" },
+                        { key: "tailscaleOs", label: "OS", placeholder: "Linux, Windows, macOS..." },
+                        { key: "tailscaleVersion", label: "Client version", placeholder: "1.72.1" },
+                        { key: "tailscaleSubnets", label: "Advertised subnets", placeholder: "192.168.1.0/24, 10.0.0.0/8" },
+                        { key: "tailscaleTags", label: "ACL tags", placeholder: "tag:server, tag:prod" },
+                      ].map(({ key, label, placeholder }) => (
+                        <div key={key} style={{ marginBottom: "6px" }}>
+                          <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{label}</label>
+                          <input value={(ifaceForm as any)[key]} onChange={e => setIfaceForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                            style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", gap: "12px", marginBottom: "6px" }}>
+                        <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={ifaceForm.tailscaleIsExitNode} onChange={e => setIfaceForm(f => ({ ...f, tailscaleIsExitNode: e.target.checked }))} />
+                          Exit node
+                        </label>
+                        <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={ifaceForm.tailscaleIsSubnetRouter} onChange={e => setIfaceForm(f => ({ ...f, tailscaleIsSubnetRouter: e.target.checked }))} />
+                          Subnet router
+                        </label>
+                      </div>
+                    </>
+                  )}
+                  <div style={{ marginBottom: "6px" }}>
+                    <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>Notes</label>
+                    <input value={ifaceForm.notes} onChange={e => setIfaceForm(f => ({ ...f, notes: e.target.value }))} placeholder=""
+                      style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
                   <button onClick={addInterface} disabled={savingIface || !ifaceForm.name.trim()}
                     style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                     {savingIface ? "Saving..." : "Save"}
@@ -640,9 +708,10 @@ export default function AssetDetailPage() {
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "13px", fontWeight: 500 }}>{iface.name}</span>
                         {iface.isPrimary && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>primary</span>}
+                        {iface.type !== "ETHERNET" && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: iface.type === "TAILSCALE" ? "rgba(74,144,226,0.15)" : "var(--color-background-hover)", color: iface.type === "TAILSCALE" ? "#4A90E2" : "var(--color-text-muted)" }}>{iface.type.toLowerCase()}</span>}
                       </div>
                       <div style={{ display: "flex", gap: "6px" }}>
-                        <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", notes: iface.notes ?? "" }) }}
+                        <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", notes: iface.notes ?? "", tailscaleIp: iface.tailscaleIp ?? "", tailscaleHostname: iface.tailscaleHostname ?? "", tailscaleDeviceId: iface.tailscaleDeviceId ?? "", tailscaleIsExitNode: iface.tailscaleIsExitNode, tailscaleIsSubnetRouter: iface.tailscaleIsSubnetRouter, tailscaleSubnets: iface.tailscaleSubnets ?? "", tailscaleTags: iface.tailscaleTags ?? "", tailscaleOs: iface.tailscaleOs ?? "", tailscaleVersion: iface.tailscaleVersion ?? "" }) }}
                           style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }}>Edit</button>
                         <button onClick={() => deleteInterface(iface.id)}
                           style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: 0 }}>×</button>
@@ -651,8 +720,28 @@ export default function AssetDetailPage() {
                     {iface.ipAddress && (
                       <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{iface.ipAddress}</div>
                     )}
+                    {iface.type === "TAILSCALE" && iface.tailscaleIp && (
+                      <div style={{ fontSize: "12px", fontFamily: "monospace", color: "#4A90E2" }}>{iface.tailscaleIp}{iface.tailscaleHostname ? ` (${iface.tailscaleHostname})` : ""}</div>
+                    )}
                     {iface.macAddress && (
                       <div style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>{iface.macAddress}</div>
+                    )}
+                    {iface.type === "TAILSCALE" && (
+                      <div style={{ marginTop: "3px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                        {iface.tailscaleIsExitNode && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(52,199,89,0.15)", color: "#34C759" }}>exit node</span>}
+                        {iface.tailscaleIsSubnetRouter && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(255,159,10,0.15)", color: "#FF9F0A" }}>subnet router</span>}
+                        {iface.tailscaleOs && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{iface.tailscaleOs}</span>}
+                        {iface.tailscaleVersion && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>v{iface.tailscaleVersion}</span>}
+                      </div>
+                    )}
+                    {iface.type === "TAILSCALE" && iface.tailscaleSubnets && (
+                      <div style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--color-text-muted)", marginTop: "2px" }}>Subnets: {iface.tailscaleSubnets}</div>
+                    )}
+                    {iface.type === "TAILSCALE" && iface.tailscaleTags && (
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Tags: {iface.tailscaleTags}</div>
+                    )}
+                    {iface.credential && (
+                      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Login: {iface.credential.label}{iface.credential.username ? ` (${iface.credential.username})` : ""}</div>
                     )}
                     {iface.vlan && (
                       <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "3px" }}>

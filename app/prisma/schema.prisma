@@ -374,6 +374,7 @@ model Credential {
   wifiNetworks         WifiNetwork[]    @relation("CredentialWifiNetwork")
   ptpLinks             PtpLink[]        @relation("CredentialPtpLink")
   adDomains            AdDomain[]       @relation("CredentialAdDomain")
+  assetInterfaces      AssetInterface[]
 }
 
 model License {
@@ -842,18 +843,34 @@ model SwitchPort {
 model AssetInterface {
   id           String      @id @default(cuid())
   assetId      String
-  name         String      // e.g. "eth0", "NIC 1", "Management", "iDRAC"
+  name         String      // e.g. "eth0", "NIC 1", "Management", "iDRAC", "Tailscale"
+  type         String      @default("ETHERNET") // ETHERNET | TAILSCALE | WIFI | VPN
   macAddress   String?
   ipAddress    String?
   vlanId       String?
   switchPortId String?
   isPrimary    Boolean     @default(false)
   notes        String?
+
+  // Tailscale-specific fields
+  tailscaleIp        String?  // 100.x.x.x Tailscale IP
+  tailscaleHostname  String?  // machine hostname in Tailscale admin
+  tailscaleDeviceId  String?  // Tailscale device/node ID
+  tailscaleIsExitNode    Boolean @default(false)
+  tailscaleIsSubnetRouter Boolean @default(false)
+  tailscaleSubnets   String?  // comma-separated advertised subnets e.g. "192.168.1.0/24,10.0.0.0/8"
+  tailscaleTags      String?  // comma-separated ACL tags e.g. "tag:server,tag:prod"
+  tailscaleLastSeen  DateTime?
+  tailscaleOs        String?  // OS reported by Tailscale agent
+  tailscaleVersion   String?  // Tailscale client version
+  credentialId       String?  // linked Tailscale admin login credential
+
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   asset        Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
   vlan         Vlan?       @relation(fields: [vlanId], references: [id])
   switchPort   SwitchPort? @relation(fields: [switchPortId], references: [id])
+  credential   Credential? @relation(fields: [credentialId], references: [id])
 }
 
 model Rack {

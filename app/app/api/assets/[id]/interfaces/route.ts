@@ -12,6 +12,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       include: {
         vlan: true,
         switchPort: { include: { networkDevice: { select: { id: true, name: true } } } },
+        credential: { select: { id: true, label: true, username: true } },
       },
       orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
     })
@@ -27,7 +28,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, macAddress, ipAddress, vlanId, switchPortId, isPrimary, notes } = body
+    const {
+      name, type, macAddress, ipAddress, vlanId, switchPortId, isPrimary, notes,
+      tailscaleIp, tailscaleHostname, tailscaleDeviceId,
+      tailscaleIsExitNode, tailscaleIsSubnetRouter, tailscaleSubnets,
+      tailscaleTags, tailscaleOs, tailscaleVersion, credentialId,
+    } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Interface name is required" }, { status: 400 })
     }
@@ -35,16 +41,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       data: {
         assetId: id,
         name: name.trim(),
+        type: type || "ETHERNET",
         macAddress: macAddress?.trim() || null,
         ipAddress: ipAddress?.trim() || null,
         vlanId: vlanId || null,
         switchPortId: switchPortId || null,
         isPrimary: isPrimary ?? false,
         notes: notes?.trim() || null,
+        tailscaleIp: tailscaleIp?.trim() || null,
+        tailscaleHostname: tailscaleHostname?.trim() || null,
+        tailscaleDeviceId: tailscaleDeviceId?.trim() || null,
+        tailscaleIsExitNode: tailscaleIsExitNode ?? false,
+        tailscaleIsSubnetRouter: tailscaleIsSubnetRouter ?? false,
+        tailscaleSubnets: tailscaleSubnets?.trim() || null,
+        tailscaleTags: tailscaleTags?.trim() || null,
+        tailscaleOs: tailscaleOs?.trim() || null,
+        tailscaleVersion: tailscaleVersion?.trim() || null,
+        credentialId: credentialId || null,
       },
       include: {
         vlan: true,
         switchPort: { include: { networkDevice: { select: { id: true, name: true } } } },
+        credential: { select: { id: true, label: true, username: true } },
       },
     })
     return NextResponse.json(iface, { status: 201 })
