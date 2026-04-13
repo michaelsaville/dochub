@@ -9,14 +9,14 @@ async function requirePortalAuth() {
 
   const session = await prisma.portalSession.findUnique({
     where: { token },
-    include: { user: true },
+    include: { portalUser: true },
   })
 
-  if (!session || session.expiresAt < new Date() || !session.user.isActive) {
+  if (!session || session.expiresAt < new Date() || !session.portalUser.isActive) {
     return { user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
   }
 
-  return { user: session.user, error: null }
+  return { user: session.portalUser, error: null }
 }
 
 export async function GET() {
