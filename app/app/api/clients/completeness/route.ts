@@ -10,6 +10,7 @@ export async function GET() {
     where: { isActive: true },
     select: {
       id: true,
+      networkDiagram: { select: { id: true } },
       _count: {
         select: {
           contacts: true,
@@ -18,7 +19,6 @@ export async function GET() {
           documents: true,
           networkDevices: true,
           websites: true,
-          networkDiagrams: true,
           runbooks: true,
           vlans: true,
         },
@@ -49,7 +49,7 @@ export async function GET() {
       c._count.credentials > 0,
       c._count.documents > 0,
       c._count.websites > 0,
-      c._count.networkDiagrams > 0,
+      !!c.networkDiagram,
       c._count.runbooks > 0,
       c._count.vlans > 0,
       c._count.networkDevices > 0,
