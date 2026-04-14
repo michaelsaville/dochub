@@ -45,7 +45,7 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
   const [subnetEditForm, setSubnetEditForm] = useState<any>({})
 
   const [addingIpTo, setAddingIpTo] = useState<string | null>(null)
-  const [ipForm, setIpForm] = useState({ ipAddress: "", hostname: "", assetId: "", userId: "", notes: "" })
+  const [ipForm, setIpForm] = useState({ ipAddress: "", hostname: "", assetId: "", personId: "", notes: "" })
   const [savingIp, setSavingIp] = useState(false)
   const [editingIp, setEditingIp] = useState<string | null>(null)
   const [ipEditForm, setIpEditForm] = useState<any>({})
@@ -106,7 +106,7 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
       if (res.ok) {
         const created = await res.json()
         onSubnetsChange(subnets.map(s => s.id === subnetId ? { ...s, ipAssignments: [...s.ipAssignments, created] } : s))
-        setIpForm({ ipAddress: "", hostname: "", assetId: "", userId: "", notes: "" })
+        setIpForm({ ipAddress: "", hostname: "", assetId: "", personId: "", notes: "" })
         setAddingIpTo(null)
       } else {
         const err = await res.json()
@@ -295,14 +295,14 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                             </div>
                             <div>
                               <label style={label}>Asset</label>
-                              <select value={ipEditForm.assetId ?? ""} onChange={e => setIpEditForm((f: any) => ({ ...f, assetId: e.target.value, userId: "" }))} style={input}>
+                              <select value={ipEditForm.assetId ?? ""} onChange={e => setIpEditForm((f: any) => ({ ...f, assetId: e.target.value, personId: "" }))} style={input}>
                                 <option value="">None</option>
                                 {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                               </select>
                             </div>
                             <div>
                               <label style={label}>User</label>
-                              <select value={ipEditForm.userId ?? ""} onChange={e => setIpEditForm((f: any) => ({ ...f, userId: e.target.value, assetId: "" }))} style={input}>
+                              <select value={ipEditForm.personId ?? ""} onChange={e => setIpEditForm((f: any) => ({ ...f, personId: e.target.value, assetId: "" }))} style={input}>
                                 <option value="">None</option>
                                 {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
@@ -322,10 +322,10 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                           <div style={{ fontFamily: "monospace", fontSize: "13px", color: "var(--color-text-primary)" }}>{ip.ipAddress}</div>
                           <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{ip.hostname ?? "—"}</div>
                           <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                            {ip.asset ? ip.asset.name : ip.user ? ip.user.name : "—"}
+                            {ip.asset ? ip.asset.name : ip.person ? ip.person.name : "—"}
                           </div>
                           <div style={{ display: "flex", gap: "8px" }}>
-                            <button onClick={() => { setEditingIp(ip.id); setIpEditForm({ ipAddress: ip.ipAddress, hostname: ip.hostname ?? "", assetId: ip.asset?.id ?? "", userId: ip.user?.id ?? "", notes: ip.notes ?? "" }) }}
+                            <button onClick={() => { setEditingIp(ip.id); setIpEditForm({ ipAddress: ip.ipAddress, hostname: ip.hostname ?? "", assetId: ip.asset?.id ?? "", personId: ip.person?.id ?? "", notes: ip.notes ?? "" }) }}
                               style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                             <button onClick={() => deleteIp(subnet.id, ip.id)}
                               style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
@@ -349,14 +349,14 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                         </div>
                         <div>
                           <label style={label}>Asset</label>
-                          <select value={ipForm.assetId} onChange={e => setIpForm(f => ({ ...f, assetId: e.target.value, userId: "" }))} style={input}>
+                          <select value={ipForm.assetId} onChange={e => setIpForm(f => ({ ...f, assetId: e.target.value, personId: "" }))} style={input}>
                             <option value="">None</option>
                             {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                           </select>
                         </div>
                         <div>
                           <label style={label}>User</label>
-                          <select value={ipForm.userId} onChange={e => setIpForm(f => ({ ...f, userId: e.target.value, assetId: "" }))} style={input}>
+                          <select value={ipForm.personId} onChange={e => setIpForm(f => ({ ...f, personId: e.target.value, assetId: "" }))} style={input}>
                             <option value="">None</option>
                             {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
@@ -375,7 +375,7 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                     </div>
                   ) : (
                     <div style={{ padding: "10px 16px" }}>
-                      <button onClick={() => { setAddingIpTo(subnet.id); setIpForm({ ipAddress: "", hostname: "", assetId: "", userId: "", notes: "" }) }}
+                      <button onClick={() => { setAddingIpTo(subnet.id); setIpForm({ ipAddress: "", hostname: "", assetId: "", personId: "", notes: "" }) }}
                         style={{ fontSize: "13px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                         + Add IP assignment
                       </button>

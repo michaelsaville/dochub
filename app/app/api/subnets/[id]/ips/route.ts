@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { ipAddress, hostname, assetId, userId, notes } = body
+    const { ipAddress, hostname, assetId, personId, notes } = body
     if (!ipAddress?.trim()) return NextResponse.json({ error: "IP address is required" }, { status: 400 })
     const ip = await prisma.ipAssignment.create({
       data: {
@@ -19,12 +19,12 @@ export async function POST(
         ipAddress: ipAddress.trim(),
         hostname: hostname?.trim() || null,
         assetId: assetId || null,
-        userId: userId || null,
+        personId: personId || null,
         notes: notes?.trim() || null,
       },
       include: {
         asset: { select: { id: true, name: true, category: true } },
-        user: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true } },
       },
     })
     return NextResponse.json(ip, { status: 201 })

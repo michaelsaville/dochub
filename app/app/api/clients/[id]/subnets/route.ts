@@ -17,7 +17,7 @@ export async function GET(
         ipAssignments: {
           include: {
             asset: { select: { id: true, name: true, category: true } },
-            user: { select: { id: true, name: true } },
+            person: { select: { id: true, name: true } },
           },
           orderBy: { ipAddress: "asc" },
         },

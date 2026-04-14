@@ -11,19 +11,19 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { ipAddress, hostname, assetId, userId, notes } = body
+    const { ipAddress, hostname, assetId, personId, notes } = body
     const ip = await prisma.ipAssignment.update({
       where: { id },
       data: {
         ipAddress: ipAddress?.trim(),
         hostname: hostname?.trim() ?? null,
         assetId: assetId ?? null,
-        userId: userId ?? null,
+        personId: personId ?? null,
         notes: notes?.trim() ?? null,
       },
       include: {
         asset: { select: { id: true, name: true, category: true } },
-        user: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true } },
       },
     })
     return NextResponse.json(ip)
