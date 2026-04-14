@@ -11,7 +11,7 @@ type Client = {
   isActive: boolean
   assetCount: number
   lastSyncedAt: string | null
-  _count: { locations: number; users: number; alarms: number }
+  _count: { locations: number; people: number; alarms: number }
 }
 
 function relativeTime(iso: string | null): string {
