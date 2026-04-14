@@ -17,24 +17,23 @@ import NetworkDiagramPanel from "@/components/NetworkDiagramPanel"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
-type ClientUser = {
+type Person = {
   id: string
   name: string
   email: string | null
   phone: string | null
+  mobile: string | null
   m365Upn: string | null
   jobTitle: string | null
+  role: string | null
+  isPrimary: boolean
+  isBilling: boolean
+  isEscalation: boolean
   isActive: boolean
+  notes: string | null
 }
 
-type UserSummary = {
-  assets: { id: string; name: string; status: string; make: string | null; model: string | null; assetType: { name: string } | null }[]
-  credentials: { id: string; label: string; username: string | null; url: string | null }[]
-  licenses: { id: string; name: string; vendor: string | null }[]
-  applications: { id: string; name: string; vendor: string | null }[]
-}
-
-type ContactSummary = {
+type PersonSummary = {
   assets: { id: string; name: string; status: string; make: string | null; model: string | null; assetType: { name: string } | null }[]
   credentials: { id: string; label: string; username: string | null; url: string | null }[]
   licenses: { id: string; name: string; vendor: string | null }[]
@@ -50,8 +49,7 @@ type Client = {
   syncroId: string | null
   createdAt: string
   locations: { id: string; name: string; address: string | null; city: string | null; state: string | null }[]
-  users: ClientUser[]
-  contacts: { id: string; name: string; role: string | null; email: string | null; phone: string | null; mobile: string | null; notes: string | null; isPrimary: boolean; isBilling: boolean; isEscalation: boolean }[]
+  people: Person[]
 }
 
 type Asset = {
@@ -61,10 +59,8 @@ type Asset = {
   category: string
   assetTypeId: string | null
   assetType: { id: string; name: string; template: AssetTypeTemplate | null } | null
-  primaryUserId: string | null
-  primaryUser: { id: string; name: string } | null
-  contactId: string | null
-  contact: { id: string; name: string } | null
+  personId: string | null
+  person: { id: string; name: string } | null
   make: string | null
   model: string | null
   serial: string | null
@@ -102,7 +98,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "Users", "Assets", "Contacts", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
+const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -176,8 +172,7 @@ const ASSET_FIELD_META: Record<string, { label: string; placeholder?: string; ty
   rdpEnabled:      { label: "RDP Enabled",        type: "checkbox" },
   vncEnabled:      { label: "VNC Enabled",        type: "checkbox" },
   notes:           { label: "Notes",              type: "textarea" },
-  primaryUserId:   { label: "Primary User",       type: "user-select" },
-  contactId:       { label: "Contact",            type: "contact-select" },
+  personId:        { label: "Person",              type: "person-select" },
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
@@ -268,7 +263,7 @@ export default function ClientDetailPage() {
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
-  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", totp: "", secureNotes: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
+  const [credForm, setCredForm] = useState({ label: "", username: "", password: "", totp: "", secureNotes: "", url: "", notes: "", userId: "", expiryDate: "" })
   const [savingCred, setSavingCred] = useState(false)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
   const [revealedTotps, setRevealedTotps] = useState<Record<string, { seed: string; code: string }>>({})
@@ -287,7 +282,7 @@ export default function ClientDetailPage() {
   const [licenses, setLicenses] = useState<any[]>([])
   const [loadingLicenses, setLoadingLicenses] = useState(false)
   const [showAddLicense, setShowAddLicense] = useState(false)
-  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
+  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", personId: "" })
   const [savingLicense, setSavingLicense] = useState(false)
   const [editingLicense, setEditingLicense] = useState<string | null>(null)
   const [licenseEditForm, setLicenseEditForm] = useState<any>({})
@@ -300,7 +295,7 @@ export default function ClientDetailPage() {
   const [applications, setApplications] = useState<any[]>([])
   const [loadingApps, setLoadingApps] = useState(false)
   const [showAddApp, setShowAddApp] = useState(false)
-  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "", contactId: "", vendorId: "" })
+  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", personId: "", vendorId: "" })
   const [savingApp, setSavingApp] = useState(false)
   const [editingApp, setEditingApp] = useState<string | null>(null)
   const [appEditForm, setAppEditForm] = useState<any>({})
@@ -314,31 +309,25 @@ export default function ClientDetailPage() {
   const [savingVendor, setSavingVendor] = useState(false)
   const [activityEvents, setActivityEvents] = useState<any[]>([])
   const [loadingActivity, setLoadingActivity] = useState(false)
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  const [userSummary, setUserSummary] = useState<UserSummary | null>(null)
-  const [loadingSummary, setLoadingSummary] = useState(false)
-  const [showAddUser, setShowAddUser] = useState(false)
-  const [savingUser, setSavingUser] = useState(false)
-  const [addUserForm, setAddUserForm] = useState({ name: "", email: "", phone: "", jobTitle: "", m365Upn: "" })
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+  const [personSummary, setPersonSummary] = useState<PersonSummary | null>(null)
+  const [loadingPersonSummary, setLoadingPersonSummary] = useState(false)
+  const [showAddPerson, setShowAddPerson] = useState(false)
+  const [savingPerson, setSavingPerson] = useState(false)
+  const [personForm, setPersonForm] = useState({ name: "", email: "", phone: "", mobile: "", jobTitle: "", m365Upn: "", role: "", notes: "", isPrimary: false, isBilling: false, isEscalation: false })
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
   const [assetSearch, setAssetSearch] = useState("")
   const [assetStatusFilter, setAssetStatusFilter] = useState("ALL")
   const [assetTypeFilter, setAssetTypeFilter] = useState("ALL")
   const [showAddAsset, setShowAddAsset] = useState(false)
-  const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", primaryUserId: "", contactId: "", notes: "", customFields: {} })
+  const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", personId: "", notes: "", customFields: {} })
   const [savingAsset, setSavingAsset] = useState(false)
   const [editingAsset, setEditingAsset] = useState<string | null>(null)
   const [assetEditForm, setAssetEditForm] = useState<any>({})
   const [savingAssetEdit, setSavingAssetEdit] = useState(false)
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
-  const [contactSummary, setContactSummary] = useState<ContactSummary | null>(null)
-  const [loadingContactSummary, setLoadingContactSummary] = useState(false)
-  const [showAddContact, setShowAddContact] = useState(false)
-  const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "", mobile: "", notes: "", isPrimary: false, isBilling: false, isEscalation: false })
-  const [savingNewContact, setSavingNewContact] = useState(false)
-  const [editingContactId, setEditingContactId] = useState<string | null>(null)
-  const [contactEditForm, setContactEditForm] = useState<any>({})
-  const [savingContact, setSavingContact] = useState(false)
+  const [editingPersonId, setEditingPersonId] = useState<string | null>(null)
+  const [personEditForm, setPersonEditForm] = useState<any>({})
+  const [savingPersonEdit, setSavingPersonEdit] = useState(false)
   const [websites, setWebsites] = useState<any[]>([])
   const [loadingWebsites, setLoadingWebsites] = useState(false)
   const [showAddWebsite, setShowAddWebsite] = useState(false)
@@ -693,7 +682,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newCred = await res.json()
         setCredentials(c => [...c, newCred])
-        setCredForm({ label: "", username: "", password: "", totp: "", secureNotes: "", url: "", notes: "", userId: "", contactId: "", expiryDate: "" })
+        setCredForm({ label: "", username: "", password: "", totp: "", secureNotes: "", url: "", notes: "", userId: "", expiryDate: "" })
         setShowAddCred(false)
       }
     } catch {}
@@ -781,7 +770,7 @@ export default function ClientDetailPage() {
       const res = await fetch(`/api/clients/${id}/licenses/${licenseId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignedUserId: userId || null }),
+        body: JSON.stringify({ personId: userId || null }),
       })
       if (res.ok) {
         const updated = await res.json()
@@ -1100,7 +1089,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newLicense = await res.json()
         setLicenses(l => [...l, newLicense])
-        setLicenseForm({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", assignedUserId: "", contactId: "" })
+        setLicenseForm({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", personId: "" })
         setShowAddLicense(false)
       }
     } catch {}
@@ -1151,7 +1140,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newApp = await res.json()
         setApplications(a => [...a, newApp])
-        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", assignedUserId: "", contactId: "", vendorId: "" })
+        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", personId: "", vendorId: "" })
         setShowAddApp(false)
       }
     } catch {}
@@ -1213,35 +1202,35 @@ export default function ClientDetailPage() {
     finally { setLoadingAssets(false) }
   }
 
-  async function selectUser(userId: string) {
-    if (selectedUserId === userId) { setSelectedUserId(null); setUserSummary(null); return }
-    setSelectedUserId(userId)
-    setUserSummary(null)
-    setLoadingSummary(true)
+  async function selectPerson(personId: string) {
+    if (selectedPersonId === personId) { setSelectedPersonId(null); setPersonSummary(null); return }
+    setSelectedPersonId(personId)
+    setPersonSummary(null)
+    setLoadingPersonSummary(true)
     try {
-      const res = await fetch(`/api/clients/${id}/users/${userId}/summary`)
-      setUserSummary(await res.json())
+      const res = await fetch(`/api/clients/${id}/users/${personId}/summary`)
+      setPersonSummary(await res.json())
     } catch {}
-    finally { setLoadingSummary(false) }
+    finally { setLoadingPersonSummary(false) }
   }
 
-  async function createUser() {
-    if (!addUserForm.name.trim()) return
-    setSavingUser(true)
+  async function createPerson() {
+    if (!personForm.name.trim()) return
+    setSavingPerson(true)
     try {
       const res = await fetch(`/api/clients/${id}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(addUserForm),
+        body: JSON.stringify(personForm),
       })
       if (res.ok) {
-        const newUser = await res.json()
-        setClient((c: any) => c ? { ...c, users: [...c.users, { id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone, m365Upn: newUser.m365Upn, jobTitle: newUser.jobTitle, isActive: true }] } : c)
-        setAddUserForm({ name: "", email: "", phone: "", jobTitle: "", m365Upn: "" })
-        setShowAddUser(false)
+        const newPerson = await res.json()
+        setClient((c: any) => c ? { ...c, people: [...c.people, newPerson] } : c)
+        setPersonForm({ name: "", email: "", phone: "", mobile: "", jobTitle: "", m365Upn: "", role: "", notes: "", isPrimary: false, isBilling: false, isEscalation: false })
+        setShowAddPerson(false)
       }
     } catch {}
-    finally { setSavingUser(false) }
+    finally { setSavingPerson(false) }
   }
 
   async function fetchAssetTypes() {
@@ -1264,7 +1253,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newAsset = await res.json()
         setAssets(a => [...a, newAsset])
-        setAssetForm({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", primaryUserId: "", contactId: "", notes: "" })
+        setAssetForm({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", personId: "", notes: "" })
         setShowAddAsset(false)
       }
     } catch {}
@@ -1288,52 +1277,21 @@ export default function ClientDetailPage() {
     finally { setSavingAssetEdit(false) }
   }
 
-  async function selectContact(contactId: string) {
-    if (selectedContactId === contactId) { setSelectedContactId(null); setContactSummary(null); return }
-    setSelectedContactId(contactId)
-    setContactSummary(null)
-    setLoadingContactSummary(true)
+  async function updatePerson(personId: string) {
+    setSavingPersonEdit(true)
     try {
-      const res = await fetch(`/api/clients/${id}/contacts/${contactId}/summary`)
-      setContactSummary(await res.json())
-    } catch {}
-    finally { setLoadingContactSummary(false) }
-  }
-
-  async function createContact() {
-    if (!contactForm.name.trim()) return
-    setSavingNewContact(true)
-    try {
-      const res = await fetch(`/api/clients/${id}/contacts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(contactForm),
-      })
-      if (res.ok) {
-        const newContact = await res.json()
-        setClient(c => c ? { ...c, contacts: [...c.contacts, newContact] } : c)
-        setContactForm({ name: "", role: "", email: "", phone: "", mobile: "", notes: "", isPrimary: false, isBilling: false, isEscalation: false })
-        setShowAddContact(false)
-      }
-    } catch {}
-    finally { setSavingNewContact(false) }
-  }
-
-  async function updateContact(contactId: string) {
-    setSavingContact(true)
-    try {
-      const res = await fetch(`/api/clients/${id}/contacts/${contactId}`, {
+      const res = await fetch(`/api/clients/${id}/users/${personId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(contactEditForm),
+        body: JSON.stringify(personEditForm),
       })
       if (res.ok) {
         const updated = await res.json()
-        setClient(c => c ? { ...c, contacts: c.contacts.map(x => x.id === contactId ? { ...x, ...updated } : x) } : c)
-        setEditingContactId(null)
+        setClient(c => c ? { ...c, people: c.people.map(x => x.id === personId ? { ...x, ...updated } : x) } : c)
+        setEditingPersonId(null)
       }
     } catch {}
-    finally { setSavingContact(false) }
+    finally { setSavingPersonEdit(false) }
   }
 
   // Group assets by type (custom AssetType takes precedence over legacy category enum)
@@ -1499,7 +1457,7 @@ export default function ClientDetailPage() {
                   { label: "Syncro ID", value: client.syncroId ?? "Not linked" },
                   { label: "Status", value: client.isActive ? "Active" : "Inactive" },
                   { label: "Locations", value: String(client.locations.length) },
-                  { label: "Users", value: String(client.users.length) },
+                  { label: "People", value: String(client.people.length) },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
                     <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{label}</span>
@@ -1718,102 +1676,156 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {activeTab === "Users" && (
+        {activeTab === "People" && (
           <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
-            {/* User list */}
-            <div style={{ width: "240px", flexShrink: 0 }}>
+            {/* People list */}
+            <div style={{ width: "260px", flexShrink: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                 <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                  Users ({client.users.length})
+                  People ({client.people.length})
                 </div>
                 <button
-                  onClick={() => setShowAddUser(v => !v)}
+                  onClick={() => setShowAddPerson(v => !v)}
                   style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}
                 >
-                  {showAddUser ? "Cancel" : "+ Add"}
+                  {showAddPerson ? "Cancel" : "+ Add"}
                 </button>
               </div>
 
-              {showAddUser && (
+              {showAddPerson && (
                 <div style={{ marginBottom: "12px", padding: "10px", background: "var(--color-background-primary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
                   {[
                     { key: "name", label: "Name *", placeholder: "John Smith" },
                     { key: "email", label: "Email", placeholder: "john@company.com" },
                     { key: "phone", label: "Phone", placeholder: "(555) 123-4567" },
+                    { key: "mobile", label: "Mobile", placeholder: "(555) 987-6543" },
                     { key: "jobTitle", label: "Job Title", placeholder: "Office Manager" },
+                    { key: "role", label: "Role", placeholder: "e.g. IT Manager" },
                     { key: "m365Upn", label: "M365 UPN", placeholder: "john@company.com" },
+                    { key: "notes", label: "Notes", placeholder: "" },
                   ].map(f => (
                     <div key={f.key} style={{ marginBottom: "6px" }}>
                       <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{f.label}</label>
                       <input
-                        value={(addUserForm as any)[f.key]}
-                        onChange={e => setAddUserForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        value={(personForm as any)[f.key]}
+                        onChange={e => setPersonForm(prev => ({ ...prev, [f.key]: e.target.value }))}
                         placeholder={f.placeholder}
                         style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}
                       />
                     </div>
                   ))}
+                  <div style={{ display: "flex", gap: "12px", marginBottom: "8px", marginTop: "4px" }}>
+                    {[["isPrimary", "Primary"], ["isBilling", "Billing"], ["isEscalation", "Escalation"]].map(([key, label]) => (
+                      <label key={key} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", cursor: "pointer" }}>
+                        <input type="checkbox" checked={(personForm as any)[key]} onChange={e => setPersonForm(f => ({ ...f, [key]: e.target.checked }))} />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
                   <button
-                    onClick={createUser}
-                    disabled={savingUser || !addUserForm.name.trim()}
-                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingUser || !addUserForm.name.trim() ? 0.5 : 1 }}
+                    onClick={createPerson}
+                    disabled={savingPerson || !personForm.name.trim()}
+                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingPerson || !personForm.name.trim() ? 0.5 : 1 }}
                   >
-                    {savingUser ? "Saving..." : "Save"}
+                    {savingPerson ? "Saving..." : "Save"}
                   </button>
                   <span style={{ fontSize: "10px", color: "var(--color-text-muted)", marginLeft: "8px" }}>Also syncs to TicketHub</span>
                 </div>
               )}
 
-              {client.users.length === 0 && !showAddUser ? (
-                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No users yet. Click + Add to create one.</div>
-              ) : client.users.map((user) => (
-                <div key={user.id} onClick={() => selectUser(user.id)} style={{
-                  background: selectedUserId === user.id ? "var(--color-background-secondary)" : "transparent",
-                  border: selectedUserId === user.id ? "0.5px solid var(--color-border-secondary)" : "0.5px solid transparent",
-                  borderLeft: selectedUserId === user.id ? "2px solid var(--color-text-primary)" : "2px solid transparent",
+              {client.people.length === 0 && !showAddPerson ? (
+                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No people yet. Click + Add to create one.</div>
+              ) : client.people.map((person) => (
+                <div key={person.id} onClick={() => { setEditingPersonId(null); selectPerson(person.id) }} style={{
+                  background: selectedPersonId === person.id ? "var(--color-background-secondary)" : "transparent",
+                  border: selectedPersonId === person.id ? "0.5px solid var(--color-border-secondary)" : "0.5px solid transparent",
+                  borderLeft: selectedPersonId === person.id ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   borderRadius: "8px", padding: "10px 12px", marginBottom: "6px",
                   cursor: "pointer",
                 }}
-                  onMouseEnter={e => { if (selectedUserId !== user.id) e.currentTarget.style.background = "var(--color-background-secondary)" }}
-                  onMouseLeave={e => { if (selectedUserId !== user.id) e.currentTarget.style.background = "transparent" }}
+                  onMouseEnter={e => { if (selectedPersonId !== person.id) e.currentTarget.style.background = "var(--color-background-secondary)" }}
+                  onMouseLeave={e => { if (selectedPersonId !== person.id) e.currentTarget.style.background = "transparent" }}
                 >
-                  <div style={{ fontSize: "14px", fontWeight: selectedUserId === user.id ? 500 : 400 }}>{user.name}</div>
-                  {user.jobTitle && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{user.jobTitle}</div>}
-                  {user.email && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>}
+                  <div style={{ fontSize: "14px", fontWeight: selectedPersonId === person.id ? 500 : 400 }}>{person.name}</div>
+                  {(person.role || person.jobTitle) && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{person.role || person.jobTitle}</div>}
+                  {person.email && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{person.email}</div>}
+                  <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+                    {person.isPrimary && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Primary</span>}
+                    {person.isBilling && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Billing</span>}
+                    {person.isEscalation && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Escalation</span>}
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Context panel */}
-            {selectedUserId && (() => {
-              const user = client.users.find(u => u.id === selectedUserId)!
+            {selectedPersonId && (() => {
+              const person = client.people.find(p => p.id === selectedPersonId)!
+              if (!person) return null
               return (
                 <div style={{ flex: 1, minWidth: 0, position: "sticky", top: "32px" }}>
-                  {/* User header */}
+                  {/* Person header */}
                   <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div>
-                        <div style={{ fontSize: "16px", fontWeight: 500 }}>{user.name}</div>
-                        {user.jobTitle && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{user.jobTitle}</div>}
+                        <div style={{ fontSize: "16px", fontWeight: 500 }}>{person.name}</div>
+                        {(person.role || person.jobTitle) && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{[person.role, person.jobTitle].filter(Boolean).join(" / ")}</div>}
                       </div>
-                      <button onClick={() => { setSelectedUserId(null); setUserSummary(null) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: "2px" }}>✕</button>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                        <button onClick={() => { setEditingPersonId(person.id); setPersonEditForm({ name: person.name, role: person.role ?? "", email: person.email ?? "", phone: person.phone ?? "", mobile: person.mobile ?? "", jobTitle: person.jobTitle ?? "", m365Upn: person.m365Upn ?? "", notes: person.notes ?? "", isPrimary: person.isPrimary, isBilling: person.isBilling, isEscalation: person.isEscalation }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                        <button onClick={() => { setSelectedPersonId(null); setPersonSummary(null) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>✕</button>
+                      </div>
                     </div>
-                    {(user.email || user.phone || user.m365Upn) && (
+                    {(person.email || person.phone || person.mobile || person.m365Upn) && (
                       <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "12px" }}>
-                        {user.email && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{user.email}</span>}
-                        {user.phone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{user.phone}</span>}
-                        {user.m365Upn && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{user.m365Upn}</span>}
+                        {person.email && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{person.email}</span>}
+                        {person.phone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{person.phone}</span>}
+                        {person.mobile && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{person.mobile}</span>}
+                        {person.m365Upn && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{person.m365Upn}</span>}
                       </div>
                     )}
+                    {person.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{person.notes}</div>}
                   </div>
 
-                  {loadingSummary ? (
+                  {editingPersonId === person.id && (
+                    <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>Edit person</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                        {[
+                          { key: "name", label: "Name" }, { key: "role", label: "Role" },
+                          { key: "email", label: "Email" }, { key: "phone", label: "Phone" },
+                          { key: "mobile", label: "Mobile" }, { key: "jobTitle", label: "Job Title" },
+                          { key: "m365Upn", label: "M365 UPN" }, { key: "notes", label: "Notes" },
+                        ].map(({ key, label }) => (
+                          <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
+                            <input value={personEditForm[key] ?? ""} onChange={e => setPersonEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                          </div>
+                        ))}
+                        <div style={{ gridColumn: "1 / -1", display: "flex", gap: "16px" }}>
+                          {[["isPrimary", "Primary"], ["isBilling", "Billing"], ["isEscalation", "Escalation"]].map(([key, label]) => (
+                            <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
+                              <input type="checkbox" checked={!!personEditForm[key]} onChange={e => setPersonEditForm((f: any) => ({ ...f, [key]: e.target.checked }))} />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={() => updatePerson(person.id)} disabled={savingPersonEdit} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingPersonEdit ? "Saving..." : "Save"}</button>
+                        <button onClick={() => setEditingPersonId(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {loadingPersonSummary ? (
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "12px 0" }}>Loading...</div>
-                  ) : userSummary && (() => {
+                  ) : personSummary && (() => {
                     const sections = [
                       {
-                        label: "Devices", count: userSummary.assets.length,
-                        items: userSummary.assets.map(a => ({
+                        label: "Devices", count: personSummary.assets.length,
+                        items: personSummary.assets.map(a => ({
                           primary: a.name,
                           secondary: [a.assetType?.name, [a.make, a.model].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
                           badge: a.status !== "ACTIVE" ? a.status.charAt(0) + a.status.slice(1).toLowerCase() : null,
@@ -1821,8 +1833,8 @@ export default function ClientDetailPage() {
                         })),
                       },
                       {
-                        label: "Credentials", count: userSummary.credentials.length,
-                        items: userSummary.credentials.map(c => ({
+                        label: "Credentials", count: personSummary.credentials.length,
+                        items: personSummary.credentials.map(c => ({
                           primary: c.label,
                           secondary: c.username ?? null,
                           badge: null,
@@ -1830,8 +1842,8 @@ export default function ClientDetailPage() {
                         })),
                       },
                       {
-                        label: "Licenses", count: userSummary.licenses.length,
-                        items: userSummary.licenses.map(l => ({
+                        label: "Licenses", count: personSummary.licenses.length,
+                        items: personSummary.licenses.map(l => ({
                           primary: l.name,
                           secondary: l.vendor ?? null,
                           badge: null,
@@ -1839,8 +1851,8 @@ export default function ClientDetailPage() {
                         })),
                       },
                       {
-                        label: "Applications", count: userSummary.applications.length,
-                        items: userSummary.applications.map(a => ({
+                        label: "Applications", count: personSummary.applications.length,
+                        items: personSummary.applications.map(a => ({
                           primary: a.name,
                           secondary: a.vendor ?? null,
                           badge: null,
@@ -1919,7 +1931,7 @@ export default function ClientDetailPage() {
                     return fields.map((fk: string) => {
                       const meta = ASSET_FIELD_META[fk]
                       if (!meta) return null
-                      const isFullWidth = meta.type === "textarea" || meta.type === "user-select" || meta.type === "contact-select"
+                      const isFullWidth = meta.type === "textarea" || meta.type === "person-select"
                       return (
                         <div key={fk} style={isFullWidth ? { gridColumn: "1 / -1" } : {}}>
                           <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{meta.label}</label>
@@ -1930,15 +1942,10 @@ export default function ClientDetailPage() {
                               <input type="checkbox" checked={!!assetForm[fk]} onChange={e => setAssetForm((f: any) => ({ ...f, [fk]: e.target.checked }))} />
                               {meta.label}
                             </label>
-                          ) : meta.type === "user-select" ? (
-                            <select value={assetForm.primaryUserId ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, primaryUserId: e.target.value }))} style={inputStyle}>
+                          ) : meta.type === "person-select" ? (
+                            <select value={assetForm.personId ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, personId: e.target.value }))} style={inputStyle}>
                               <option value="">Unassigned</option>
-                              {client.users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                            </select>
-                          ) : meta.type === "contact-select" ? (
-                            <select value={assetForm.contactId ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, contactId: e.target.value }))} style={inputStyle}>
-                              <option value="">None</option>
-                              {client.contacts.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              {client.people.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                           ) : (
                             <input type={meta.type ?? "text"} value={assetForm[fk] ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, [fk]: e.target.value }))} placeholder={meta.placeholder ?? ""} style={inputStyle} />
@@ -2113,17 +2120,10 @@ export default function ClientDetailPage() {
                             </select>
                           </div>
                           <div>
-                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Primary User</label>
-                            <select value={assetEditForm.primaryUserId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, primaryUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
+                            <select value={assetEditForm.personId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                               <option value="">Unassigned</option>
-                              {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
-                            <select value={assetEditForm.contactId ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                              <option value="">None</option>
-                              {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                           </div>
                         </div>
@@ -2164,12 +2164,12 @@ export default function ClientDetailPage() {
                           {asset.serial || "—"}
                         </div>
                         <div>
-                          {asset.primaryUser ? (
+                          {asset.person ? (
                             <span
-                              onClick={() => { setActiveTab("Users"); selectUser(asset.primaryUser!.id) }}
+                              onClick={() => { setActiveTab("People"); selectPerson(asset.person!.id) }}
                               style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer", display: "inline-block" }}
                             >
-                              {asset.primaryUser.name}
+                              {asset.person.name}
                             </span>
                           ) : <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>}
                         </div>
@@ -2214,7 +2214,7 @@ export default function ClientDetailPage() {
                           <button onClick={() => toggleAssetHistory(asset.id)} style={{ fontSize: "12px", color: loadingAssetHistory[asset.id] ? "var(--color-text-muted)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                             {loadingAssetHistory[asset.id] ? "..." : expandedAssetHistory[asset.id] !== undefined ? "History ▲" : "History"}
                           </button>
-                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, primaryUserId: asset.primaryUserId ?? "", contactId: asset.contactId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                         </div>
                       </div>
                       {expandedAssetHistory[asset.id] !== undefined && (
@@ -2244,193 +2244,6 @@ export default function ClientDetailPage() {
           </div>
         )}
 
-        {activeTab === "Contacts" && (
-          <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
-            {/* Contact list */}
-            <div style={{ width: "260px", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
-                <button onClick={() => setShowAddContact(v => !v)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 12px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
-                  {showAddContact ? "Cancel" : "Add contact"}
-                </button>
-              </div>
-              {showAddContact && (
-                <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "16px", marginBottom: "12px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>New contact</div>
-                  {[
-                    { key: "name", label: "Name *", placeholder: "" },
-                    { key: "role", label: "Role", placeholder: "e.g. IT Manager" },
-                    { key: "email", label: "Email", placeholder: "" },
-                    { key: "phone", label: "Phone", placeholder: "" },
-                    { key: "mobile", label: "Mobile", placeholder: "" },
-                    { key: "notes", label: "Notes", placeholder: "" },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key} style={{ marginBottom: "8px" }}>
-                      <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
-                      <input value={(contactForm as any)[key]} onChange={e => setContactForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
-                        style={{ width: "100%", padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                    </div>
-                  ))}
-                  <div style={{ display: "flex", gap: "12px", marginBottom: "10px", marginTop: "4px" }}>
-                    {[["isPrimary", "Primary"], ["isBilling", "Billing"], ["isEscalation", "Escalation"]].map(([key, label]) => (
-                      <label key={key} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", cursor: "pointer" }}>
-                        <input type="checkbox" checked={(contactForm as any)[key]} onChange={e => setContactForm(f => ({ ...f, [key]: e.target.checked }))} />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                  <button onClick={createContact} disabled={savingNewContact} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
-                    {savingNewContact ? "Saving..." : "Create"}
-                  </button>
-                </div>
-              )}
-              {client.contacts.length === 0 && !showAddContact ? (
-                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No contacts yet.</div>
-              ) : client.contacts.map((contact) => (
-                <div key={contact.id} onClick={() => { setEditingContactId(null); selectContact(contact.id) }} style={{
-                  background: selectedContactId === contact.id ? "var(--color-background-secondary)" : "transparent",
-                  border: selectedContactId === contact.id ? "0.5px solid var(--color-border-secondary)" : "0.5px solid transparent",
-                  borderLeft: selectedContactId === contact.id ? "2px solid var(--color-text-primary)" : "2px solid transparent",
-                  borderRadius: "8px", padding: "10px 12px", marginBottom: "6px", cursor: "pointer",
-                }}
-                  onMouseEnter={e => { if (selectedContactId !== contact.id) e.currentTarget.style.background = "var(--color-background-secondary)" }}
-                  onMouseLeave={e => { if (selectedContactId !== contact.id) e.currentTarget.style.background = "transparent" }}
-                >
-                  <div style={{ fontSize: "14px", fontWeight: selectedContactId === contact.id ? 500 : 400 }}>{contact.name}</div>
-                  {contact.role && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "1px" }}>{contact.role}</div>}
-                  <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
-                    {contact.isPrimary && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Primary</span>}
-                    {contact.isBilling && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Billing</span>}
-                    {contact.isEscalation && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)" }}>Escalation</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Contact context panel */}
-            {selectedContactId && (() => {
-              const contact = client.contacts.find(c => c.id === selectedContactId)!
-              return (
-                <div style={{ flex: 1, minWidth: 0, position: "sticky", top: "32px" }}>
-                  <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontSize: "16px", fontWeight: 500 }}>{contact.name}</div>
-                        {contact.role && <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{contact.role}</div>}
-                      </div>
-                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <button onClick={() => { setEditingContactId(contact.id); setContactEditForm({ name: contact.name, role: contact.role ?? "", email: contact.email ?? "", phone: contact.phone ?? "", mobile: contact.mobile ?? "", notes: contact.notes ?? "", isPrimary: contact.isPrimary, isBilling: contact.isBilling, isEscalation: contact.isEscalation }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
-                        <button onClick={() => { setSelectedContactId(null); setContactSummary(null) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>✕</button>
-                      </div>
-                    </div>
-                    {(contact.email || contact.phone || contact.mobile) && (
-                      <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "12px" }}>
-                        {contact.email && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{contact.email}</span>}
-                        {contact.phone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{contact.phone}</span>}
-                        {contact.mobile && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{contact.mobile}</span>}
-                      </div>
-                    )}
-                    {contact.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{contact.notes}</div>}
-                  </div>
-
-                  {editingContactId === contact.id && (
-                    <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "16px 20px", marginBottom: "12px" }}>
-                      <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>Edit contact</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                        {[
-                          { key: "name", label: "Name" }, { key: "role", label: "Role" },
-                          { key: "email", label: "Email" }, { key: "phone", label: "Phone" },
-                          { key: "mobile", label: "Mobile" }, { key: "notes", label: "Notes" },
-                        ].map(({ key, label }) => (
-                          <div key={key} style={key === "notes" ? { gridColumn: "1 / -1" } : {}}>
-                            <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                            <input value={contactEditForm[key] ?? ""} onChange={e => setContactEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                          </div>
-                        ))}
-                        <div style={{ gridColumn: "1 / -1", display: "flex", gap: "16px" }}>
-                          {[["isPrimary", "Primary"], ["isBilling", "Billing"], ["isEscalation", "Escalation"]].map(([key, label]) => (
-                            <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
-                              <input type="checkbox" checked={!!contactEditForm[key]} onChange={e => setContactEditForm((f: any) => ({ ...f, [key]: e.target.checked }))} />
-                              {label}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={() => updateContact(contact.id)} disabled={savingContact} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingContact ? "Saving..." : "Save"}</button>
-                        <button onClick={() => setEditingContactId(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {loadingContactSummary ? (
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "12px 0" }}>Loading...</div>
-                  ) : contactSummary && (() => {
-                    const sections = [
-                      {
-                        label: "Devices", count: contactSummary.assets.length,
-                        items: contactSummary.assets.map(a => ({
-                          primary: a.name,
-                          secondary: [a.assetType?.name, [a.make, a.model].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
-                          onClick: () => { setActiveTab("Assets"); if (assets.length === 0) fetchAssets() },
-                        })),
-                      },
-                      {
-                        label: "Credentials", count: contactSummary.credentials.length,
-                        items: contactSummary.credentials.map(c => ({
-                          primary: c.label,
-                          secondary: c.username ?? null,
-                          onClick: () => setActiveTab("Credentials"),
-                        })),
-                      },
-                      {
-                        label: "Licenses", count: contactSummary.licenses.length,
-                        items: contactSummary.licenses.map(l => ({
-                          primary: l.name,
-                          secondary: l.vendor ?? null,
-                          onClick: () => setActiveTab("Licenses"),
-                        })),
-                      },
-                      {
-                        label: "Applications", count: contactSummary.applications.length,
-                        items: contactSummary.applications.map(a => ({
-                          primary: a.name,
-                          secondary: a.vendor ?? null,
-                          onClick: () => setActiveTab("Applications"),
-                        })),
-                      },
-                    ]
-                    return (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                        {sections.map(section => (
-                          <div key={section.label} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-                            <div style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{section.label}</span>
-                              <span style={{ fontSize: "12px", fontWeight: 500, color: section.count > 0 ? "var(--color-text-primary)" : "var(--color-text-secondary)", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "1px 7px" }}>{section.count}</span>
-                            </div>
-                            {section.items.length === 0 ? (
-                              <div style={{ padding: "10px 14px", fontSize: "12px", color: "var(--color-text-secondary)" }}>None</div>
-                            ) : section.items.map((item, i) => (
-                              <div key={i} onClick={item.onClick} style={{ padding: "8px 14px", borderBottom: i < section.items.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", cursor: "pointer", display: "flex", alignItems: "center" }}
-                                onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
-                                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                              >
-                                <div style={{ minWidth: 0 }}>
-                                  <div style={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.primary}</div>
-                                  {item.secondary && <div style={{ fontSize: "11px", color: "var(--color-text-secondary)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.secondary}</div>}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )
-            })()}
-          </div>
-        )}
 
         {activeTab === "Credentials" && (
           <div style={{ maxWidth: "700px" }}>
@@ -2473,21 +2286,12 @@ export default function ClientDetailPage() {
                     />
                   </div>
                 ))}
-                {client.users.length > 0 && (
+                {client.people.length > 0 && (
                   <div style={{ marginBottom: "12px" }}>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Link to user</label>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Link to person</label>
                     <select value={credForm.userId} onChange={e => setCredForm(f => ({ ...f, userId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
                       <option value="">None</option>
-                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
-                  </div>
-                )}
-                {client.contacts.length > 0 && (
-                  <div style={{ marginBottom: "12px" }}>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Link to contact</label>
-                    <select value={credForm.contactId} onChange={e => setCredForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
-                      <option value="">None</option>
-                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
                 )}
@@ -2531,7 +2335,7 @@ export default function ClientDetailPage() {
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
                       {boundSourceTag(cred.dataSource)}
                       {cred.user && (
-                        <span onClick={() => { setActiveTab("Users"); selectUser(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
+                        <span onClick={() => { setActiveTab("People"); selectPerson(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
                           {cred.user.name}
                         </span>
                       )}
@@ -2546,7 +2350,7 @@ export default function ClientDetailPage() {
                         <button
                           onClick={() => {
                             setEditingCredId(cred.id)
-                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", secureNotes: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", contactId: cred.contact?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "" })
+                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", secureNotes: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "" })
                           }}
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Edit</button>
@@ -2572,12 +2376,12 @@ export default function ClientDetailPage() {
                           <input type={type} value={credEditForm[key] ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inpStyle} />
                         </div>
                       ))}
-                      {client && client.users.length > 0 && (
+                      {client && client.people.length > 0 && (
                         <div style={{ marginBottom: "8px" }}>
-                          <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Linked user</label>
+                          <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Linked person</label>
                           <select value={credEditForm.userId ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, userId: e.target.value }))} style={inpStyle}>
                             <option value="">None</option>
-                            {client.users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            {client.people.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </div>
                       )}
@@ -2781,17 +2585,10 @@ export default function ClientDetailPage() {
                       style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned user</label>
-                    <select value={licenseForm.assignedUserId} onChange={e => setLicenseForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
+                    <select value={licenseForm.personId} onChange={e => setLicenseForm(f => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                       <option value="">Unassigned</option>
-                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
-                    <select value={licenseForm.contactId} onChange={e => setLicenseForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      <option value="">None</option>
-                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
                   <div style={{ gridColumn: "1 / -1" }}>
@@ -2840,10 +2637,10 @@ export default function ClientDetailPage() {
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned user</label>
-                        <select value={licenseEditForm.assignedUserId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
+                        <select value={licenseEditForm.personId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                           <option value="">Unassigned</option>
-                          {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                          {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                       </div>
                       <div style={{ gridColumn: "1 / -1" }}>
@@ -2884,7 +2681,7 @@ export default function ClientDetailPage() {
                       <div style={{ display: "flex", gap: "8px" }}>
                         {lic.isActive ? (
                           <>
-                            <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", purchaseDate: lic.purchaseDate ? lic.purchaseDate.slice(0, 10) : "", vendorId: lic.vendorRef?.id ?? "", assignedUserId: lic.assignedUser?.id ?? "", contactId: lic.contact?.id ?? "", newLicenseKey: "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                            <button onClick={() => { setEditingLicense(lic.id); setLicenseEditForm({ ...lic, expiryDate: lic.expiryDate ? lic.expiryDate.slice(0, 10) : "", renewalDate: lic.renewalDate ? lic.renewalDate.slice(0, 10) : "", purchaseDate: lic.purchaseDate ? lic.purchaseDate.slice(0, 10) : "", vendorId: lic.vendorRef?.id ?? "", personId: lic.person?.id ?? lic.person?.id ?? "", newLicenseKey: "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                             <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Archive</button>
                           </>
                         ) : (
@@ -2960,13 +2757,13 @@ export default function ClientDetailPage() {
                               </div>
                               <div>
                                 <select
-                                  value={sub.assignedUser?.id ?? ""}
+                                  value={sub.person?.id ?? ""}
                                   onChange={e => assignSubUser(sub.id, e.target.value)}
                                   disabled={assigningSubUser === sub.id}
                                   style={{ width: "100%", fontSize: "12px", padding: "4px 8px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", cursor: "pointer" }}
                                 >
                                   <option value="">Unassigned</option>
-                                  {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                  {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
                               </div>
                             </div>
@@ -3007,17 +2804,10 @@ export default function ClientDetailPage() {
                     </div>
                   ))}
                   <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
-                    <select value={appForm.assignedUserId} onChange={e => setAppForm(f => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
+                    <select value={appForm.personId} onChange={e => setAppForm(f => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                       <option value="">Unassigned</option>
-                      {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
-                    <select value={appForm.contactId} onChange={e => setAppForm(f => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      <option value="">None</option>
-                      {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -3053,17 +2843,10 @@ export default function ClientDetailPage() {
                         </div>
                       ))}
                       <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned User</label>
-                        <select value={appEditForm.assignedUserId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, assignedUserId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
+                        <select value={appEditForm.personId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
                           <option value="">Unassigned</option>
-                          {client.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Contact</label>
-                        <select value={appEditForm.contactId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, contactId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                          <option value="">None</option>
-                          {client.contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                       </div>
                     </div>
@@ -3080,9 +2863,9 @@ export default function ClientDetailPage() {
                     </div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.vendor ?? "—"}</div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{app.version ?? "—"}</div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.assignedUser?.name ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.person?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, assignedUserId: app.assignedUser?.id ?? "", contactId: app.contact?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, personId: app.person?.id ?? app.person?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteApp(app.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>
@@ -3420,7 +3203,7 @@ export default function ClientDetailPage() {
                     subnets={subnets}
                     locations={client.locations}
                     assets={assets}
-                    users={client.users}
+                    people={client.people}
                     clientId={id as string}
                     onSubnetsChange={setSubnets}
                   />
@@ -3539,10 +3322,9 @@ export default function ClientDetailPage() {
                 gateways={vpnGateways}
                 assets={assets}
                 networkDevices={networkDevices}
-                clientUsers={client.users}
+                people={client.people}
                 vendors={vpnVendors}
                 staffUsers={vpnStaffUsers}
-                contacts={client.contacts}
                 credentials={vpnCredentials}
                 clientId={id as string}
                 onGatewaysChange={setVpnGateways}
@@ -3559,7 +3341,7 @@ export default function ClientDetailPage() {
               <PhonePanel
                 systems={phoneSystems}
                 assets={assets}
-                clientUsers={client.users}
+                people={client.people}
                 credentials={phoneCredentials}
                 vendors={vpnVendors}
                 clientId={id as string}

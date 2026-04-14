@@ -14,8 +14,7 @@ export async function GET(
       where: { id },
       include: {
         locations: { orderBy: { name: "asc" } },
-        users: { orderBy: { name: "asc" } },
-        contacts: { orderBy: { name: "asc" } },
+        people: { orderBy: { name: "asc" } },
       },
     })
     if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 })

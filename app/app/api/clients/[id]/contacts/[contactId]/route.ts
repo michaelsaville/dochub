@@ -12,7 +12,7 @@ export async function PATCH(
     const { contactId } = await params
     const body = await req.json()
     const { name, role, email, phone, mobile, notes, isPrimary, isBilling, isEscalation } = body
-    const contact = await prisma.contact.update({
+    const contact = await prisma.person.update({
       where: { id: contactId },
       data: {
         ...(name?.trim() && { name: name.trim() }),

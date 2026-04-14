@@ -13,7 +13,7 @@ export async function POST(
     const { id } = await params
     const body = await req.json()
     const {
-      accessorType, clientUserId, vendorId, staffUserId, contactId,
+      accessorType, personId, vendorId, staffUserId,
       thirdPartyName, credentialId, mfaEnabled, accessScope, certExpiry, notes,
       credLabel, credUsername, credPassword,
     } = body
@@ -33,8 +33,8 @@ export async function POST(
           label,
           username: credUsername?.trim() || null,
           encryptedPassword: encrypt(credPassword.trim()),
-          userId: accessorType === "CLIENT_USER" && clientUserId ? clientUserId : null,
-          contactId: accessorType === "CONTACT" && contactId ? contactId : null,
+          userId: accessorType === "PERSON" && personId ? personId : null,
+          contactId: null,
           url: null,
         },
       })
@@ -45,10 +45,9 @@ export async function POST(
       data: {
         gatewayId: id,
         accessorType,
-        clientUserId: clientUserId || null,
+        personId: personId || null,
         vendorId: vendorId || null,
         staffUserId: staffUserId || null,
-        contactId: contactId || null,
         thirdPartyName: thirdPartyName?.trim() || null,
         credentialId: resolvedCredentialId,
         mfaEnabled: mfaEnabled ?? false,
@@ -57,10 +56,9 @@ export async function POST(
         notes: notes?.trim() || null,
       },
       include: {
-        clientUser: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendor: { select: { id: true, name: true } },
         staffUser: { select: { id: true, name: true, email: true } },
-        contact: { select: { id: true, name: true, role: true } },
         credential: { select: { id: true, label: true } },
       },
     })

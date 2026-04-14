@@ -28,7 +28,7 @@ type Props = {
   subnets: Subnet[]
   locations: { id: string; name: string }[]
   assets: { id: string; name: string; category: string }[]
-  users: { id: string; name: string }[]
+  people: { id: string; name: string }[]
   clientId: string
   onSubnetsChange: (subnets: Subnet[]) => void
 }
@@ -36,7 +36,7 @@ type Props = {
 const input = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
 const label = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
 
-export default function IpamPanel({ subnets, locations, assets, users, clientId, onSubnetsChange }: Props) {
+export default function IpamPanel({ subnets, locations, assets, people, clientId, onSubnetsChange }: Props) {
   const [expandedSubnets, setExpandedSubnets] = useState<Record<string, boolean>>({})
   const [showAddSubnet, setShowAddSubnet] = useState(false)
   const [subnetForm, setSubnetForm] = useState({ cidr: "", locationId: "", gateway: "", dns1: "", dns2: "", vlan: "", description: "", notes: "" })
@@ -304,7 +304,7 @@ export default function IpamPanel({ subnets, locations, assets, users, clientId,
                               <label style={label}>User</label>
                               <select value={ipEditForm.userId ?? ""} onChange={e => setIpEditForm((f: any) => ({ ...f, userId: e.target.value, assetId: "" }))} style={input}>
                                 <option value="">None</option>
-                                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
                             </div>
                             <div style={{ gridColumn: "1 / -1" }}>
@@ -358,7 +358,7 @@ export default function IpamPanel({ subnets, locations, assets, users, clientId,
                           <label style={label}>User</label>
                           <select value={ipForm.userId} onChange={e => setIpForm(f => ({ ...f, userId: e.target.value, assetId: "" }))} style={input}>
                             <option value="">None</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </div>
                         <div style={{ gridColumn: "1 / -1" }}>

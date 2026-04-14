@@ -13,7 +13,7 @@ const STANDARD_FIELDS = [
   "os", "ram", "cpu", "storageCapacity",
   "purchaseDate", "warrantyExpiry",
   "room", "notes",
-  "primaryUserId", "contactId",
+  "personId", "personId",
 ]
 
 type TemplateDefinition = {
@@ -85,7 +85,7 @@ const DEFAULT_TYPES: { name: string; sortOrder: number; template: TemplateDefini
     name: "Desktop",
     sortOrder: 70,
     template: {
-      standardFields: ["friendlyName", "make", "model", "serial", "assetTag", "ipAddress", "macAddress", "managementUrl", "splashtopUrl", "driverUrl", "os", "cpu", "ram", "storageCapacity", "rdpEnabled", "vncEnabled", "primaryUserId", "room", "notes", "purchaseDate", "warrantyExpiry"],
+      standardFields: ["friendlyName", "make", "model", "serial", "assetTag", "ipAddress", "macAddress", "managementUrl", "splashtopUrl", "driverUrl", "os", "cpu", "ram", "storageCapacity", "rdpEnabled", "vncEnabled", "personId", "room", "notes", "purchaseDate", "warrantyExpiry"],
       customFieldDefs: [],
     },
   },
@@ -93,7 +93,7 @@ const DEFAULT_TYPES: { name: string; sortOrder: number; template: TemplateDefini
     name: "Laptop",
     sortOrder: 80,
     template: {
-      standardFields: ["friendlyName", "make", "model", "serial", "assetTag", "ipAddress", "macAddress", "managementUrl", "splashtopUrl", "driverUrl", "os", "cpu", "ram", "storageCapacity", "rdpEnabled", "vncEnabled", "primaryUserId", "notes", "purchaseDate", "warrantyExpiry"],
+      standardFields: ["friendlyName", "make", "model", "serial", "assetTag", "ipAddress", "macAddress", "managementUrl", "splashtopUrl", "driverUrl", "os", "cpu", "ram", "storageCapacity", "rdpEnabled", "vncEnabled", "personId", "notes", "purchaseDate", "warrantyExpiry"],
       customFieldDefs: [],
     },
   },
@@ -101,7 +101,7 @@ const DEFAULT_TYPES: { name: string; sortOrder: number; template: TemplateDefini
     name: "Tablet",
     sortOrder: 90,
     template: {
-      standardFields: ["friendlyName", "make", "model", "serial", "assetTag", "managementUrl", "splashtopUrl", "os", "ram", "storageCapacity", "primaryUserId", "notes", "purchaseDate", "warrantyExpiry"],
+      standardFields: ["friendlyName", "make", "model", "serial", "assetTag", "managementUrl", "splashtopUrl", "os", "ram", "storageCapacity", "personId", "notes", "purchaseDate", "warrantyExpiry"],
       customFieldDefs: [],
     },
   },
@@ -136,7 +136,7 @@ const DEFAULT_TYPES: { name: string; sortOrder: number; template: TemplateDefini
     name: "Phone / Endpoint",
     sortOrder: 130,
     template: {
-      standardFields: ["friendlyName", "make", "model", "serial", "ipAddress", "macAddress", "firmwareVersion", "primaryUserId", "room", "notes", "purchaseDate", "warrantyExpiry"],
+      standardFields: ["friendlyName", "make", "model", "serial", "ipAddress", "macAddress", "firmwareVersion", "personId", "room", "notes", "purchaseDate", "warrantyExpiry"],
       customFieldDefs: [
         { key: "extension", label: "Extension", type: "text", required: false },
         { key: "did", label: "DID Number", type: "text", required: false },

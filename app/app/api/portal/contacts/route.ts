@@ -8,7 +8,7 @@ export async function GET() {
   const perms = getPermissions(user)
   if (!perms.contacts) return NextResponse.json({ error: "Access denied" }, { status: 403 })
 
-  const contacts = await prisma.contact.findMany({
+  const contacts = await prisma.person.findMany({
     where: { clientId: user.clientId },
     select: {
       id: true, name: true, role: true, email: true, phone: true,

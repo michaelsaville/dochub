@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       where,
       select: {
         id: true, name: true,
-        contacts: { select: { id: true, name: true, role: true, email: true, phone: true, isPrimary: true }, orderBy: { isPrimary: "desc" } },
+        people: { select: { id: true, name: true, role: true, email: true, phone: true, isPrimary: true }, orderBy: { isPrimary: "desc" } },
         locations: { select: { id: true, name: true, city: true, state: true, address: true } },
         licenses: {
           where: { isActive: true },
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
     return {
       id: c.id, name: c.name,
-      contacts: c.contacts, locations: c.locations,
+      contacts: c.people, locations: c.locations,
       totalAssets, warrantyCritical, warrantyWarn,
       totalLicenses: c.licenses.length, expiredLicenses, expiringLicenses,
       totalDomains: c.websites.length, expiredDomains, expiredSSL,

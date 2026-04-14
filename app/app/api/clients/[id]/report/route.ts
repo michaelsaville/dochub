@@ -18,8 +18,7 @@ export async function GET(
     where: { id },
     include: {
       locations: { orderBy: { name: "asc" } },
-      contacts: { orderBy: { name: "asc" } },
-      users: { orderBy: { name: "asc" } },
+      people: { orderBy: { name: "asc" } },
     },
   })
   if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -34,7 +33,7 @@ export async function GET(
           orderBy: { name: "asc" },
           include: {
             assetType: { select: { name: true } },
-            primaryUser: { select: { name: true } },
+            person: { select: { name: true } },
           },
         },
       },
@@ -60,7 +59,7 @@ export async function GET(
       orderBy: { name: "asc" },
       include: {
         vendorRef: { select: { name: true } },
-        assignedUser: { select: { name: true } },
+        person: { select: { name: true } },
       },
     })
   }
@@ -91,12 +90,8 @@ export async function GET(
     })
   }
 
-  if (modules.includes("contacts")) {
-    data.contacts = client.contacts
-  }
-
-  if (modules.includes("users")) {
-    data.users = client.users
+  if (modules.includes("contacts") || modules.includes("users")) {
+    data.people = client.people
   }
 
   if (modules.includes("locations")) {

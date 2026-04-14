@@ -31,15 +31,14 @@ export async function GET(
     where: { id: seatId },
     include: {
       application: true,
-      clientUser: { select: { email: true } },
-      contact: { select: { email: true } },
+      person: { select: { email: true } },
     },
   })
 
   if (!seat) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   // Verify this seat belongs to the requesting portal user
-  const seatEmail = seat.clientUser?.email || seat.contact?.email
+  const seatEmail = seat.person?.email
   if (seatEmail !== user!.email) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }

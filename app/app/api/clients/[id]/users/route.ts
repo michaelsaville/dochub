@@ -10,8 +10,14 @@ export async function GET(
   if (error) return error
   const { id } = await params
 
-  const users = await prisma.clientUser.findMany({
+  const users = await prisma.person.findMany({
     where: { clientId: id },
+    select: {
+      id: true, name: true, email: true, phone: true, mobile: true,
+      jobTitle: true, m365Upn: true, role: true,
+      isPrimary: true, isBilling: true, isEscalation: true, isActive: true,
+      notes: true, createdAt: true, updatedAt: true,
+    },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
   })
   return NextResponse.json(users)
@@ -26,7 +32,7 @@ export async function POST(
   const { id: clientId } = await params
 
   const body = await req.json()
-  const { name, email, phone, jobTitle, m365Upn } = body
+  const { name, email, phone, mobile, jobTitle, m365Upn, role, isPrimary, isBilling, isEscalation, isActive, notes } = body
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -41,14 +47,21 @@ export async function POST(
     return NextResponse.json({ error: "Client not found" }, { status: 404 })
   }
 
-  const user = await prisma.clientUser.create({
+  const user = await prisma.person.create({
     data: {
       clientId,
       name: name.trim(),
       email: email?.trim() || null,
       phone: phone?.trim() || null,
+      mobile: mobile?.trim() || null,
       jobTitle: jobTitle?.trim() || null,
       m365Upn: m365Upn?.trim() || null,
+      role: role?.trim() || null,
+      isPrimary: isPrimary ?? false,
+      isBilling: isBilling ?? false,
+      isEscalation: isEscalation ?? false,
+      isActive: isActive ?? true,
+      notes: notes?.trim() || null,
     },
   })
 

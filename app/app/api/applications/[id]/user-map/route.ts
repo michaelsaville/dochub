@@ -19,8 +19,7 @@ export async function GET(
   const seats = await prisma.appSeatAssignment.findMany({
     where: { applicationId: id },
     include: {
-      clientUser: { select: { name: true, email: true, jobTitle: true } },
-      contact: { select: { name: true, email: true, role: true } },
+      person: { select: { name: true, email: true, jobTitle: true, role: true } },
     },
     orderBy: { seatUsername: "asc" },
   })
@@ -34,9 +33,9 @@ export async function GET(
   lines.push("Seat Username,Assigned To,Email,Role/Title,Notes")
 
   for (const s of seats) {
-    const assignedTo = s.clientUser?.name || s.contact?.name || "Unassigned"
-    const email = s.clientUser?.email || s.contact?.email || ""
-    const role = s.clientUser?.jobTitle || s.contact?.role || ""
+    const assignedTo = s.person?.name || "Unassigned"
+    const email = s.person?.email || ""
+    const role = s.person?.jobTitle || s.person?.role || ""
     const notes = (s.notes || "").replace(/,/g, ";").replace(/\n/g, " ")
     lines.push(`${s.seatUsername || ""},${assignedTo},${email},${role},${notes}`)
   }

@@ -22,7 +22,7 @@ export async function GET(
           vncEnabled: true, vncHost: true, vncPort: true,
           isFavorite: true,
           location: { select: { name: true } },
-          primaryUser: { select: { id: true, name: true } },
+          person: { select: { id: true, name: true } },
           assetType: { select: { name: true } },
         },
         orderBy: { name: "asc" },

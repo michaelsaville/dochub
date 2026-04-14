@@ -16,7 +16,7 @@ type License = {
   cost: number | null
   isActive: boolean
   client: { id: string; name: string }
-  assignedUser: { id: string; name: string } | null
+  person: { id: string; name: string } | null
 }
 
 function expiryBadge(date: string | null) {

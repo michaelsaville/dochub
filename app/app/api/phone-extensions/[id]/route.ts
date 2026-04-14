@@ -11,7 +11,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { extension, displayName, type, clientUserId, assetId, credentialId, voicemailCredId, did, voicemailEnabled, notes, isActive } = body
+    const { extension, displayName, type, personId, assetId, credentialId, voicemailCredId, did, voicemailEnabled, notes, isActive } = body
     if (!extension?.trim()) return NextResponse.json({ error: "Extension number is required" }, { status: 400 })
     if (!displayName?.trim()) return NextResponse.json({ error: "Display name is required" }, { status: 400 })
     const ext = await prisma.phoneExtension.update({
@@ -20,7 +20,7 @@ export async function PUT(
         extension: extension.trim(),
         displayName: displayName.trim(),
         type: type || "USER",
-        clientUserId: clientUserId || null,
+        personId: personId || null,
         assetId: assetId || null,
         credentialId: credentialId || null,
         voicemailCredId: voicemailCredId || null,
@@ -30,7 +30,7 @@ export async function PUT(
         isActive: isActive ?? true,
       },
       include: {
-        clientUser: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true } },
         asset: { select: { id: true, name: true, friendlyName: true } },
         credential: { select: { id: true, label: true } },
         voicemailCred: { select: { id: true, label: true } },

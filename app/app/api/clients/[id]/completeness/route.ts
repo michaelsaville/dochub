@@ -17,7 +17,7 @@ export async function GET(
     contacts, assets, credentials, documents, locations,
     networkDevices, websites, diagrams, runbooks, vlans,
   ] = await Promise.all([
-    prisma.contact.count({ where: { clientId: id } }),
+    prisma.person.count({ where: { clientId: id } }),
     prisma.asset.count({ where: { location: { clientId: id } } }),
     prisma.credential.count({ where: { clientId: id, isRetired: false } }),
     prisma.clientDocument.count({ where: { clientId: id } }),
@@ -30,7 +30,7 @@ export async function GET(
   ])
 
   // Primary contact check
-  const primaryContact = await prisma.contact.findFirst({
+  const primaryContact = await prisma.person.findFirst({
     where: { clientId: id, isPrimary: true },
   })
 

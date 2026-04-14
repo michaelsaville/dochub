@@ -13,7 +13,7 @@ export async function PUT(
     const { id } = await params
     const body = await req.json()
     const {
-      accessorType, clientUserId, vendorId, staffUserId, contactId,
+      accessorType, personId, vendorId, staffUserId,
       thirdPartyName, credentialId, mfaEnabled, accessScope, certExpiry, notes, isActive,
       credLabel, credUsername, credPassword,
     } = body
@@ -23,13 +23,12 @@ export async function PUT(
     if (credPassword?.trim()) {
       const existing = await prisma.vpnAccessor.findUnique({
         where: { id },
-        select: { gateway: { select: { clientId: true } }, accessorType: true, clientUserId: true, contactId: true },
+        select: { gateway: { select: { clientId: true } }, accessorType: true, personId: true },
       })
       if (existing) {
         const label = credLabel?.trim() || "VPN Credential"
         const type = accessorType ?? existing.accessorType
-        const userId = (type === "CLIENT_USER" ? clientUserId ?? existing.clientUserId : null) || null
-        const contactIdForCred = (type === "CONTACT" ? contactId ?? existing.contactId : null) || null
+        const userId = (type === "PERSON" ? personId ?? existing.personId : null) || null
         const cred = await prisma.credential.create({
           data: {
             clientId: existing.gateway.clientId,
@@ -37,7 +36,7 @@ export async function PUT(
             username: credUsername?.trim() || null,
             encryptedPassword: encrypt(credPassword.trim()),
             userId,
-            contactId: contactIdForCred,
+            contactId: null,
             url: null,
           },
         })
@@ -49,10 +48,9 @@ export async function PUT(
       where: { id },
       data: {
         accessorType: accessorType ?? undefined,
-        clientUserId: clientUserId !== undefined ? (clientUserId || null) : undefined,
+        personId: personId !== undefined ? (personId || null) : undefined,
         vendorId: vendorId !== undefined ? (vendorId || null) : undefined,
         staffUserId: staffUserId !== undefined ? (staffUserId || null) : undefined,
-        contactId: contactId !== undefined ? (contactId || null) : undefined,
         thirdPartyName: thirdPartyName?.trim() ?? null,
         credentialId: resolvedCredentialId,
         mfaEnabled: mfaEnabled ?? undefined,
@@ -62,10 +60,9 @@ export async function PUT(
         isActive: isActive ?? undefined,
       },
       include: {
-        clientUser: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendor: { select: { id: true, name: true } },
         staffUser: { select: { id: true, name: true, email: true } },
-        contact: { select: { id: true, name: true, role: true } },
         credential: { select: { id: true, label: true } },
       },
     })

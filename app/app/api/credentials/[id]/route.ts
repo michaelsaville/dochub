@@ -26,7 +26,7 @@ export async function PATCH(
     const current = await prisma.credential.findUnique({ where: { id } })
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const { label, username, password, totp, secureNotes, url, notes, userId, contactId, expiryDate } = body
+    const { label, username, password, totp, secureNotes, url, notes, personId, expiryDate } = body
     const changedBy = session?.user?.name ?? "unknown"
 
     const historyEntries: {
@@ -61,13 +61,11 @@ export async function PATCH(
         ...(secureNotes !== undefined && secureNotes?.trim() && { encryptedNotes: encrypt(secureNotes.trim()) }),
         ...(url      !== undefined && { url:   url?.trim()   || null }),
         ...(notes    !== undefined && { notes: notes?.trim() || null }),
-        ...(userId   !== undefined && { userId:    userId    || null }),
-        ...(contactId !== undefined && { contactId: contactId || null }),
+        ...(personId !== undefined && { personId: personId || null }),
         ...(expiryDate !== undefined && { expiryDate: expiryDate ? new Date(expiryDate) : null }),
       },
       include: {
-        user:    { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
       },
     })
 

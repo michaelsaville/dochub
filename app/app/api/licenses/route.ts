@@ -11,7 +11,7 @@ export async function GET() {
       include: {
         client: { select: { id: true, name: true } },
         vendorRef: { select: { id: true, name: true } },
-        assignedUser: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true } },
       },
       orderBy: { renewalDate: "asc" },
     })

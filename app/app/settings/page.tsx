@@ -36,8 +36,7 @@ const ALL_STANDARD_FIELDS = [
   { key: "purchaseDate",    label: "Purchase Date" },
   { key: "warrantyExpiry",  label: "Warranty Expiry" },
   { key: "room",            label: "Room / Location" },
-  { key: "primaryUserId",   label: "Primary User" },
-  { key: "contactId",       label: "Contact" },
+  { key: "personId",        label: "Person" },
   { key: "notes",           label: "Notes" },
 ]
 

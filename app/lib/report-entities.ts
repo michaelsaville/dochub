@@ -188,7 +188,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
 
   contacts: {
     key: "contacts",
-    label: "Contacts",
+    label: "People",
     defaultColumns: ["client", "name", "role", "email", "phone", "isPrimary"],
     fields: [
       { key: "client",      label: "Client",     type: "string",  sortable: true,  filterable: true,  getValue: r => r.client?.name },

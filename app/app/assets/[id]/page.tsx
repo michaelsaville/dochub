@@ -82,20 +82,14 @@ type Asset = {
     wanIp: string | null
     client: { id: string; name: string }
   }
-  primaryUser: {
+  person: {
     id: string
     name: string
     email: string | null
     phone: string | null
     m365Upn: string | null
     jobTitle: string | null
-  } | null
-  contact: {
-    id: string
-    name: string
     role: string | null
-    email: string | null
-    phone: string | null
   } | null
   credentials: Credential[]
   linkedPhoneSystems: { id: string; name: string; type: string; clientId: string }[]
@@ -837,7 +831,7 @@ export default function AssetDetailPage() {
             </div>
 
             {/* Primary user */}
-            {asset.primaryUser && (
+            {asset.person && (
               <div style={card}>
                 <div style={cardTitle}>Primary User</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
@@ -847,17 +841,17 @@ export default function AssetDetailPage() {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: "14px", fontWeight: 600, color: "var(--color-text-secondary)",
                   }}>
-                    {asset.primaryUser.name.charAt(0).toUpperCase()}
+                    {asset.person.name.charAt(0).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: "14px", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asset.primaryUser.name}</div>
-                    {asset.primaryUser.jobTitle && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "1px" }}>{asset.primaryUser.jobTitle}</div>}
+                    <div style={{ fontSize: "14px", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asset.person.name}</div>
+                    {asset.person.jobTitle && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "1px" }}>{asset.person.jobTitle}</div>}
                   </div>
                 </div>
                 {[
-                  { icon: "✉", value: asset.primaryUser.email, href: asset.primaryUser.email ? `mailto:${asset.primaryUser.email}` : null },
-                  { icon: "☎", value: asset.primaryUser.phone, href: asset.primaryUser.phone ? `tel:${asset.primaryUser.phone}` : null },
-                  { icon: "⊞", value: asset.primaryUser.m365Upn, mono: true },
+                  { icon: "✉", value: asset.person.email, href: asset.person.email ? `mailto:${asset.person.email}` : null },
+                  { icon: "☎", value: asset.person.phone, href: asset.person.phone ? `tel:${asset.person.phone}` : null },
+                  { icon: "⊞", value: asset.person.m365Upn, mono: true },
                 ].filter(f => f.value).map(({ icon, value, href, mono }) => (
                   <div key={icon} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
                     <span style={{ fontSize: "12px", color: "var(--color-text-muted)", width: "14px", flexShrink: 0 }}>{icon}</span>
@@ -1021,28 +1015,6 @@ export default function AssetDetailPage() {
                 </div>
               ))}
             </div>
-
-            {/* Contact */}
-            {asset.contact && (
-              <div style={card}>
-                <div style={cardTitle}>Contact</div>
-                <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "2px" }}>{asset.contact.name}</div>
-                {asset.contact.role && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginBottom: "8px" }}>{asset.contact.role}</div>}
-                {[
-                  { icon: "✉", value: asset.contact.email, href: asset.contact.email ? `mailto:${asset.contact.email}` : null },
-                  { icon: "☎", value: asset.contact.phone, href: asset.contact.phone ? `tel:${asset.contact.phone}` : null },
-                ].filter(f => f.value).map(({ icon, value, href }) => (
-                  <div key={icon} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", width: "14px" }}>{icon}</span>
-                    {href ? (
-                      <a href={href} style={{ fontSize: "12px", color: "var(--color-text-secondary)", textDecoration: "none" }}>{value}</a>
-                    ) : (
-                      <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{value}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* Linked Systems */}
             {((asset.linkedPhoneSystems?.length ?? 0) > 0 || (asset.linkedCameraSystems?.length ?? 0) > 0) && (

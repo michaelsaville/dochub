@@ -27,10 +27,7 @@ export async function GET() {
   const seats = await prisma.appSeatAssignment.findMany({
     where: {
       application: { clientId: user!.clientId, isLob: true, isActive: true },
-      OR: [
-        { clientUser: { email: user!.email } },
-        { contact: { email: user!.email } },
-      ],
+      person: { email: user!.email },
     },
     include: {
       application: {

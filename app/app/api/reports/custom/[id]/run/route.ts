@@ -24,7 +24,7 @@ async function fetchEntityData(entity: EntityKey, clientIds: string[]): Promise<
       })
 
     case "contacts":
-      return prisma.contact.findMany({
+      return prisma.person.findMany({
         where: clientWhere ? { clientId: { in: clientWhere } } : undefined,
         include: { client: { select: { name: true } } },
       })
@@ -48,7 +48,7 @@ async function fetchEntityData(entity: EntityKey, clientIds: string[]): Promise<
       return prisma.client.findMany({
         where: clientWhere ? { id: { in: clientWhere } } : undefined,
         include: {
-          _count: { select: { contacts: true, locations: true, licenses: true, websites: true } },
+          _count: { select: { people: true, locations: true, licenses: true, websites: true } },
         },
       })
 

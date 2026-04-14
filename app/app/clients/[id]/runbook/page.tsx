@@ -189,13 +189,13 @@ export default function RunbookPage() {
               )}
 
               {/* Contacts */}
-              {data.contacts?.length > 0 && (
+              {data.people?.length > 0 && (
                 <div className="report-section">
                   <div className="section-title">Contacts</div>
                   <table className="report-table">
                     <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Phone</th></tr></thead>
                     <tbody>
-                      {data.contacts.map((c: any) => (
+                      {data.people.map((c: any) => (
                         <tr key={c.id}>
                           <td style={{ fontWeight: 500 }}>{c.name}</td>
                           <td>{c.title || "—"}</td>
@@ -242,7 +242,7 @@ export default function RunbookPage() {
                           <td>{[a.make, a.model].filter(Boolean).join(" ") || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "11px" }}>{a.serialNumber || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "11px" }}>{a.ipAddress || "—"}</td>
-                          <td>{a.primaryUser?.name || "—"}</td>
+                          <td>{a.person?.name || "—"}</td>
                           <td>{fmt(a.warrantyExpiry)}</td>
                         </tr>
                       ))}
@@ -301,17 +301,17 @@ export default function RunbookPage() {
                   {data.vendors.map((v: any) => (
                     <div key={v.id} style={{ marginBottom: "16px" }}>
                       <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "4px" }}>{v.name}</div>
-                      <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: v.contacts?.length ? "6px" : 0 }}>
+                      <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: v.people?.length ? "6px" : 0 }}>
                         {v.phone && <span style={{ marginRight: "14px" }}>📞 {v.phone}</span>}
                         {v.email && <span style={{ marginRight: "14px" }}>✉️ {v.email}</span>}
                         {v.website && <span>{v.website}</span>}
                         {v.accountNumber && <span style={{ marginLeft: "14px" }}>Acct: {v.accountNumber}</span>}
                       </div>
-                      {v.contacts?.length > 0 && (
+                      {v.people?.length > 0 && (
                         <table className="report-table" style={{ marginLeft: "12px" }}>
                           <thead><tr><th>Contact</th><th>Title</th><th>Email</th><th>Phone</th></tr></thead>
                           <tbody>
-                            {v.contacts.map((c: any) => (
+                            {v.people.map((c: any) => (
                               <tr key={c.id}>
                                 <td>{c.name}</td>
                                 <td>{c.title || "—"}</td>

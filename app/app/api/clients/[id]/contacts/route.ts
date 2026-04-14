@@ -14,7 +14,7 @@ export async function POST(
     const { name, role, email, phone, mobile, notes, isPrimary, isBilling, isEscalation } = body
     if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 })
 
-    const contact = await prisma.contact.create({
+    const person = await prisma.person.create({
       data: {
         clientId: id,
         name: name.trim(),
@@ -28,7 +28,7 @@ export async function POST(
         isEscalation: !!isEscalation,
       },
     })
-    return NextResponse.json(contact, { status: 201 })
+    return NextResponse.json(person, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: "Failed to create contact" }, { status: 500 })
   }

@@ -12,7 +12,7 @@ export async function PATCH(
   try {
     const { licenseId } = await params
     const body = await req.json()
-    const { name, vendor, vendorId, licenseKey, seats, assignedSeats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, assignedUserId, contactId, isActive } = body
+    const { name, vendor, vendorId, licenseKey, seats, assignedSeats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, personId, isActive } = body
 
     const current = await prisma.license.findUnique({
       where: { id: licenseId },
@@ -49,13 +49,11 @@ export async function PATCH(
         ...(cost !== undefined && { cost: cost ? Number(cost) : null }),
         ...(pax8Id !== undefined && { pax8Id: pax8Id?.trim() || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
-        ...(assignedUserId !== undefined && { assignedUserId: assignedUserId || null }),
-        ...(contactId !== undefined && { contactId: contactId || null }),
+        ...(personId !== undefined && { personId: personId || null }),
         ...(isActive !== undefined && { isActive }),
       },
       include: {
-        assignedUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendorRef: { select: { id: true, name: true } },
       },
     })

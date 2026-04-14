@@ -49,7 +49,7 @@ export interface CachedDocument {
   updatedAt: string
 }
 
-export interface CachedContact {
+export interface CachedPerson {
   id: string
   clientId: string
   name: string
@@ -57,7 +57,12 @@ export interface CachedContact {
   email?: string
   phone?: string
   mobile?: string
+  m365Upn?: string
+  jobTitle?: string
   isPrimary: boolean
+  isBilling: boolean
+  isEscalation: boolean
+  isActive: boolean
 }
 
 // ── Sync queue (write offline) ───────────��───────────────────────────────
@@ -82,7 +87,7 @@ class DocHubOfflineDB extends Dexie {
   assets!: Table<CachedAsset, string>
   credentials!: Table<CachedCredential, string>
   documents!: Table<CachedDocument, string>
-  contacts!: Table<CachedContact, string>
+  people!: Table<CachedPerson, string>
   syncQueue!: Table<SyncQueueEntry, number>
 
   constructor() {
@@ -93,8 +98,12 @@ class DocHubOfflineDB extends Dexie {
       assets: "id, clientId, name, updatedAt",
       credentials: "id, clientId, label, updatedAt",
       documents: "id, clientId, title, updatedAt",
-      contacts: "id, clientId, name",
+      contacts: null, // dropped — migrated to people
       syncQueue: "++id, type, clientOpId, createdAt, nextAttemptAt",
+    })
+
+    this.version(2).stores({
+      people: "id, clientId, name",
     })
   }
 }

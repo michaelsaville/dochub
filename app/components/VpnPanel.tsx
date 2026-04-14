@@ -6,11 +6,10 @@ import { useState } from "react"
 
 type VpnAccessor = {
   id: string
-  accessorType: "CLIENT_USER" | "VENDOR" | "STAFF_USER" | "CONTACT" | "THIRD_PARTY"
-  clientUserId: string | null
+  accessorType: "PERSON" | "VENDOR" | "STAFF_USER" | "THIRD_PARTY"
+  personId: string | null
   vendorId: string | null
   staffUserId: string | null
-  contactId: string | null
   thirdPartyName: string | null
   credentialId: string | null
   mfaEnabled: boolean
@@ -18,10 +17,9 @@ type VpnAccessor = {
   certExpiry: string | null
   isActive: boolean
   notes: string | null
-  clientUser: { id: string; name: string; email: string | null } | null
+  person: { id: string; name: string; email: string | null } | null
   vendor: { id: string; name: string } | null
   staffUser: { id: string; name: string; email: string | null } | null
-  contact: { id: string; name: string; role: string | null } | null
   credential: { id: string; label: string } | null
 }
 
@@ -49,10 +47,9 @@ type Props = {
   gateways: VpnGateway[]
   assets: { id: string; name: string; friendlyName: string | null; category: string }[]
   networkDevices: { id: string; name: string; type: string }[]
-  clientUsers: { id: string; name: string; email: string | null }[]
+  people: { id: string; name: string; email: string | null }[]
   vendors: { id: string; name: string }[]
   staffUsers: { id: string; name: string; email: string | null }[]
-  contacts: { id: string; name: string; role: string | null }[]
   credentials: { id: string; label: string }[]
   clientId: string
   onGatewaysChange: (gateways: VpnGateway[]) => void
@@ -81,18 +78,16 @@ const VPN_TYPE_NOTES: Record<string, string> = {
 }
 
 const ACCESSOR_TYPES: Record<string, string> = {
-  CLIENT_USER: "Client staff",
+  PERSON: "Person",
   VENDOR: "Vendor / Third-party company",
   STAFF_USER: "PCC Tech",
-  CONTACT: "Contact",
   THIRD_PARTY: "One-off / unnamed",
 }
 
 const ACCESSOR_COLORS: Record<string, string> = {
-  CLIENT_USER: "#3b82f6",
+  PERSON: "#3b82f6",
   VENDOR: "#f59e0b",
   STAFF_USER: "#8b5cf6",
-  CONTACT: "#22c55e",
   THIRD_PARTY: "#94a3b8",
 }
 
@@ -119,18 +114,16 @@ function emptyState(msg: string) {
 }
 
 function displayName(a: VpnAccessor): string {
-  if (a.clientUser) return a.clientUser.name
+  if (a.person) return a.person.name
   if (a.vendor) return a.vendor.name
   if (a.staffUser) return a.staffUser.name
-  if (a.contact) return a.contact.name
   if (a.thirdPartyName) return a.thirdPartyName
   return "Unknown"
 }
 
 function displaySub(a: VpnAccessor): string | null {
-  if (a.clientUser?.email) return a.clientUser.email
+  if (a.person?.email) return a.person.email
   if (a.staffUser?.email) return a.staffUser.email
-  if (a.contact?.role) return a.contact.role
   return null
 }
 
@@ -145,7 +138,7 @@ function certExpiryBadge(expiry: string | null) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function VpnPanel({
-  gateways, assets, networkDevices, clientUsers, vendors, staffUsers, contacts, credentials, clientId, onGatewaysChange,
+  gateways, assets, networkDevices, people, vendors, staffUsers, credentials, clientId, onGatewaysChange,
 }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({
@@ -377,10 +370,9 @@ export default function VpnPanel({
               {/* Accessors section */}
               <AccessorsPanel
                 gateway={gateway}
-                clientUsers={clientUsers}
+                people={people}
                 vendors={vendors}
                 staffUsers={staffUsers}
-                contacts={contacts}
                 credentials={credentials}
                 onAdd={(af) => addAccessor(gateway.id, af)}
                 onUpdate={(aid, data) => updateAccessor(gateway.id, aid, data)}
@@ -533,12 +525,11 @@ function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, fi
 
 // ── Accessors panel ────────────────────────────────────────────────────────────
 
-function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, credentials, onAdd, onUpdate, onDelete }: {
+function AccessorsPanel({ gateway, people, vendors, staffUsers, credentials, onAdd, onUpdate, onDelete }: {
   gateway: VpnGateway
-  clientUsers: { id: string; name: string; email: string | null }[]
+  people: { id: string; name: string; email: string | null }[]
   vendors: { id: string; name: string }[]
   staffUsers: { id: string; name: string; email: string | null }[]
-  contacts: { id: string; name: string; role: string | null }[]
   credentials: { id: string; label: string }[]
   onAdd: (f: any) => Promise<void>
   onUpdate: (id: string, data: any) => Promise<void>
@@ -548,7 +539,7 @@ function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, c
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<any>({})
-  const emptyForm = { accessorType: "CLIENT_USER", clientUserId: "", vendorId: "", staffUserId: "", contactId: "", thirdPartyName: "", credentialId: null, credMode: "none", credLabel: "", credUsername: "", credPassword: "", mfaEnabled: false, accessScope: "", certExpiry: "", notes: "" }
+  const emptyForm = { accessorType: "PERSON", personId: "", vendorId: "", staffUserId: "", thirdPartyName: "", credentialId: null, credMode: "none", credLabel: "", credUsername: "", credPassword: "", mfaEnabled: false, accessScope: "", certExpiry: "", notes: "" }
   const [form, setForm] = useState(emptyForm)
 
   async function save() {
@@ -580,7 +571,7 @@ function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, c
         <div key={accessor.id} style={{ borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "10px", marginBottom: "10px" }}>
           {editingId === accessor.id ? (
             <div>
-              <AccessorForm form={editForm} setForm={setEditForm} clientUsers={clientUsers} vendors={vendors} staffUsers={staffUsers} contacts={contacts} credentials={credentials} />
+              <AccessorForm form={editForm} setForm={setEditForm} people={people} vendors={vendors} staffUsers={staffUsers} credentials={credentials} />
               <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
                 <button onClick={() => saveEdit(accessor.id)} disabled={saving} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
                 <button onClick={() => setEditingId(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer" }}>Cancel</button>
@@ -623,7 +614,7 @@ function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, c
       {/* Add accessor */}
       {showAdd ? (
         <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", padding: "14px", marginTop: "4px" }}>
-          <AccessorForm form={form} setForm={setForm} clientUsers={clientUsers} vendors={vendors} staffUsers={staffUsers} contacts={contacts} credentials={credentials} />
+          <AccessorForm form={form} setForm={setForm} people={people} vendors={vendors} staffUsers={staffUsers} credentials={credentials} />
           <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
             <button onClick={save} disabled={saving} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
               {saving ? "Saving..." : "Add"}
@@ -642,13 +633,12 @@ function AccessorsPanel({ gateway, clientUsers, vendors, staffUsers, contacts, c
 
 // ── Accessor form (shared for add / edit) ──────────────────────────────────────
 
-function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contacts, credentials }: {
+function AccessorForm({ form, setForm, people, vendors, staffUsers, credentials }: {
   form: any
   setForm: (fn: (f: any) => any) => void
-  clientUsers: { id: string; name: string; email: string | null }[]
+  people: { id: string; name: string; email: string | null }[]
   vendors: { id: string; name: string }[]
   staffUsers: { id: string; name: string; email: string | null }[]
-  contacts: { id: string; name: string; role: string | null }[]
   credentials: { id: string; label: string }[]
 }) {
   // credMode: "none" | "existing" | "new"
@@ -658,13 +648,9 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
 
   // Auto-fill credential label from selected identity
   function identityName(): string {
-    if (form.accessorType === "CLIENT_USER" && form.clientUserId) {
-      const u = clientUsers.find(u => u.id === form.clientUserId)
-      return u ? `${u.name} – VPN` : ""
-    }
-    if (form.accessorType === "CONTACT" && form.contactId) {
-      const c = contacts.find(c => c.id === form.contactId)
-      return c ? `${c.name} – VPN` : ""
+    if (form.accessorType === "PERSON" && form.personId) {
+      const p = people.find(p => p.id === form.personId)
+      return p ? `${p.name} – VPN` : ""
     }
     if (form.accessorType === "VENDOR" && form.vendorId) {
       const v = vendors.find(v => v.id === form.vendorId)
@@ -680,7 +666,7 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
         <label style={lbl}>Accessor type</label>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {Object.entries(ACCESSOR_TYPES).map(([k, v]) => (
-            <button key={k} onClick={() => setForm(f => ({ ...f, accessorType: k, clientUserId: "", vendorId: "", staffUserId: "", contactId: "", thirdPartyName: "" }))}
+            <button key={k} onClick={() => setForm(f => ({ ...f, accessorType: k, personId: "", vendorId: "", staffUserId: "", thirdPartyName: "" }))}
               style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: `0.5px solid ${form.accessorType === k ? ACCESSOR_COLORS[k] : "var(--color-border-secondary)"}`, background: form.accessorType === k ? ACCESSOR_COLORS[k] + "22" : "transparent", color: form.accessorType === k ? ACCESSOR_COLORS[k] : "var(--color-text-secondary)", cursor: "pointer", fontWeight: form.accessorType === k ? 600 : 400 }}>
               {v}
             </button>
@@ -689,16 +675,16 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
       </div>
 
       {/* Identity picker */}
-      {form.accessorType === "CLIENT_USER" && (
+      {form.accessorType === "PERSON" && (
         <div style={{ gridColumn: "1 / -1" }}>
-          <label style={lbl}>Client user</label>
-          {clientUsers.length > 0 ? (
-            <select value={form.clientUserId || ""} onChange={e => setForm(f => ({ ...f, clientUserId: e.target.value }))} style={inp}>
-              <option value="">Select user…</option>
-              {clientUsers.map(u => <option key={u.id} value={u.id}>{u.name}{u.email ? ` (${u.email})` : ""}</option>)}
+          <label style={lbl}>Person</label>
+          {people.length > 0 ? (
+            <select value={form.personId || ""} onChange={e => setForm(f => ({ ...f, personId: e.target.value }))} style={inp}>
+              <option value="">Select person…</option>
+              {people.map(p => <option key={p.id} value={p.id}>{p.name}{p.email ? ` (${p.email})` : ""}</option>)}
             </select>
           ) : (
-            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "8px 0" }}>No users on this client yet.</div>
+            <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", padding: "8px 0" }}>No people on this client yet.</div>
           )}
         </div>
       )}
@@ -717,15 +703,6 @@ function AccessorForm({ form, setForm, clientUsers, vendors, staffUsers, contact
           <select value={form.staffUserId || ""} onChange={e => setForm(f => ({ ...f, staffUserId: e.target.value }))} style={inp}>
             <option value="">Select tech…</option>
             {staffUsers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
-      )}
-      {form.accessorType === "CONTACT" && contacts.length > 0 && (
-        <div style={{ gridColumn: "1 / -1" }}>
-          <label style={lbl}>Contact</label>
-          <select value={form.contactId || ""} onChange={e => setForm(f => ({ ...f, contactId: e.target.value }))} style={inp}>
-            <option value="">Select contact…</option>
-            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}{c.role ? ` — ${c.role}` : ""}</option>)}
           </select>
         </div>
       )}

@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         try {
           const { name, role, email, phone, mobile, notes } = row.data
           if (!name?.trim()) { skipped++; continue }
-          await prisma.contact.create({
+          await prisma.person.create({
             data: {
               clientId: row.clientId,
               name: name.trim(),

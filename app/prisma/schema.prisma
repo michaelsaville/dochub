@@ -84,8 +84,7 @@ model Client {
   attachments       ClientAttachment[]
   documents         ClientDocument[]
   documentFolders   DocumentFolder[]
-  users             ClientUser[]
-  contacts          Contact[]
+  people            Person[]
   credentials       Credential[]
   licenses          License[]
   locations         Location[]
@@ -129,44 +128,40 @@ model Location {
   networkDevices NetworkDevice[]
   racks          Rack[]
   subnets        Subnet[]
-  userLocations  UserLocation[]
   ptpSideA       PtpLink[]       @relation("PtpSideA")
   ptpSideB       PtpLink[]       @relation("PtpSideB")
 }
 
-model ClientUser {
+model Person {
   id              String              @id @default(cuid())
   clientId        String
   name            String
   email           String?
   phone           String?
+  mobile          String?
   m365Upn         String?
   jobTitle        String?
+  role            String?
+  isPrimary       Boolean             @default(false)
+  isBilling       Boolean             @default(false)
+  isEscalation    Boolean             @default(false)
   isActive        Boolean             @default(true)
+  notes           String?
+  syncroContactId String?             @unique
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  applications    Application[]       @relation("ApplicationAssignedUser")
-  assets          Asset[]             @relation("AssetPrimaryUser")
   client          Client              @relation(fields: [clientId], references: [id])
-  credentials     Credential[]        @relation("CredentialUser")
-  ipAssignments   IpAssignment[]      @relation("UserIpAssignment")
-  licenses        License[]           @relation("LicenseAssignedUser")
-  userLocations   UserLocation[]
-  vpnAccess       VpnAccessor[]       @relation("ClientUserVpnAccess")
-  phoneExtensions PhoneExtension[]    @relation("ClientUserExtension")
-  appSeats        AppSeatAssignment[] @relation("AppSeatUser")
+  applications    Application[]       @relation("ApplicationPerson")
+  assets          Asset[]             @relation("AssetPerson")
+  credentials     Credential[]        @relation("CredentialPerson")
+  ipAssignments   IpAssignment[]      @relation("PersonIpAssignment")
+  licenses        License[]           @relation("LicensePerson")
+  vpnAccess       VpnAccessor[]       @relation("PersonVpnAccess")
+  phoneExtensions PhoneExtension[]    @relation("PersonExtension")
+  appSeats        AppSeatAssignment[] @relation("AppSeatPerson")
 }
 
-model UserLocation {
-  id         String           @id @default(cuid())
-  userId     String
-  locationId String
-  relation   LocationRelation @default(PRIMARY)
-  location   Location         @relation(fields: [locationId], references: [id])
-  user       ClientUser       @relation(fields: [userId], references: [id])
 
-  @@unique([userId, locationId])
-}
 
 model AssetType {
   id          String             @id @default(cuid())
@@ -195,7 +190,7 @@ model AssetTypeTemplate {
 model Asset {
   id                 String                 @id @default(cuid())
   locationId         String
-  primaryUserId      String?
+  personId           String?
   category           AssetCategory          @default(OTHER)
   status             AssetStatus            @default(ACTIVE)
   name               String
@@ -227,7 +222,6 @@ model Asset {
   vncHost            String?
   vncPort            Int?
   assetTypeId        String?
-  contactId          String?
   dataSource         String                 @default("MANUAL")
   // Typed extended fields (surfaced based on AssetTypeTemplate.standardFields)
   firmwareVersion    String?
@@ -238,9 +232,8 @@ model Asset {
   storageCapacity    String? // e.g. "1TB NVMe SSD", "2x4TB RAID1"
   customFields       Json? // { [key: string]: string } from template custom field defs
   assetType          AssetType?             @relation(fields: [assetTypeId], references: [id])
-  contact            Contact?               @relation("AssetContact", fields: [contactId], references: [id])
   location           Location               @relation(fields: [locationId], references: [id])
-  primaryUser        ClientUser?            @relation("AssetPrimaryUser", fields: [primaryUserId], references: [id])
+  person             Person?                @relation("AssetPerson", fields: [personId], references: [id])
   successor          Asset?                 @relation("AssetSuccessor", fields: [successorId], references: [id])
   predecessor        Asset?                 @relation("AssetSuccessor")
   credentials        Credential[]
@@ -380,14 +373,12 @@ model Credential {
   lastRotated         DateTime?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
-  userId              String?
-  contactId           String?
+  personId            String?
   expiryDate          DateTime?
   dataSource          String           @default("MANUAL")
   asset               Asset?           @relation(fields: [assetId], references: [id])
   client              Client           @relation(fields: [clientId], references: [id])
-  contact             Contact?         @relation("CredentialContact", fields: [contactId], references: [id])
-  user                ClientUser?      @relation("CredentialUser", fields: [userId], references: [id])
+  person              Person?          @relation("CredentialPerson", fields: [personId], references: [id])
   vpnGateways         VpnGateway[]     @relation("CredentialVpnGateway")
   vpnAccessors        VpnAccessor[]    @relation("CredentialVpnAccessor")
   phoneSystems        PhoneSystem[]    @relation("CredentialPhoneSystem")
@@ -415,8 +406,7 @@ model License {
   isActive       Boolean     @default(true)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-  assignedUserId String?
-  contactId      String?
+  personId       String?
   assignedSeats  Int?
   licenseKey     String?
   purchaseDate   DateTime?
@@ -425,10 +415,9 @@ model License {
   billingTerm    String?
   status         String?
   assetId        String?
-  assignedUser   ClientUser? @relation("LicenseAssignedUser", fields: [assignedUserId], references: [id])
   asset          Asset?      @relation("LicenseAsset", fields: [assetId], references: [id])
   client         Client      @relation(fields: [clientId], references: [id])
-  contact        Contact?    @relation("LicenseContact", fields: [contactId], references: [id])
+  person         Person?     @relation("LicensePerson", fields: [personId], references: [id])
   vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
 }
 
@@ -443,8 +432,7 @@ model Application {
   isActive        Boolean             @default(true)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  assignedUserId  String?
-  contactId       String?
+  personId        String?
   vendorId        String?
   // LOB fields
   isLob           Boolean             @default(false)
@@ -455,10 +443,9 @@ model Application {
   appUrl          String? // Web application URL
   totalSeats      Int? // licensed seat count
   assetId         String?
-  assignedUser    ClientUser?         @relation("ApplicationAssignedUser", fields: [assignedUserId], references: [id])
   asset           Asset?              @relation("ApplicationAsset", fields: [assetId], references: [id])
   client          Client              @relation(fields: [clientId], references: [id])
-  contact         Contact?            @relation("ApplicationContact", fields: [contactId], references: [id])
+  person          Person?             @relation("ApplicationPerson", fields: [personId], references: [id])
   vendorRef       Vendor?             @relation(fields: [vendorId], references: [id])
   seatAssignments AppSeatAssignment[]
 }
@@ -466,8 +453,7 @@ model Application {
 model AppSeatAssignment {
   id                 String      @id @default(cuid())
   applicationId      String
-  clientUserId       String? // DocHub user this seat is assigned to
-  contactId          String? // or a contact
+  personId           String?
   seatUsername       String? // the app-specific username (e.g. "user01")
   seatPassword       String? // encrypted app-specific password
   portalCredentialId String? // auto-created portal vault entry
@@ -475,35 +461,12 @@ model AppSeatAssignment {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  clientUser         ClientUser? @relation("AppSeatUser", fields: [clientUserId], references: [id])
-  contact            Contact?    @relation("AppSeatContact", fields: [contactId], references: [id])
+  person             Person?     @relation("AppSeatPerson", fields: [personId], references: [id])
 
   @@unique([applicationId, seatUsername])
 }
 
-model Contact {
-  id              String              @id @default(cuid())
-  clientId        String
-  name            String
-  role            String?
-  email           String?
-  phone           String?
-  isPrimary       Boolean             @default(false)
-  isBilling       Boolean             @default(false)
-  isEscalation    Boolean             @default(false)
-  notes           String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  mobile          String?
-  syncroContactId String?             @unique
-  applications    Application[]       @relation("ApplicationContact")
-  assets          Asset[]             @relation("AssetContact")
-  client          Client              @relation(fields: [clientId], references: [id])
-  credentials     Credential[]        @relation("CredentialContact")
-  licenses        License[]           @relation("LicenseContact")
-  vpnAccess       VpnAccessor[]       @relation("ContactVpnAccess")
-  appSeats        AppSeatAssignment[] @relation("AppSeatContact")
-}
+// Contact model removed — merged into Person
 
 model Alarm {
   id              String        @id @default(cuid())
@@ -966,13 +929,13 @@ model IpAssignment {
   ipAddress String
   hostname  String?
   assetId   String?
-  userId    String?
+  personId  String?
   notes     String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   asset     Asset?      @relation("AssetIpAssignment", fields: [assetId], references: [id])
   subnet    Subnet      @relation(fields: [subnetId], references: [id], onDelete: Cascade)
-  user      ClientUser? @relation("UserIpAssignment", fields: [userId], references: [id])
+  person    Person?     @relation("PersonIpAssignment", fields: [personId], references: [id])
 
   @@unique([subnetId, ipAddress])
 }
@@ -1010,11 +973,6 @@ enum AssetCategory {
   OTHER
 }
 
-enum LocationRelation {
-  PRIMARY
-  OCCASIONAL
-  REMOTE
-}
 
 enum AlarmSeverity {
   INFO
@@ -1188,10 +1146,9 @@ model VpnAccessor {
   id             String          @id @default(cuid())
   gatewayId      String
   accessorType   VpnAccessorType
-  clientUserId   String?
+  personId       String?
   vendorId       String?
   staffUserId    String? // PCC tech accessing this client
-  contactId      String?
   thirdPartyName String? // fallback: "Ricoh copier tech"
   credentialId   String? // their VPN credential/cert in vault
   mfaEnabled     Boolean         @default(false)
@@ -1202,10 +1159,9 @@ model VpnAccessor {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   gateway        VpnGateway      @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
-  clientUser     ClientUser?     @relation("ClientUserVpnAccess", fields: [clientUserId], references: [id])
+  person         Person?         @relation("PersonVpnAccess", fields: [personId], references: [id])
   vendor         Vendor?         @relation("VendorVpnAccess", fields: [vendorId], references: [id])
   staffUser      StaffUser?      @relation("StaffUserVpnAccess", fields: [staffUserId], references: [id])
-  contact        Contact?        @relation("ContactVpnAccess", fields: [contactId], references: [id])
   credential     Credential?     @relation("CredentialVpnAccessor", fields: [credentialId], references: [id])
 }
 
@@ -1222,11 +1178,12 @@ enum VpnType {
 }
 
 enum VpnAccessorType {
-  CLIENT_USER
+  PERSON
   VENDOR
   STAFF_USER
-  CONTACT
   THIRD_PARTY
+  CLIENT_USER  // @deprecated — migrated to PERSON, kept for enum compat
+  CONTACT      // @deprecated — migrated to PERSON, kept for enum compat
 }
 
 // ─── Phone Systems ────────────────────────────────────────────────────────────
@@ -1314,7 +1271,7 @@ model PotsNumber {
 model PhoneExtension {
   id               String             @id @default(cuid())
   systemId         String
-  clientUserId     String? // linked client user
+  personId         String?
   assetId          String? // handset asset
   credentialId     String? // SIP credential in vault
   voicemailCredId  String? // voicemail PIN credential in vault
@@ -1328,7 +1285,7 @@ model PhoneExtension {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   system           PhoneSystem        @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  clientUser       ClientUser?        @relation("ClientUserExtension", fields: [clientUserId], references: [id])
+  person           Person?            @relation("PersonExtension", fields: [personId], references: [id])
   asset            Asset?             @relation("AssetPhoneExtension", fields: [assetId], references: [id])
   credential       Credential?        @relation("CredentialPhoneExtension", fields: [credentialId], references: [id])
   voicemailCred    Credential?        @relation("CredentialVoicemail", fields: [voicemailCredId], references: [id])

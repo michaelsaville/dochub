@@ -17,7 +17,7 @@ export async function GET(
         credential: { select: { id: true, label: true } },
         extensions: {
           include: {
-            clientUser: { select: { id: true, name: true, email: true } },
+            person: { select: { id: true, name: true, email: true } },
             asset: { select: { id: true, name: true, friendlyName: true } },
             credential: { select: { id: true, label: true } },
             voicemailCred: { select: { id: true, label: true } },

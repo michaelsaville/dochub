@@ -8,7 +8,7 @@ import { db } from "./offline-db"
  */
 export async function cachedFetch<T>(
   url: string,
-  table: "clients" | "assets" | "credentials" | "documents" | "contacts",
+  table: "clients" | "assets" | "credentials" | "documents" | "people",
   keyFn: (item: any) => string,
   clientId?: string
 ): Promise<T[]> {
@@ -86,7 +86,7 @@ export async function prefetchClientData(clientId: string) {
     cacheEndpoint(`/api/clients/${clientId}/assets`, "assets", clientId),
     cacheEndpoint(`/api/clients/${clientId}/credentials`, "credentials", clientId),
     cacheEndpoint(`/api/clients/${clientId}/documents`, "documents", clientId),
-    cacheEndpoint(`/api/clients/${clientId}/contacts`, "contacts", clientId),
+    cacheEndpoint(`/api/clients/${clientId}/people`, "people", clientId),
   ])
 }
 

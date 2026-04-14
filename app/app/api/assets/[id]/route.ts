@@ -19,8 +19,7 @@ export async function GET(
         assetType: {
           select: { id: true, name: true, template: true },
         },
-        primaryUser: { select: { id: true, name: true, email: true, phone: true, m365Upn: true, jobTitle: true } },
-        contact: { select: { id: true, name: true, role: true, email: true, phone: true } },
+        person: { select: { id: true, name: true, email: true } },
         credentials: {
           where: { isRetired: false },
           select: { id: true, label: true, username: true, url: true, encryptedPassword: true },
@@ -72,14 +71,14 @@ export async function PATCH(
       splashtopUrl, driverUrl, isFavorite,
       rdpEnabled, rdpHost, rdpPort, vncEnabled, vncHost, vncPort,
       purchaseDate, warrantyExpiry, room, notes,
-      status, primaryUserId, contactId,
+      status, personId,
       firmwareVersion, portCount, os, ram, cpu, storageCapacity, customFields,
     } = body
 
     // Fetch current values for audit trail
     const current = await prisma.asset.findUnique({
       where: { id },
-      select: { ipAddress: true, macAddress: true, status: true, primaryUserId: true, vlan: true, switchPort: true, firmwareVersion: true },
+      select: { ipAddress: true, macAddress: true, status: true, personId: true, vlan: true, switchPort: true, firmwareVersion: true },
     })
 
     const changedBy = session?.user?.name ?? "unknown"
@@ -90,7 +89,7 @@ export async function PATCH(
         { field: "ipAddress",    oldVal: current.ipAddress,    newVal: ipAddress    !== undefined ? (ipAddress?.trim() || null)    : undefined },
         { field: "macAddress",   oldVal: current.macAddress,   newVal: macAddress   !== undefined ? (macAddress?.trim() || null)   : undefined },
         { field: "status",       oldVal: current.status,       newVal: status       !== undefined ? status                         : undefined },
-        { field: "primaryUserId",oldVal: current.primaryUserId,newVal: primaryUserId!== undefined ? (primaryUserId || null)        : undefined },
+        { field: "personId",     oldVal: current.personId,     newVal: personId     !== undefined ? (personId || null)             : undefined },
         { field: "vlan",         oldVal: current.vlan,         newVal: vlan         !== undefined ? (vlan?.trim() || null)         : undefined },
         { field: "switchPort",      oldVal: current.switchPort,      newVal: switchPort      !== undefined ? (switchPort?.trim() || null)      : undefined },
         { field: "firmwareVersion", oldVal: current.firmwareVersion, newVal: firmwareVersion !== undefined ? (firmwareVersion?.trim() || null) : undefined },
@@ -113,7 +112,7 @@ export async function PATCH(
       where: { id },
       data: {
         ...(assetTypeId !== undefined && { assetTypeId: assetTypeId || null }),
-        ...(contactId !== undefined && { contactId: contactId || null }),
+        ...(personId !== undefined && { personId: personId || null }),
         ...(name?.trim() && { name: name.trim() }),
         ...(friendlyName !== undefined && { friendlyName: friendlyName?.trim() || null }),
         ...(make !== undefined && { make: make?.trim() || null }),
@@ -139,7 +138,6 @@ export async function PATCH(
         ...(room !== undefined && { room: room?.trim() || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
         ...(status && { status }),
-        ...(primaryUserId !== undefined && { primaryUserId: primaryUserId || null }),
         ...(firmwareVersion !== undefined && { firmwareVersion: firmwareVersion?.trim() || null }),
         ...(portCount !== undefined && { portCount: portCount !== null ? Number(portCount) : null }),
         ...(os !== undefined && { os: os?.trim() || null }),
@@ -150,8 +148,7 @@ export async function PATCH(
       },
       include: {
         assetType: { select: { id: true, name: true, template: true } },
-        primaryUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
       },
     })
 

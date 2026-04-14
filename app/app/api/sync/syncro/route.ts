@@ -141,7 +141,7 @@ export async function POST() {
           where: { syncroId: String(c.customer_id) },
         })
         if (!client) continue
-        await prisma.contact.upsert({
+        await prisma.person.upsert({
           where: { syncroContactId: String(c.id) },
           update: {
             name: c.name || "Unknown",
@@ -150,6 +150,7 @@ export async function POST() {
             phone: c.processed_phone || c.phone || null,
             mobile: c.mobile || null,
             notes: c.notes || null,
+            isActive: true,
             updatedAt: new Date(),
           },
           create: {
@@ -161,6 +162,7 @@ export async function POST() {
             phone: c.processed_phone || c.phone || null,
             mobile: c.mobile || null,
             notes: c.notes || null,
+            isActive: true,
           },
         })
         contactCount++

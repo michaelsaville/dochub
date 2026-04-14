@@ -13,7 +13,7 @@ export async function GET(
 
     const [assets, credentials, licenses, applications] = await Promise.all([
       prisma.asset.findMany({
-        where: { contactId, location: { clientId: id } },
+        where: { personId: contactId, location: { clientId: id } },
         select: {
           id: true, name: true, status: true, make: true, model: true,
           assetType: { select: { name: true } },
@@ -21,17 +21,17 @@ export async function GET(
         orderBy: { name: "asc" },
       }),
       prisma.credential.findMany({
-        where: { contactId, clientId: id, isRetired: false },
+        where: { personId: contactId, clientId: id, isRetired: false },
         select: { id: true, label: true, username: true, url: true },
         orderBy: { label: "asc" },
       }),
       prisma.license.findMany({
-        where: { contactId, clientId: id, isActive: true },
+        where: { personId: contactId, clientId: id, isActive: true },
         select: { id: true, name: true, vendor: true },
         orderBy: { name: "asc" },
       }),
       prisma.application.findMany({
-        where: { contactId, clientId: id, isActive: true },
+        where: { personId: contactId, clientId: id, isActive: true },
         select: { id: true, name: true, vendor: true },
         orderBy: { name: "asc" },
       }),

@@ -18,8 +18,7 @@ export async function GET(
       where: { clientId: id, ...(includeInactive ? {} : { isActive: true }) },
       orderBy: { name: "asc" },
       include: {
-        assignedUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendorRef: { select: { id: true, name: true } },
       },
     })
@@ -38,7 +37,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, vendor, vendorId, licenseKey, seats, assignedSeats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, assignedUserId, contactId } = body
+    const { name, vendor, vendorId, licenseKey, seats, assignedSeats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, personId } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
@@ -57,12 +56,10 @@ export async function POST(
         cost: cost ? Number(cost) : null,
         pax8Id: pax8Id?.trim() || null,
         notes: notes?.trim() || null,
-        assignedUserId: assignedUserId || null,
-        contactId: contactId || null,
+        personId: personId || null,
       },
       include: {
-        assignedUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendorRef: { select: { id: true, name: true } },
       },
     })

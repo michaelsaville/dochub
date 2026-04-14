@@ -13,7 +13,7 @@ export async function GET() {
       networkDiagram: { select: { id: true } },
       _count: {
         select: {
-          contacts: true,
+          people: true,
           credentials: true,
           locations: true,
           documents: true,
@@ -44,7 +44,7 @@ export async function GET() {
   for (const c of clients) {
     const checks = [
       c._count.locations > 0,
-      c._count.contacts > 0,
+      c._count.people > 0,
       (clientAssetCount[c.id] || 0) > 0,
       c._count.credentials > 0,
       c._count.documents > 0,

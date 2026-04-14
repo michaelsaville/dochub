@@ -27,8 +27,7 @@ export async function POST(req: Request) {
     // Count everything that will be moved
     const [
       locationCount,
-      userCount,
-      contactCount,
+      personCount,
       credentialCount,
       licenseCount,
       subscriptionCount,
@@ -51,8 +50,7 @@ export async function POST(req: Request) {
       vendorRows,
     ] = await Promise.all([
       prisma.location.count({ where: { clientId: sourceId } }),
-      prisma.clientUser.count({ where: { clientId: sourceId } }),
-      prisma.contact.count({ where: { clientId: sourceId } }),
+      prisma.person.count({ where: { clientId: sourceId } }),
       prisma.credential.count({ where: { clientId: sourceId } }),
       prisma.license.count({ where: { clientId: sourceId } }),
       prisma.license.count({ where: { clientId: sourceId } }), // same table, just labelled differently in UI
@@ -87,8 +85,7 @@ export async function POST(req: Request) {
     const counts = {
       locations: locationCount,
       assets: assetCount,
-      users: userCount,
-      contacts: contactCount,
+      people: personCount,
       credentials: credentialCount,
       licenses: licenseCount,
       applications: applicationCount,
@@ -135,8 +132,7 @@ export async function POST(req: Request) {
 
       // 2. Move all direct clientId records
       await tx.location.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
-      await tx.clientUser.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
-      await tx.contact.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.person.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
       await tx.credential.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
       await tx.license.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
       await tx.application.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })

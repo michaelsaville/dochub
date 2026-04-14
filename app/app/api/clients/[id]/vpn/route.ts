@@ -18,10 +18,9 @@ export async function GET(
         credential: { select: { id: true, label: true } },
         accessors: {
           include: {
-            clientUser: { select: { id: true, name: true, email: true } },
+            person: { select: { id: true, name: true, email: true } },
             vendor: { select: { id: true, name: true } },
             staffUser: { select: { id: true, name: true, email: true } },
-            contact: { select: { id: true, name: true, role: true } },
             credential: { select: { id: true, label: true } },
           },
           orderBy: { createdAt: "asc" },

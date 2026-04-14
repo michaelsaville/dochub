@@ -14,8 +14,7 @@ export async function GET(
   const seats = await prisma.appSeatAssignment.findMany({
     where: { applicationId: id },
     include: {
-      clientUser: { select: { id: true, name: true, email: true } },
-      contact: { select: { id: true, name: true, email: true } },
+      person: { select: { id: true, name: true, email: true } },
     },
     orderBy: { seatUsername: "asc" },
   })
@@ -45,21 +44,19 @@ export async function POST(
   const seat = await prisma.appSeatAssignment.create({
     data: {
       applicationId: id,
-      clientUserId: body.clientUserId || null,
-      contactId: body.contactId || null,
+      personId: body.personId || null,
       seatUsername: body.seatUsername?.trim() || null,
       seatPassword: encryptedPw,
       notes: body.notes?.trim() || null,
     },
     include: {
-      clientUser: { select: { id: true, name: true, email: true } },
-      contact: { select: { id: true, name: true, email: true } },
+      person: { select: { id: true, name: true, email: true } },
     },
   })
 
   // Auto-push credential to portal vault if user has a portal account
-  if (body.seatPassword?.trim() && (body.clientUserId || body.contactId)) {
-    const email = seat.clientUser?.email || seat.contact?.email
+  if (body.seatPassword?.trim() && body.personId) {
+    const email = seat.person?.email
     if (email) {
       const portalUser = await prisma.portalUser.findUnique({ where: { email } })
       if (portalUser) {

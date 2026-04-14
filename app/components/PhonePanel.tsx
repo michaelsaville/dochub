@@ -51,7 +51,7 @@ type PhoneExtension = {
   voicemailEnabled: boolean
   isActive: boolean
   notes: string | null
-  clientUser: { id: string; name: string; email: string | null } | null
+  person: { id: string; name: string; email: string | null } | null
   asset: { id: string; name: string; friendlyName: string | null } | null
   credential: { id: string; label: string } | null
   voicemailCred: { id: string; label: string } | null
@@ -118,7 +118,7 @@ type PhoneSystem = {
 type Props = {
   systems: PhoneSystem[]
   assets: { id: string; name: string; friendlyName: string | null; category: string }[]
-  clientUsers: { id: string; name: string; email: string | null }[]
+  people: { id: string; name: string; email: string | null }[]
   credentials: { id: string; label: string }[]
   vendors: { id: string; name: string; supportPhone: string | null }[]
   clientId: string
@@ -126,9 +126,9 @@ type Props = {
 }
 
 const emptySystem = { name: "", type: "GRANDSTREAM_UCM", assetId: "", credentialId: "", sipDomain: "", managementUrl: "", notes: "" }
-const emptyExt = { extension: "", displayName: "", type: "USER", clientUserId: "", assetId: "", credentialId: "", voicemailCredId: "", did: "", voicemailEnabled: false, notes: "" }
+const emptyExt = { extension: "", displayName: "", type: "USER", personId: "", assetId: "", credentialId: "", voicemailCredId: "", did: "", voicemailEnabled: false, notes: "" }
 
-export default function PhonePanel({ systems, assets, clientUsers, credentials, vendors, clientId, onSystemsChange }: Props) {
+export default function PhonePanel({ systems, assets, people, credentials, vendors, clientId, onSystemsChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAddSystem, setShowAddSystem] = useState(false)
   const [addingExtFor, setAddingExtFor] = useState<string | null>(null)
@@ -228,7 +228,7 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
   }
 
   function startEditExt(e: PhoneExtension) {
-    setExtForm({ extension: e.extension, displayName: e.displayName, type: e.type, clientUserId: e.clientUser?.id || "", assetId: e.asset?.id || "", credentialId: e.credential?.id || "", voicemailCredId: e.voicemailCred?.id || "", did: e.did || "", voicemailEnabled: e.voicemailEnabled, notes: e.notes || "" })
+    setExtForm({ extension: e.extension, displayName: e.displayName, type: e.type, personId: e.person?.id || "", assetId: e.asset?.id || "", credentialId: e.credential?.id || "", voicemailCredId: e.voicemailCred?.id || "", did: e.did || "", voicemailEnabled: e.voicemailEnabled, notes: e.notes || "" })
     setEditingExtId(e.id)
   }
 
@@ -524,10 +524,10 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
             <input style={inp} value={extForm.did} onChange={e => setExtForm(f => ({ ...f, did: e.target.value }))} placeholder="+15551234567" />
           </div>
           <div>
-            <label style={lbl}>Client User</label>
-            <select style={inp} value={extForm.clientUserId} onChange={e => setExtForm(f => ({ ...f, clientUserId: e.target.value }))}>
+            <label style={lbl}>Person</label>
+            <select style={inp} value={extForm.personId} onChange={e => setExtForm(f => ({ ...f, personId: e.target.value }))}>
               <option value="">— None —</option>
-              {clientUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div>
@@ -662,7 +662,7 @@ export default function PhonePanel({ systems, assets, clientUsers, credentials, 
                         </div>
                         <div style={{ display: "flex", gap: "14px", marginTop: "4px", flexWrap: "wrap" }}>
                           {ext.did && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>DID: {ext.did}</span>}
-                          {ext.clientUser && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>User: {ext.clientUser.name}</span>}
+                          {ext.person && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Person: {ext.person.name}</span>}
                           {ext.asset && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Handset: {assetLabel(ext.asset)}</span>}
                           {ext.credential && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>SIP cred: {ext.credential.label}</span>}
                           {ext.voicemailCred && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>VM PIN: {ext.voicemailCred.label}</span>}

@@ -14,8 +14,7 @@ export async function GET(
       where: { clientId: id, isActive: true },
       orderBy: { name: "asc" },
       include: {
-        assignedUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendorRef: { select: { id: true, name: true } },
         _count: { select: { seatAssignments: true } },
       },
@@ -35,7 +34,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, vendor, version, supportUrl, notes, assignedUserId, contactId, vendorId,
+    const { name, vendor, version, supportUrl, notes, personId, vendorId,
             isLob, accessType, rdpHost, rdpPort, rdpGateway, appUrl, totalSeats } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -48,8 +47,7 @@ export async function POST(
         version: version?.trim() || null,
         supportUrl: supportUrl?.trim() || null,
         notes: notes?.trim() || null,
-        assignedUserId: assignedUserId || null,
-        contactId: contactId || null,
+        personId: personId || null,
         vendorId: vendorId || null,
         isLob: isLob ?? false,
         accessType: accessType || null,
@@ -60,8 +58,7 @@ export async function POST(
         totalSeats: totalSeats ? parseInt(totalSeats) : null,
       },
       include: {
-        assignedUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
         vendorRef: { select: { id: true, name: true } },
       },
     })

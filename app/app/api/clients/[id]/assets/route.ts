@@ -18,8 +18,7 @@ export async function GET(
           orderBy: { name: "asc" },
           include: {
             assetType: { select: { id: true, name: true, template: true } },
-            primaryUser: { select: { id: true, name: true } },
-            contact: { select: { id: true, name: true } },
+            person: { select: { id: true, name: true, email: true } },
             interfaces: { select: { id: true, assetId: true, name: true, macAddress: true, ipAddress: true, switchPortId: true } },
           },
         },
@@ -46,7 +45,7 @@ export async function POST(
       ipAddress, macAddress, managementUrl, splashtopUrl, driverUrl,
       rdpEnabled, rdpHost, rdpPort, vncEnabled, vncHost, vncPort,
       purchaseDate, warrantyExpiry, room,
-      primaryUserId, contactId, notes,
+      personId, notes,
       firmwareVersion, portCount, os, ram, cpu, storageCapacity, customFields,
     } = body
 
@@ -82,8 +81,7 @@ export async function POST(
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null,
         room: room?.trim() || null,
-        primaryUserId: primaryUserId || null,
-        contactId: contactId || null,
+        personId: personId || null,
         notes: notes?.trim() || null,
         firmwareVersion: firmwareVersion?.trim() || null,
         portCount: portCount ? Number(portCount) : null,
@@ -95,8 +93,7 @@ export async function POST(
       },
       include: {
         assetType: { select: { id: true, name: true, template: true } },
-        primaryUser: { select: { id: true, name: true } },
-        contact: { select: { id: true, name: true } },
+        person: { select: { id: true, name: true, email: true } },
       },
     })
 
