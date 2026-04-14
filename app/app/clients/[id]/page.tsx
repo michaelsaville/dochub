@@ -1252,9 +1252,7 @@ export default function ClientDetailPage() {
       })
       if (res.ok) {
         const newAsset = await res.json()
-        setAssets(a => [...a, newAsset])
-        setAssetForm({ locationId: "", assetTypeId: "", name: "", make: "", model: "", serial: "", ipAddress: "", macAddress: "", managementUrl: "", purchaseDate: "", warrantyExpiry: "", personId: "", notes: "" })
-        setShowAddAsset(false)
+        router.push(`/assets/${newAsset.id}`)
       }
     } catch {}
     finally { setSavingAsset(false) }
