@@ -43,15 +43,12 @@ export async function GET(
       // Switch/router: fetch the NetworkDevice record with ports
       prisma.networkDevice.findUnique({
         where: { assetId: id },
-        select: {
-          id: true, name: true, type: true, ipAddress: true, portCount: true,
-          ports: {
+        include: {
+          switchPorts: {
             orderBy: { portNumber: "asc" },
-            select: {
-              id: true, portNumber: true, label: true, speed: true, poeEnabled: true,
-              status: true, notes: true,
+            include: {
               vlan: { select: { id: true, vlanNumber: true, name: true, color: true } },
-              connectedAsset: { select: { id: true, name: true, friendlyName: true } },
+              asset: { select: { id: true, name: true, friendlyName: true } },
             },
           },
         },
@@ -61,11 +58,12 @@ export async function GET(
         where: { assetId: id },
         include: {
           cameras: {
+            where: { isActive: true },
             orderBy: { name: "asc" },
             select: {
-              id: true, name: true, location: true, model: true, ipAddress: true,
-              stream1Url: true, stream2Url: true, protocol: true, status: true,
-              asset: { select: { id: true, name: true } },
+              id: true, name: true, location: true, make: true, model: true,
+              ipAddress: true, resolution: true, type: true,
+              recordingSchedule: true, coverageNotes: true, isActive: true,
             },
           },
         },

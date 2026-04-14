@@ -96,20 +96,19 @@ type Asset = {
   linkedCameraSystems: { id: string; name: string; type: string; clientId: string }[]
   networkDevice: {
     id: string; name: string; type: string; ipAddress: string | null; portCount: number | null
-    ports: {
-      id: string; portNumber: number; label: string | null; speed: string | null
-      poeEnabled: boolean; status: string | null; notes: string | null
+    switchPorts: {
+      id: string; portNumber: number; label: string | null
+      isUplink: boolean; isPoe: boolean; notes: string | null
       vlan: { id: string; vlanNumber: number; name: string; color: string } | null
-      connectedAsset: { id: string; name: string; friendlyName: string | null } | null
+      asset: { id: string; name: string; friendlyName: string | null } | null
     }[]
   } | null
   cameraSystemsFull: {
     id: string; name: string; type: string
     cameras: {
-      id: string; name: string; location: string | null; model: string | null
-      ipAddress: string | null; stream1Url: string | null; stream2Url: string | null
-      protocol: string | null; status: string | null
-      asset: { id: string; name: string } | null
+      id: string; name: string; location: string | null; make: string | null
+      model: string | null; ipAddress: string | null; resolution: string | null
+      type: string; recordingSchedule: string | null; coverageNotes: string | null
     }[]
   }[]
 }
@@ -1240,8 +1239,8 @@ export default function AssetDetailPage() {
             {/* Switch/Router: port table */}
             {asset.networkDevice && (
               <div style={card}>
-                <div style={cardTitle}>Switch Ports ({asset.networkDevice.ports.length}{asset.networkDevice.portCount ? ` / ${asset.networkDevice.portCount}` : ""})</div>
-                {asset.networkDevice.ports.length === 0 ? (
+                <div style={cardTitle}>Switch Ports ({asset.networkDevice.switchPorts.length}{asset.networkDevice.portCount ? ` / ${asset.networkDevice.portCount}` : ""})</div>
+                {asset.networkDevice.switchPorts.length === 0 ? (
                   <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>No ports configured. Manage ports in the Network tab.</div>
                 ) : (
                   <div style={{ overflowX: "auto" }}>
@@ -1251,13 +1250,13 @@ export default function AssetDetailPage() {
                           <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>#</th>
                           <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Label</th>
                           <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>VLAN</th>
-                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Speed</th>
                           <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>PoE</th>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Uplink</th>
                           <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Connected To</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {asset.networkDevice.ports.map((port: any) => (
+                        {asset.networkDevice.switchPorts.map((port: any) => (
                           <tr key={port.id} style={{ borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
                             <td style={{ padding: "4px 8px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{port.portNumber}</td>
                             <td style={{ padding: "4px 8px", color: "var(--color-text-primary)" }}>{port.label || "—"}</td>
@@ -1268,12 +1267,12 @@ export default function AssetDetailPage() {
                                 </span>
                               ) : "—"}
                             </td>
-                            <td style={{ padding: "4px 8px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>{port.speed || "—"}</td>
-                            <td style={{ padding: "4px 8px" }}>{port.poeEnabled ? "✓" : ""}</td>
+                            <td style={{ padding: "4px 8px" }}>{port.isPoe ? "✓" : ""}</td>
+                            <td style={{ padding: "4px 8px" }}>{port.isUplink ? "✓" : ""}</td>
                             <td style={{ padding: "4px 8px" }}>
-                              {port.connectedAsset ? (
-                                <a href={`/assets/${port.connectedAsset.id}`} style={{ color: "var(--color-accent)", textDecoration: "none", fontSize: "12px" }}>
-                                  {port.connectedAsset.friendlyName || port.connectedAsset.name}
+                              {port.asset ? (
+                                <a href={`/assets/${port.asset.id}`} style={{ color: "var(--color-accent)", textDecoration: "none", fontSize: "12px" }}>
+                                  {port.asset.friendlyName || port.asset.name}
                                 </a>
                               ) : "—"}
                             </td>
@@ -1299,22 +1298,26 @@ export default function AssetDetailPage() {
                       <div key={cam.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < sys.cameras.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>{cam.name}</span>
-                          {cam.status && (
-                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: cam.status === "ONLINE" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: cam.status === "ONLINE" ? "#22c55e" : "#ef4444" }}>
-                              {cam.status}
+                          {cam.resolution && (
+                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(99,102,241,0.15)", color: "#6366f1" }}>
+                              {cam.resolution}
+                            </span>
+                          )}
+                          {cam.type && cam.type !== "IP_POE" && (
+                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(148,163,184,0.15)", color: "#94a3b8" }}>
+                              {cam.type.replace(/_/g, " ")}
                             </span>
                           )}
                         </div>
                         <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
                           {cam.location && <span>{cam.location}</span>}
-                          {cam.model && <span>{cam.model}</span>}
+                          {cam.make && cam.model ? <span>{cam.make} {cam.model}</span> : cam.model && <span>{cam.model}</span>}
                           {cam.ipAddress && <span style={{ fontFamily: "monospace" }}>{cam.ipAddress}</span>}
-                          {cam.protocol && <span>{cam.protocol}</span>}
+                          {cam.recordingSchedule && <span>Rec: {cam.recordingSchedule.replace(/_/g, "/")}</span>}
                         </div>
-                        {(cam.stream1Url || cam.stream2Url) && (
-                          <div style={{ fontSize: "10px", color: "var(--color-text-muted)", fontFamily: "monospace", marginTop: "3px" }}>
-                            {cam.stream1Url && <div>Stream 1: {cam.stream1Url}</div>}
-                            {cam.stream2Url && <div>Stream 2: {cam.stream2Url}</div>}
+                        {cam.coverageNotes && (
+                          <div style={{ fontSize: "10px", color: "var(--color-text-muted)", fontStyle: "italic", marginTop: "3px" }}>
+                            {cam.coverageNotes}
                           </div>
                         )}
                       </div>
