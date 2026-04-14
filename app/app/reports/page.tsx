@@ -29,6 +29,12 @@ const REPORTS = [
     icon: "🔧",
     custom: true,
   },
+  {
+    href: "/reports/client-runbook",
+    title: "Client Runbook",
+    description: "Generate a printable runbook for a specific client with selected modules.",
+    icon: "📋",
+  },
 ]
 
 export default function ReportsPage() {
