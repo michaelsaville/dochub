@@ -2132,20 +2132,22 @@ export default function ClientDetailPage() {
                       </div>
                     ) : (
                       <div key={asset.id}>
-                      <div style={{
+                      <div
+                        onClick={() => router.push(`/assets/${asset.id}`)}
+                        style={{
                         display: "grid", gridTemplateColumns: "1fr 160px 100px 120px 80px 1fr",
                         padding: "10px 16px", background: "var(--color-background-primary)",
                         borderBottom: expandedAssetHistory[asset.id] !== undefined ? "none" : (i < assetsByType[key].length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none"),
                         alignItems: "center",
-                      }}>
+                        cursor: "pointer",
+                        transition: "background 0.1s",
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-secondary)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "var(--color-background-primary)")}
+                      >
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span
-                              onClick={() => router.push(`/assets/${asset.id}`)}
-                              style={{ fontSize: "14px", fontWeight: 500, cursor: "pointer" }}
-                              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
-                              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
-                            >
+                            <span style={{ fontSize: "14px", fontWeight: 500 }}>
                               {asset.friendlyName || asset.name}
                             </span>
                             {boundSourceTag(asset.dataSource, asset.syncroAssetId)}
