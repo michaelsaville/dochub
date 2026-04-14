@@ -33,8 +33,7 @@ export async function POST(
           label,
           username: credUsername?.trim() || null,
           encryptedPassword: encrypt(credPassword.trim()),
-          userId: accessorType === "PERSON" && personId ? personId : null,
-          contactId: null,
+          personId: accessorType === "PERSON" && personId ? personId : null,
           url: null,
         },
       })

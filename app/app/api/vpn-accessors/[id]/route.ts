@@ -28,15 +28,14 @@ export async function PUT(
       if (existing) {
         const label = credLabel?.trim() || "VPN Credential"
         const type = accessorType ?? existing.accessorType
-        const userId = (type === "PERSON" ? personId ?? existing.personId : null) || null
+        const resolvedPersonId = (type === "PERSON" ? personId ?? existing.personId : null) || null
         const cred = await prisma.credential.create({
           data: {
             clientId: existing.gateway.clientId,
             label,
             username: credUsername?.trim() || null,
             encryptedPassword: encrypt(credPassword.trim()),
-            userId,
-            contactId: null,
+            personId: resolvedPersonId,
             url: null,
           },
         })
