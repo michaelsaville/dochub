@@ -194,7 +194,7 @@ export default function ClientsPage() {
             padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Client name", "Type", "Sites", "Users", "Assets", "Alarms", "Last sync"].map((h) => (
+            {["Client name", "Type", "Sites", "People", "Assets", "Alarms", "Last sync"].map((h) => (
               <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
             ))}
           </div>
@@ -231,7 +231,7 @@ export default function ClientsPage() {
                   {client._count.locations}
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                  {client._count.users}
+                  {client._count.people}
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   {client.assetCount}

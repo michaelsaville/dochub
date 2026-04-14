@@ -13,7 +13,7 @@ export async function GET() {
           _count: {
             select: {
               locations: true,
-              users: true,
+              people: true,
               alarms: { where: { status: "ACTIVE" } },
             },
           },

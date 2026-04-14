@@ -209,13 +209,13 @@ export default function RunbookPage() {
               )}
 
               {/* Users */}
-              {data.users?.length > 0 && (
+              {data.people?.length > 0 && (
                 <div className="report-section">
                   <div className="section-title">Users</div>
                   <table className="report-table">
                     <thead><tr><th>Name</th><th>Email</th><th>Title</th><th>Department</th></tr></thead>
                     <tbody>
-                      {data.users.map((u: any) => (
+                      {data.people.map((u: any) => (
                         <tr key={u.id}>
                           <td style={{ fontWeight: 500 }}>{u.name}</td>
                           <td>{u.email || "—"}</td>
