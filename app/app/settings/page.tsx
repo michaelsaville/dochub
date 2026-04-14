@@ -1521,6 +1521,23 @@ export default function SettingsPage() {
 
             {activeSection === "api-keys" && (
               <>
+                <SectionCard title="Browser Extension" description="Install the DocHub Chrome extension for credential search, autofill, TOTP codes, and password generation.">
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <a
+                      href="/dochub-extension.zip"
+                      download
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", textDecoration: "none", cursor: "pointer" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      Download extension (.zip)
+                    </a>
+                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>v2.0.0</span>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "10px", lineHeight: "1.6" }}>
+                    To install: unzip, open <span style={{ fontFamily: "monospace" }}>chrome://extensions</span>, enable Developer mode, click &quot;Load unpacked&quot;, and select the unzipped folder. Then generate an API key below and paste it into the extension popup.
+                  </div>
+                </SectionCard>
+
                 <SectionCard title="API Keys" description="Generate keys for the DocHub REST API — used by browser extensions, scripts, or integrations. Keys are shown once at creation.">
                   <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
                     <input
