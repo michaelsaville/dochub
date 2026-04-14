@@ -30,7 +30,8 @@ export async function GET(
     if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
     // Reverse-lookup: which phone/camera systems is this asset linked to?
-    const [linkedPhoneSystems, linkedCameraSystems] = await Promise.all([
+    // Also fetch NetworkDevice data (switch ports) and full camera data if applicable
+    const [linkedPhoneSystems, linkedCameraSystems, networkDevice, cameraSystemsFull] = await Promise.all([
       prisma.phoneSystem.findMany({
         where: { assetId: id },
         select: { id: true, name: true, type: true, clientId: true },
@@ -38,6 +39,36 @@ export async function GET(
       prisma.cameraSystem.findMany({
         where: { assetId: id },
         select: { id: true, name: true, type: true, clientId: true },
+      }),
+      // Switch/router: fetch the NetworkDevice record with ports
+      prisma.networkDevice.findUnique({
+        where: { assetId: id },
+        select: {
+          id: true, name: true, type: true, ipAddress: true, portCount: true,
+          ports: {
+            orderBy: { portNumber: "asc" },
+            select: {
+              id: true, portNumber: true, label: true, speed: true, poeEnabled: true,
+              status: true, notes: true,
+              vlan: { select: { id: true, vlanNumber: true, name: true, color: true } },
+              connectedAsset: { select: { id: true, name: true, friendlyName: true } },
+            },
+          },
+        },
+      }),
+      // NVR/DVR: fetch camera systems with full camera details
+      prisma.cameraSystem.findMany({
+        where: { assetId: id },
+        include: {
+          cameras: {
+            orderBy: { name: "asc" },
+            select: {
+              id: true, name: true, location: true, model: true, ipAddress: true,
+              stream1Url: true, stream2Url: true, protocol: true, status: true,
+              asset: { select: { id: true, name: true } },
+            },
+          },
+        },
       }),
     ])
 
@@ -50,6 +81,8 @@ export async function GET(
       })),
       linkedPhoneSystems,
       linkedCameraSystems,
+      networkDevice,        // switch ports, VLANs — null if not a network device
+      cameraSystemsFull,    // cameras with streams — empty array if not an NVR
     })
   } catch (e) {
     return NextResponse.json({ error: "Failed to fetch asset" }, { status: 500 })

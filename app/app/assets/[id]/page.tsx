@@ -94,6 +94,24 @@ type Asset = {
   credentials: Credential[]
   linkedPhoneSystems: { id: string; name: string; type: string; clientId: string }[]
   linkedCameraSystems: { id: string; name: string; type: string; clientId: string }[]
+  networkDevice: {
+    id: string; name: string; type: string; ipAddress: string | null; portCount: number | null
+    ports: {
+      id: string; portNumber: number; label: string | null; speed: string | null
+      poeEnabled: boolean; status: string | null; notes: string | null
+      vlan: { id: string; vlanNumber: number; name: string; color: string } | null
+      connectedAsset: { id: string; name: string; friendlyName: string | null } | null
+    }[]
+  } | null
+  cameraSystemsFull: {
+    id: string; name: string; type: string
+    cameras: {
+      id: string; name: string; location: string | null; model: string | null
+      ipAddress: string | null; stream1Url: string | null; stream2Url: string | null
+      protocol: string | null; status: string | null
+      asset: { id: string; name: string } | null
+    }[]
+  }[]
 }
 
 const categoryLabel: Record<string, string> = {
@@ -1214,6 +1232,93 @@ export default function AssetDetailPage() {
                   <div key={app.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                     <div style={{ fontSize: "13px", fontWeight: 500 }}>{app.name}</div>
                     {app.vendor && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{app.vendor}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Switch/Router: port table */}
+            {asset.networkDevice && (
+              <div style={card}>
+                <div style={cardTitle}>Switch Ports ({asset.networkDevice.ports.length}{asset.networkDevice.portCount ? ` / ${asset.networkDevice.portCount}` : ""})</div>
+                {asset.networkDevice.ports.length === 0 ? (
+                  <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>No ports configured. Manage ports in the Network tab.</div>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "0.5px solid var(--color-border-tertiary)", textAlign: "left" }}>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>#</th>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Label</th>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>VLAN</th>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Speed</th>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>PoE</th>
+                          <th style={{ padding: "4px 8px", color: "var(--color-text-muted)", fontWeight: 500 }}>Connected To</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {asset.networkDevice.ports.map((port: any) => (
+                          <tr key={port.id} style={{ borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                            <td style={{ padding: "4px 8px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{port.portNumber}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--color-text-primary)" }}>{port.label || "—"}</td>
+                            <td style={{ padding: "4px 8px" }}>
+                              {port.vlan ? (
+                                <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "4px", background: port.vlan.color + "22", color: port.vlan.color, fontWeight: 500 }}>
+                                  {port.vlan.vlanNumber} {port.vlan.name}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td style={{ padding: "4px 8px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>{port.speed || "—"}</td>
+                            <td style={{ padding: "4px 8px" }}>{port.poeEnabled ? "✓" : ""}</td>
+                            <td style={{ padding: "4px 8px" }}>
+                              {port.connectedAsset ? (
+                                <a href={`/assets/${port.connectedAsset.id}`} style={{ color: "var(--color-accent)", textDecoration: "none", fontSize: "12px" }}>
+                                  {port.connectedAsset.friendlyName || port.connectedAsset.name}
+                                </a>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* NVR/DVR: camera list */}
+            {asset.cameraSystemsFull?.length > 0 && asset.cameraSystemsFull.some((s: any) => s.cameras?.length > 0) && (
+              <div style={card}>
+                <div style={cardTitle}>Cameras</div>
+                {asset.cameraSystemsFull.map((sys: any) => (
+                  <div key={sys.id}>
+                    {asset.cameraSystemsFull.length > 1 && (
+                      <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "6px", marginTop: "4px" }}>{sys.name}</div>
+                    )}
+                    {sys.cameras.map((cam: any, i: number) => (
+                      <div key={cam.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < sys.cameras.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>{cam.name}</span>
+                          {cam.status && (
+                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: cam.status === "ONLINE" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: cam.status === "ONLINE" ? "#22c55e" : "#ef4444" }}>
+                              {cam.status}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                          {cam.location && <span>{cam.location}</span>}
+                          {cam.model && <span>{cam.model}</span>}
+                          {cam.ipAddress && <span style={{ fontFamily: "monospace" }}>{cam.ipAddress}</span>}
+                          {cam.protocol && <span>{cam.protocol}</span>}
+                        </div>
+                        {(cam.stream1Url || cam.stream2Url) && (
+                          <div style={{ fontSize: "10px", color: "var(--color-text-muted)", fontFamily: "monospace", marginTop: "3px" }}>
+                            {cam.stream1Url && <div>Stream 1: {cam.stream1Url}</div>}
+                            {cam.stream2Url && <div>Stream 2: {cam.stream2Url}</div>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
