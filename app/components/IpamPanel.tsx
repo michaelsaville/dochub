@@ -8,7 +8,7 @@ type IpAssignment = {
   hostname: string | null
   notes: string | null
   asset: { id: string; name: string; category: string } | null
-  user: { id: string; name: string } | null
+  person: { id: string; name: string } | null
 }
 
 type Subnet = {
