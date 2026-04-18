@@ -106,6 +106,7 @@ model Client {
   portalCredentials PortalCredential[]
   networkDiagram    NetworkDiagram?
   backupConfigs     BackupConfig[]
+  intakeSuggestions IntakeSuggestion[]
 }
 
 model Location {
@@ -1628,4 +1629,42 @@ model SecureShareLink {
   viewCount    Int      @default(0)
   createdBy    String?
   createdAt    DateTime @default(now())
+}
+
+enum IntakeStatus {
+  PENDING
+  COMMITTED
+  REJECTED
+  FAILED
+}
+
+model IntakeSuggestion {
+  id                   String       @id @default(cuid())
+  clientId             String
+  uploadedBy           String? // staff user email
+  status               IntakeStatus @default(PENDING)
+  originalName         String
+  storageName          String       @unique // uuid-based filename on disk (same /uploads dir)
+  mimeType             String
+  size                 Int
+  candidatesJson       Json? // [{ assetId?, confidence, reasoning, suggestedTitle, suggestedCategory, summary }]
+  proposedNewAssetJson Json? // { category, typeName, suggestedName, make?, model?, serial?, ipAddress?, macAddress?, room?, reasoning }
+  cameraActionJson     Json? // { type: "setPhoto"|"updateCamera"|"createCamera", ... }
+  bulkProposalJson     Json? // discriminated union: createAssets | updateAssets | createCameras | createPhoneExtensions | createSwitchPorts
+  extractedDataJson    Json? // freeform: parsed CSV rows, spotted serials, OCR snippets
+  aiModel              String? // e.g. "claude-opus-4-7"
+  aiTokensIn           Int?
+  aiTokensOut          Int?
+  aiError              String? // populated when status = FAILED
+  committedDocumentId  String? // ClientDocument.id after commit
+  committedAttachmentId String? // ClientAttachment.id after commit
+  committedAssetId     String? // chosen asset (null means "attached unlinked")
+  committedBy          String?
+  committedAt          DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  client               Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, status])
+  @@index([status, createdAt])
 }
