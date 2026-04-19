@@ -5,11 +5,6 @@ services:
     ports:
       - "3000:3000"
     env_file: .env
-    environment:
-      # Real DATABASE_URL comes from .env; this line is only here as a
-      # minimal override target. Keep it REPLACE_ME so a public-repo reader
-      # doesn't see a credential-shaped string, fake or not.
-      - DATABASE_URL=postgresql://REPLACE_ME@db:5432/REPLACE_ME
     volumes:
       - uploads:/uploads
     depends_on:
