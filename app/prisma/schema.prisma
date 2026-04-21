@@ -606,6 +606,22 @@ model AppSetting {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
+model OutboundMessage {
+  id           String   @id @default(cuid())
+  templateKey  String
+  toEmail      String
+  toName       String?
+  subject      String
+  bodyPreview  String
+  status       String   @default("SENT")
+  errorMessage String?
+  metadata     Json?
+  sentAt       DateTime @default(now())
+
+  @@index([templateKey, sentAt])
+  @@index([toEmail, sentAt])
+}
+
 model DocumentFolder {
   id        String           @id @default(cuid())
   clientId  String
