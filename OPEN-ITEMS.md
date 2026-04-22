@@ -77,10 +77,14 @@ Two items on DocHub's in-repo roadmap never got picked up.
 
 Most of that original 18-item list shipped. These six didn't:
 
-- [ ] **Network discovery scanner** — scan a subnet, auto-discover + ingest
-      assets into DocHub. *Likely superseded by PCC Scout* — scout finds,
-      DocHub ingests via a signed POST. Worth deciding the handoff contract
-      instead of building this inside DocHub.
+- [x] ~~**Network discovery scanner**~~ — ✅ **superseded by PCC Scout**.
+      Scout-side "Send to DocHub" button lives on each prospect detail page;
+      DocHub exposes `POST /api/scout/ingest` (bearer-token) which upserts
+      assets keyed by MAC scoped to `dataSource='SCOUT'` within a picked
+      location. Shipped 2026-04-19 in DocHub commit `2f52a1c` (local only —
+      see Scout memory for push-to-registry notes). *Follow-up*: add a
+      `dataSource=SCOUT` filter chip to DocHub's asset list so imported
+      rows are easy to review.
 - [ ] **IP access control** for staff login — restrict Azure AD login to
       known IP ranges (office egress + tailnet + VPN). IT Glue has this.
 - [ ] **Automated password rotation** — trigger AD / Entra / M365 password
