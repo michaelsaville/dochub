@@ -242,8 +242,11 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
   }
 
   // ── System Form ───────────────────────────────────────────────────────────
+  // NOTE: plain render helper (not a nested component). Defining a component
+  // inside another component gives it a new identity on every render, which
+  // remounts its inputs/selects on each keystroke and kills focus.
 
-  function SystemForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
+  function renderSystemForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -298,8 +301,9 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
   }
 
   // ── Camera Form ───────────────────────────────────────────────────────────
+  // Same reason as renderSystemForm above — plain helper, not a component.
 
-  function CameraForm({ onSubmit, onCancel, systemType }: { onSubmit: () => void; onCancel: () => void; systemType: string }) {
+  function renderCameraForm({ onSubmit, onCancel, systemType }: { onSubmit: () => void; onCancel: () => void; systemType: string }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "16px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", marginTop: "12px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
@@ -397,7 +401,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
       {showAddSystem && (
         <div style={card}>
           <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px" }}>New Camera System</div>
-          <SystemForm onSubmit={saveSystem} onCancel={() => { setShowAddSystem(false); setError("") }} />
+          {renderSystemForm({ onSubmit: saveSystem, onCancel: () => { setShowAddSystem(false); setError("") } })}
         </div>
       )}
 
@@ -452,7 +456,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
           {/* Edit system form */}
           {editingSystemId === system.id && (
             <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
-              <SystemForm onSubmit={() => updateSystem(system.id)} onCancel={() => { setEditingSystemId(null); setError("") }} />
+              {renderSystemForm({ onSubmit: () => updateSystem(system.id), onCancel: () => { setEditingSystemId(null); setError("") } })}
             </div>
           )}
 
@@ -473,7 +477,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
               {system.cameras.map(cam => (
                 <div key={cam.id}>
                   {editingCamId === cam.id ? (
-                    <CameraForm onSubmit={() => updateCamera(cam.id, system.id)} onCancel={() => { setEditingCamId(null); setError("") }} systemType={system.type} />
+                    renderCameraForm({ onSubmit: () => updateCamera(cam.id, system.id), onCancel: () => { setEditingCamId(null); setError("") }, systemType: system.type })
                   ) : (
                     <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", overflow: "hidden" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", gap: "10px" }}>
@@ -535,7 +539,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
               ))}
 
               {addingCamFor === system.id && (
-                <CameraForm onSubmit={() => addCamera(system.id)} onCancel={() => { setAddingCamFor(null); setError("") }} systemType={system.type} />
+                renderCameraForm({ onSubmit: () => addCamera(system.id), onCancel: () => { setAddingCamFor(null); setError("") }, systemType: system.type })
               )}
 
               {system.notes && (
