@@ -14,6 +14,7 @@ import WifiPanel from "@/components/WifiPanel"
 import PtpPanel from "@/components/PtpPanel"
 import SwitchPanel from "@/components/SwitchPanel"
 import NetworkDiagramPanel from "@/components/NetworkDiagramPanel"
+import TabFilter from "@/components/TabFilter"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -319,6 +320,12 @@ export default function ClientDetailPage() {
   const [assetSearch, setAssetSearch] = useState("")
   const [assetStatusFilter, setAssetStatusFilter] = useState("ALL")
   const [assetTypeFilter, setAssetTypeFilter] = useState("ALL")
+  const [credSearch, setCredSearch] = useState("")
+  const [licenseSearch, setLicenseSearch] = useState("")
+  const [subSearch, setSubSearch] = useState("")
+  const [appSearch, setAppSearch] = useState("")
+  const [vendorSearch, setVendorSearch] = useState("")
+  const [websiteSearch, setWebsiteSearch] = useState("")
   const [showAddAsset, setShowAddAsset] = useState(false)
   const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", personId: "", notes: "", customFields: {} })
   const [savingAsset, setSavingAsset] = useState(false)
@@ -1303,6 +1310,30 @@ export default function ClientDetailPage() {
     if (assetTypeFilter !== "ALL" && getTypeKey(asset) !== assetTypeFilter) return false
     return true
   })
+
+  const matchq = (q: string, ...fields: (string | null | undefined)[]) => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return true
+    return fields.some(f => (f ?? "").toLowerCase().includes(needle))
+  }
+  const filteredCredentials = credentials.filter((c: any) =>
+    matchq(credSearch, c.label, c.username, c.url, c.notes, c.user?.name)
+  )
+  const filteredLicenses = licenses.filter((l: any) =>
+    matchq(licenseSearch, l.name, l.vendor, l.vendorRef?.name, l.notes, l.person?.name)
+  )
+  const filteredSubscriptions = subscriptions.filter((s: any) =>
+    matchq(subSearch, s.name, s.vendor, s.status, s.billingTerm, s.person?.name)
+  )
+  const filteredApplications = applications.filter((a: any) =>
+    matchq(appSearch, a.name, a.vendor, a.version, a.notes, a.person?.name)
+  )
+  const filteredClientVendors = clientVendors.filter((v: any) =>
+    matchq(vendorSearch, v.name, v.category, v.notes)
+  )
+  const filteredWebsites = websites.filter((w: any) =>
+    matchq(websiteSearch, w.domain, w.label, w.registrar, w.notes, w.accountNumber)
+  )
 
   const assetsByType = filteredAssets.reduce((acc, asset) => {
     const key = getTypeKey(asset)
@@ -2308,11 +2339,15 @@ export default function ClientDetailPage() {
               </div>
             )}
 
+            <TabFilter value={credSearch} onChange={setCredSearch} placeholder="Search label, username, URL, notes..." matched={filteredCredentials.length} total={credentials.length} />
+
             {loadingCreds ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : credentials.length === 0 && !showAddCred ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No credentials yet.</div>
-            ) : credentials.map(cred => {
+            ) : filteredCredentials.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No credentials match your search.</div>
+            ) : filteredCredentials.map(cred => {
               const isEditing = editingCredId === cred.id
               const historyOpen = cred.id in expandedCredHistory
               const credHistory = expandedCredHistory[cred.id] ?? []
@@ -2597,10 +2632,14 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             )}
+            <TabFilter value={licenseSearch} onChange={setLicenseSearch} placeholder="Search name, vendor, notes..." matched={filteredLicenses.length} total={licenses.length} />
+
             {loadingLicenses ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : licenses.length === 0 && !showAddLicense ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No licenses yet.</div>
+            ) : filteredLicenses.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No licenses match your search.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 80px 100px 100px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
@@ -2608,8 +2647,8 @@ export default function ClientDetailPage() {
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
-                {licenses.map((lic, i) => editingLicense === lic.id ? (
-                  <div key={lic.id} style={{ padding: "14px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                {filteredLicenses.map((lic, i) => editingLicense === lic.id ? (
+                  <div key={lic.id} style={{ padding: "14px 16px", borderBottom: i < filteredLicenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                       {[
                         { key: "name", label: "Name" }, { key: "vendor", label: "Vendor (freetext)" },
@@ -2654,7 +2693,7 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={lic.id} style={{ padding: "12px 16px", borderBottom: i < licenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: lic.isActive ? "var(--color-background-primary)" : "var(--color-background-secondary)", opacity: lic.isActive ? 1 : 0.65 }}>
+                  <div key={lic.id} style={{ padding: "12px 16px", borderBottom: i < filteredLicenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: lic.isActive ? "var(--color-background-primary)" : "var(--color-background-secondary)", opacity: lic.isActive ? 1 : 0.65 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 80px 100px 100px 80px", alignItems: "center", marginBottom: lic.licenseKey ? "8px" : 0 }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -2703,16 +2742,20 @@ export default function ClientDetailPage() {
 
         {activeTab === "Subscriptions" && (
           <div style={{ maxWidth: "960px" }}>
+            <TabFilter value={subSearch} onChange={setSubSearch} placeholder="Search product, vendor, status..." matched={filteredSubscriptions.length} total={subscriptions.length} />
+
             {loadingSubscriptions ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : subscriptions.length === 0 ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No Pax8 subscriptions synced yet. Configure Pax8 in Settings and run a sync.</div>
+            ) : filteredSubscriptions.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No subscriptions match your search.</div>
             ) : (
               <>
                 {/* Group by vendor */}
                 {(() => {
                   const byVendor: Record<string, any[]> = {}
-                  for (const sub of subscriptions) {
+                  for (const sub of filteredSubscriptions) {
                     const v = sub.vendor ?? "Other"
                     if (!byVendor[v]) byVendor[v] = []
                     byVendor[v].push(sub)
@@ -2768,7 +2811,7 @@ export default function ClientDetailPage() {
                   ))
                 })()}
                 <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "8px" }}>
-                  {subscriptions.length} subscription{subscriptions.length !== 1 ? "s" : ""} · Total $/mo: ${subscriptions.reduce((s, l) => s + (l.cost ?? 0), 0).toFixed(2)}
+                  {filteredSubscriptions.length} subscription{filteredSubscriptions.length !== 1 ? "s" : ""} · Total $/mo: ${filteredSubscriptions.reduce((s, l) => s + (l.cost ?? 0), 0).toFixed(2)}
                 </div>
               </>
             )}
@@ -2811,10 +2854,14 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             )}
+            <TabFilter value={appSearch} onChange={setAppSearch} placeholder="Search name, vendor, version..." matched={filteredApplications.length} total={applications.length} />
+
             {loadingApps ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : applications.length === 0 && !showAddApp ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No applications yet.</div>
+            ) : filteredApplications.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No applications match your search.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 140px 80px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
@@ -2822,8 +2869,8 @@ export default function ClientDetailPage() {
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
-                {applications.map((app, i) => editingApp === app.id ? (
-                  <div key={app.id} style={{ padding: "14px 16px", borderBottom: i < applications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
+                {filteredApplications.map((app, i) => editingApp === app.id ? (
+                  <div key={app.id} style={{ padding: "14px 16px", borderBottom: i < filteredApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                       {[
                         { key: "name", label: "Name" }, { key: "vendor", label: "Vendor" },
@@ -2850,7 +2897,7 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div key={app.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 140px 80px", padding: "12px 16px", borderBottom: i < applications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
+                  <div key={app.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 140px 80px", padding: "12px 16px", borderBottom: i < filteredApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{app.name}</div>
                       {app.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{app.notes}</div>}
@@ -2940,13 +2987,17 @@ export default function ClientDetailPage() {
                 )}
               </div>
             )}
+            <TabFilter value={vendorSearch} onChange={setVendorSearch} placeholder="Search name, category, notes..." matched={filteredClientVendors.length} total={clientVendors.length} />
+
             {loadingVendors ? (
               <div style={{ fontSize: "13px", color: "var(--color-text-muted)", padding: "20px 0" }}>Loading vendors...</div>
             ) : clientVendors.length === 0 ? (
               <div style={{ fontSize: "13px", color: "var(--color-text-muted)", padding: "20px 0", textAlign: "center" }}>No vendors associated with this client yet.</div>
+            ) : filteredClientVendors.length === 0 ? (
+              <div style={{ fontSize: "13px", color: "var(--color-text-muted)", padding: "20px 0", textAlign: "center" }}>No vendors match your search.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {clientVendors.map((v: any) => (
+                {filteredClientVendors.map((v: any) => (
                   <div key={v.id} style={{ background: "var(--color-background-primary)", borderRadius: "10px", border: "0.5px solid var(--color-border-secondary)", overflow: "hidden" }}>
                     <div onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -3052,10 +3103,14 @@ export default function ClientDetailPage() {
               </div>
             )}
 
+            <TabFilter value={websiteSearch} onChange={setWebsiteSearch} placeholder="Search domain, label, registrar..." matched={filteredWebsites.length} total={websites.length} />
+
             {loadingWebsites ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>Loading...</div>
             ) : websites.length === 0 && !showAddWebsite ? (
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No domains yet. Add a domain to start monitoring expiry, SSL, and DNS.</div>
+            ) : filteredWebsites.length === 0 ? (
+              <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No domains match your search.</div>
             ) : (
               <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 140px 130px", padding: "10px 16px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
@@ -3063,14 +3118,14 @@ export default function ClientDetailPage() {
                     <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
                   ))}
                 </div>
-                {websites.map((site, i) => {
+                {filteredWebsites.map((site, i) => {
                   const domainBadge = expiryBadge(site.expiresAt)
                   const sslBadge = expiryBadge(site.sslExpiresAt)
                   const dns = site.dnsRecords as Record<string, any> | null
                   const dnsOpen = expandedDns[site.id]
                   const isChecking = checkingWebsite === site.id
                   const showExtra = dnsOpen || editingWebsite === site.id
-                  const borderBottom = i < websites.length - 1 || showExtra ? "0.5px solid var(--color-border-tertiary)" : "none"
+                  const borderBottom = i < filteredWebsites.length - 1 || showExtra ? "0.5px solid var(--color-border-tertiary)" : "none"
                   return (
                     <div key={site.id}>
                       {editingWebsite === site.id ? (
@@ -3150,7 +3205,7 @@ export default function ClientDetailPage() {
                         </div>
                       )}
                       {dnsOpen && dns && (
-                        <div style={{ padding: "12px 16px", background: "var(--color-background-secondary)", borderBottom: i < websites.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                        <div style={{ padding: "12px 16px", background: "var(--color-background-secondary)", borderBottom: i < filteredWebsites.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: "13px" }}>
                             {dns.A && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>A</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.A.join(", ")}</div></>}
                             {dns.AAAA && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>AAAA</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.AAAA.join(", ")}</div></>}
