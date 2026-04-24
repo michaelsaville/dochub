@@ -600,6 +600,18 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function rotateViaGraph(credId: string, upn: string) {
+    if (!confirm(`Rotate the password for ${upn} via Microsoft Graph?\n\nThis writes a new strong password to Entra and stores it encrypted in DocHub. The user will NOT be prompted to change it on next sign-in.`)) return
+    const res = await fetch(`/api/credentials/${credId}/rotate`, { method: "POST" })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      alert("Password rotated. Reveal the credential to copy the new value.")
+      setCredentials(prev => prev.map(c => c.id === credId ? { ...c, lastRotated: data.lastRotated } : c))
+    } else {
+      alert(`Rotation failed: ${data.error ?? res.status}\n${data.detail ?? ""}`)
+    }
+  }
+
   async function revealDashPassword(credId: string) {
     try {
       const res = await fetch(`/api/credentials/${credId}/reveal`)
@@ -2581,6 +2593,13 @@ export default function ClientDetailPage() {
                         >Edit</button>
                       )}
                       <ShareExternallyButton resourceType="credential" resourceId={cred.id} compact label="Share" />
+                      {isAdmin && cred.user?.m365Upn && (
+                        <button
+                          onClick={() => rotateViaGraph(cred.id, cred.user.m365Upn)}
+                          title={`Rotate ${cred.user.m365Upn} via Microsoft Graph`}
+                          style={{ fontSize: "12px", color: "#3b82f6", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >Rotate ↻</button>
+                      )}
                       <button onClick={() => deleteCred(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Retire</button>
                     </div>
                   </div>

@@ -4,6 +4,7 @@ import AppShell from "@/components/AppShell"
 import { useState, useEffect, useRef } from "react"
 import { QRCodeCanvas } from "qrcode.react"
 import { useParams, useRouter } from "next/navigation"
+import AttachmentsPanel from "@/components/AttachmentsPanel"
 
 type Credential = {
   id: string
@@ -1194,6 +1195,9 @@ export default function AssetDetailPage() {
                 })
               )}
             </div>
+
+            {/* Attachments — files attached directly to this asset */}
+            <AttachmentsPanel entityType="asset" entityId={asset.id} compact />
 
             {/* Documents linked to this asset */}
             {linkedDocuments.length > 0 && (

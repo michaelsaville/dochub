@@ -16,7 +16,7 @@ export async function GET(
       where: { clientId: id, isRetired: false },
       orderBy: { label: "asc" },
       include: {
-        person: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true, m365Upn: true } },
       },
     })
     // Return with password decrypted but marked as hidden for initial load

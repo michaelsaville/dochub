@@ -149,6 +149,7 @@ model Location {
   subnets        Subnet[]
   ptpSideA       PtpLink[]       @relation("PtpSideA")
   ptpSideB       PtpLink[]       @relation("PtpSideB")
+  attachments    ClientAttachment[] @relation("LocationAttachments")
 }
 
 model Person {
@@ -281,6 +282,7 @@ model Asset {
   ptpLinksSideA      PtpLink[]              @relation("PtpLinkSideA")
   ptpLinksSideB      PtpLink[]              @relation("PtpLinkSideB")
   linkedAlarms       Alarm[]                @relation("AlarmAsset")
+  attachments        ClientAttachment[]     @relation("AssetAttachments")
 }
 
 model SynologyConfig {
@@ -591,6 +593,7 @@ model Vendor {
   vpnAccess     VpnAccessor[]   @relation("VendorVpnAccess")
   sipTrunks     SipTrunk[]      @relation("VendorSipTrunks")
   potsLines     PotsLine[]      @relation("VendorPotsLines")
+  attachments   ClientAttachment[] @relation("VendorAttachments")
 }
 
 /// One row per integration cron — written on every run so Settings can
@@ -630,6 +633,8 @@ model VendorContract {
   notes        String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  attachments  ClientAttachment[] @relation("VendorContractAttachments")
 
   @@index([vendorId])
   @@index([clientId])
@@ -738,18 +743,36 @@ model DocumentVersion {
   @@index([documentId, savedAt])
 }
 
+/// Universal attachment model. clientId is required as the security
+/// boundary; everything else is an optional polymorphic link to whatever
+/// the file is attached *to*. Exactly one of documentId / assetId /
+/// vendorId / locationId / vendorContractId should be set in practice
+/// (UI enforces) — the model allows multiple for future flexibility.
 model ClientAttachment {
-  id           String          @id @default(cuid())
-  clientId     String
-  documentId   String?
-  originalName String
-  storageName  String          @unique
-  mimeType     String
-  size         Int
-  notes        String?
-  createdAt    DateTime        @default(now())
-  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  document     ClientDocument? @relation(fields: [documentId], references: [id])
+  id               String           @id @default(cuid())
+  clientId         String
+  documentId       String?
+  assetId          String?
+  vendorId         String?
+  locationId       String?
+  vendorContractId String?
+  originalName     String
+  storageName      String           @unique
+  mimeType         String
+  size             Int
+  notes            String?
+  createdAt        DateTime         @default(now())
+  client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  document         ClientDocument?  @relation(fields: [documentId], references: [id])
+  asset            Asset?           @relation("AssetAttachments", fields: [assetId], references: [id], onDelete: Cascade)
+  vendor           Vendor?          @relation("VendorAttachments", fields: [vendorId], references: [id], onDelete: Cascade)
+  location         Location?        @relation("LocationAttachments", fields: [locationId], references: [id], onDelete: Cascade)
+  vendorContract   VendorContract?  @relation("VendorContractAttachments", fields: [vendorContractId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([vendorId])
+  @@index([locationId])
+  @@index([vendorContractId])
 }
 
 model RunbookCategory {
