@@ -129,6 +129,44 @@ html, body {
   border-bottom-color: var(--accent);
 }
 
+/* ─── Mobile layout — hide sidebar, show bottom bar ──────────────────── */
+.dochub-bottombar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .dochub-sidebar {
+    display: none !important;
+  }
+  .dochub-bottombar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    border-top: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-primary);
+  }
+  /* Bump bottom padding on scrollable main content so the bar doesn't
+     cover the last row. */
+  main {
+    padding-bottom: 72px !important;
+  }
+  /* Tab bar gets a scroll-snap so swipes land cleanly on tab edges. */
+  .pcc-tab-bar {
+    scroll-snap-type: x mandatory;
+  }
+  .pcc-tab {
+    scroll-snap-align: start;
+    /* Bigger tap targets on mobile. */
+    padding: 14px 18px;
+  }
+  /* Hide the ‹ › tab scroll buttons — thumbs swipe directly. */
+  .pcc-tab-scroll-btn {
+    display: none !important;
+  }
+}
+
 /* ─── Print / Report styles ──────────────────────────────────────────────── */
 @media print {
   /* Override theme variables — always print black on white */

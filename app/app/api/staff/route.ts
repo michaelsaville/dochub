@@ -7,7 +7,7 @@ export async function GET() {
   if (error) return error
   try {
     const staff = await prisma.staffUser.findMany({
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, ipAllowlist: true },
       orderBy: { name: "asc" },
     })
     return NextResponse.json(staff)

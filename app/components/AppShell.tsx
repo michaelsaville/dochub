@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react"
 import Sidebar from "@/components/Sidebar"
 import SearchModal from "@/components/SearchModal"
 import QuickAddFab from "@/components/QuickAddFab"
+import MobileBottomBar from "@/components/MobileBottomBar"
 
 function BellIcon() {
   return (
@@ -253,6 +254,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {children}
       </main>
+      <MobileBottomBar onOpenSearch={openSearch} />
       {searchOpen && <SearchModal onClose={closeSearch} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       <QuickAddFab />

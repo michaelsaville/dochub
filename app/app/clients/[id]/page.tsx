@@ -19,6 +19,7 @@ import ShareExternallyButton from "@/components/ShareExternallyButton"
 import SearchModal from "@/components/SearchModal"
 import CredentialReferences from "@/components/CredentialReferences"
 import ExportCsvMenu from "@/components/ExportCsvMenu"
+import LifecycleRunbooksCard from "@/components/LifecycleRunbooksCard"
 import { useSession } from "next-auth/react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -56,6 +57,9 @@ type Client = {
   createdAt: string
   locations: { id: string; name: string; address: string | null; city: string | null; state: string | null }[]
   people: Person[]
+  onboardingRunbookId: string | null
+  offboardingRunbookId: string | null
+  newClientRunbookId: string | null
 }
 
 type Asset = {
@@ -1766,6 +1770,17 @@ export default function ClientDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <LifecycleRunbooksCard
+                clientId={client.id}
+                initial={{
+                  onboardingRunbookId:  client.onboardingRunbookId,
+                  offboardingRunbookId: client.offboardingRunbookId,
+                  newClientRunbookId:   client.newClientRunbookId,
+                }}
+              />
             </div>
           </div>
         )}

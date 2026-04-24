@@ -206,6 +206,39 @@ export default function SearchModal({
           }}>ESC</kbd>
         </div>
 
+        {/* Quick filters — only when no query typed and not scoped */}
+        {query.length === 0 && !scopeClientId && (
+          <div style={{
+            display: "flex", gap: 6, padding: "10px 16px", flexWrap: "wrap",
+            borderBottom: "0.5px solid var(--border)",
+          }}>
+            <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4, alignSelf: "center", marginRight: 4 }}>
+              Jump to
+            </span>
+            {[
+              { label: "Expiring soon",  href: "/expirations",                    icon: "⏳" },
+              { label: "Flagged docs",   href: "/docs/review",                    icon: "🚩" },
+              { label: "Sync errors",    href: "/settings?section=sync-status",   icon: "⚠" },
+              { label: "Active alarms",  href: "/alarms",                         icon: "🔔" },
+              { label: "My vault",       href: "/settings?section=my-vault",      icon: "🔐" },
+            ].map(f => (
+              <button
+                key={f.label}
+                onClick={() => navigate(f.href)}
+                style={{
+                  fontSize: 11, padding: "4px 10px", borderRadius: 12,
+                  background: "var(--card)", color: "var(--text)",
+                  border: "0.5px solid var(--border)", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}
+              >
+                <span>{f.icon}</span>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Results */}
         {results.length > 0 && (
           <div ref={listRef} style={{ maxHeight: "420px", overflowY: "auto" }}>

@@ -29,7 +29,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
   }, [])
 
   return (
-    <aside style={{
+    <aside className="dochub-sidebar" style={{
       width: "220px",
       height: "100vh",
       position: "sticky",

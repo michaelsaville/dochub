@@ -15,6 +15,9 @@ export async function GET(
       include: {
         locations: { orderBy: { name: "asc" } },
         people: { orderBy: { name: "asc" } },
+        onboardingRunbook:  { select: { id: true, title: true } },
+        offboardingRunbook: { select: { id: true, title: true } },
+        newClientRunbook:   { select: { id: true, title: true } },
       },
     })
     if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -33,7 +36,7 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, type, notes } = body
+    const { name, type, notes, onboardingRunbookId, offboardingRunbookId, newClientRunbookId } = body
 
     const client = await prisma.client.update({
       where: { id },
@@ -41,6 +44,9 @@ export async function PATCH(
         ...(name?.trim() && { name: name.trim() }),
         ...(type && { type }),
         ...(notes !== undefined && { notes: notes || null }),
+        ...(onboardingRunbookId !== undefined && { onboardingRunbookId: onboardingRunbookId || null }),
+        ...(offboardingRunbookId !== undefined && { offboardingRunbookId: offboardingRunbookId || null }),
+        ...(newClientRunbookId !== undefined && { newClientRunbookId: newClientRunbookId || null }),
       },
     })
     return NextResponse.json(client)

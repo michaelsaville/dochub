@@ -70,7 +70,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "sync-status" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "sync-status" | "security" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -79,6 +79,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "data-sources", label: "Data Sources" },
   { id: "data-management", label: "Data Management" },
   { id: "sync-status", label: "Sync Status" },
+  { id: "security", label: "Security" },
   { id: "api-keys", label: "API Keys" },
   { id: "my-vault", label: "My Vault", group: "Personal" },
   { id: "alerts", label: "Email Alerts", group: "Notifications" },
@@ -146,7 +147,7 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>(() => {
     if (typeof window === "undefined") return "platform"
     const q = new URLSearchParams(window.location.search).get("section")
-    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","sync-status","syncro","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
+    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","sync-status","security","syncro","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
     return (q && valid.includes(q as Section)) ? (q as Section) : "platform"
   })
   const { themeId, setThemeId } = useTheme()
@@ -1583,6 +1584,10 @@ export default function SettingsPage() {
               <SyncStatusPanel />
             )}
 
+            {activeSection === "security" && (
+              <SecurityPanel />
+            )}
+
             {activeSection === "api-keys" && (
               <>
                 <SectionCard title="Browser Extension" description="Install the DocHub Chrome extension for credential search, autofill, TOTP codes, and password generation.">
@@ -1769,6 +1774,146 @@ function SyncStatusPanel() {
               </div>
             )
           })}
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
+type StaffRow = { id: string; name: string | null; email: string; role: string; ipAllowlist: string[] }
+
+function SecurityPanel() {
+  const [enforced, setEnforced] = useState<boolean>(false)
+  const [savingFlag, setSavingFlag] = useState(false)
+  const [staff, setStaff] = useState<StaffRow[]>([])
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/settings/integrations").then(r => r.json()),
+      fetch("/api/staff").then(r => r.json()),
+    ]).then(([cfg, st]) => {
+      setEnforced(cfg["security:staff_ip_allowlist_enabled"] === "true")
+      setStaff(st as StaffRow[])
+      const d: Record<string, string> = {}
+      for (const s of st) d[s.id] = (s.ipAllowlist ?? []).join("\n")
+      setDrafts(d)
+    }).finally(() => setLoaded(true))
+  }, [])
+
+  async function saveFlag(next: boolean) {
+    setSavingFlag(true)
+    setEnforced(next)
+    try {
+      await fetch("/api/settings/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ "security:staff_ip_allowlist_enabled": next ? "true" : "false" }),
+      })
+    } finally {
+      setSavingFlag(false)
+    }
+  }
+
+  async function saveAllowlist(id: string) {
+    setSavingId(id)
+    const list = drafts[id].split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+    try {
+      const res = await fetch(`/api/staff/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ipAllowlist: list }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setStaff(prev => prev.map(s => s.id === id ? { ...s, ipAllowlist: updated.ipAllowlist } : s))
+      }
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  return (
+    <SectionCard
+      title="Staff IP allowlist"
+      description="Restrict staff sign-in / API access to specific IP ranges. Tailscale CGNAT (100.64.0.0/10) is always allowed so a misconfigured list can be recovered from the tailnet."
+    >
+      <div style={{
+        display: "flex", alignItems: "center", gap: "12px",
+        padding: "12px 14px", borderRadius: 8,
+        background: enforced ? "rgba(220,38,38,0.08)" : "var(--color-background-primary)",
+        border: `0.5px solid ${enforced ? "rgba(220,38,38,0.3)" : "var(--color-border-tertiary)"}`,
+        marginBottom: 16,
+      }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}>
+          <input
+            type="checkbox"
+            checked={enforced}
+            onChange={(e) => saveFlag(e.target.checked)}
+            disabled={savingFlag}
+          />
+          <span style={{ fontSize: 14, fontWeight: 500 }}>
+            Enforce IP allowlist on every staff request
+          </span>
+        </label>
+        {enforced && (
+          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, background: "rgba(220,38,38,0.16)", color: "#dc2626" }}>
+            ENFORCED
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 16 }}>
+        ⚠ Before flipping this on, confirm at least one entry on every active staff user covers their current IP — or that they can reach DocHub via Tailscale (always allowed). To recover a lockout: SSH to the host and run <code>UPDATE &quot;AppSetting&quot; SET value=&apos;false&apos; WHERE key=&apos;security:staff_ip_allowlist_enabled&apos;</code>.
+      </div>
+
+      {!loaded ? (
+        <p style={{ color: "var(--color-text-secondary)", fontSize: 14 }}>Loading...</p>
+      ) : (
+        <div style={{
+          border: "0.5px solid var(--color-border-tertiary)",
+          borderRadius: 10, overflow: "hidden",
+        }}>
+          {staff.map((s, i) => (
+            <div key={s.id} style={{
+              padding: "12px 16px",
+              borderBottom: i < staff.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+              background: "var(--color-background-primary)",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{s.name || s.email}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-muted)" }}>{s.email} · {s.role}</div>
+                </div>
+                <button
+                  onClick={() => saveAllowlist(s.id)}
+                  disabled={savingId === s.id}
+                  style={{
+                    fontSize: 12, padding: "5px 12px", borderRadius: 6,
+                    border: "0.5px solid var(--color-border-secondary)",
+                    background: "var(--color-text-primary)",
+                    color: "var(--color-background-primary)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {savingId === s.id ? "Saving..." : "Save"}
+                </button>
+              </div>
+              <textarea
+                value={drafts[s.id] ?? ""}
+                onChange={(e) => setDrafts(prev => ({ ...prev, [s.id]: e.target.value }))}
+                placeholder="One CIDR per line (e.g., 203.0.113.0/24, 198.51.100.5/32). Leave blank for tailnet-only."
+                rows={3}
+                style={{
+                  width: "100%", padding: "8px 12px", fontSize: 13,
+                  fontFamily: "var(--mono)",
+                  border: "0.5px solid var(--color-border-secondary)", borderRadius: 6,
+                  background: "var(--color-background-primary)", color: "var(--color-text-primary)",
+                }}
+              />
+            </div>
+          ))}
         </div>
       )}
     </SectionCard>

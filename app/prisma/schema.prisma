@@ -15,6 +15,12 @@ model StaffUser {
   role                UserRole              @default(TECH)
   microsoftId         String?               @unique
   passkeyChallenge    String? // ephemeral, cleared after each WebAuthn ceremony
+  /// Per-user IP allowlist. Array of CIDR strings (e.g., ["100.64.0.0/10",
+  /// "203.0.113.5/32"]). Empty = no per-user restriction. Only enforced
+  /// when the global AppSetting `security:staff_ip_allowlist_enabled` is
+  /// "true". Tailscale CGNAT range (100.64.0.0/10) is always implicitly
+  /// allowed so a lockout via misconfig is recoverable.
+  ipAllowlist         String[]              @default([])
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   activityEvents      ActivityEvent[]
@@ -96,6 +102,17 @@ model Client {
   websites          Website[]
   vendors           Vendor[]           @relation("ClientVendors")
   vendorContracts   VendorContract[]   @relation("ClientContracts")
+
+  /// Optional Runbook templates fired automatically on lifecycle events.
+  /// Onboarding runs when a Person.isActive flips to true; offboarding
+  /// when it flips false; newClient on initial Client.create. Pick the
+  /// templates per client via Settings → Lifecycle on the client page.
+  onboardingRunbookId   String?
+  onboardingRunbook     Runbook? @relation("ClientOnboardingRunbook",  fields: [onboardingRunbookId],  references: [id])
+  offboardingRunbookId  String?
+  offboardingRunbook    Runbook? @relation("ClientOffboardingRunbook", fields: [offboardingRunbookId], references: [id])
+  newClientRunbookId    String?
+  newClientRunbook      Runbook? @relation("ClientNewClientRunbook",   fields: [newClientRunbookId],   references: [id])
   adDomains         AdDomain[]
   networkShares     NetworkShare[]
   vpnGateways       VpnGateway[]
@@ -767,6 +784,11 @@ model Runbook {
   steps       RunbookStep[]
   tags        RunbookTagMap[]
   runs        RunbookRun[]
+
+  // Reverse sides for the Client lifecycle hooks.
+  onboardingForClients   Client[] @relation("ClientOnboardingRunbook")
+  offboardingForClients  Client[] @relation("ClientOffboardingRunbook")
+  newClientForClients    Client[] @relation("ClientNewClientRunbook")
 }
 
 model RunbookTagMap {

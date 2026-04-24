@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { maybeTriggerOnboardingRunbook } from "@/lib/runbook-triggers"
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
@@ -28,6 +29,9 @@ export async function POST(
         isEscalation: !!isEscalation,
       },
     })
+    // Lifecycle hook — Person.isActive defaults to true, so a fresh
+    // create counts as "activated" for onboarding-runbook purposes.
+    void maybeTriggerOnboardingRunbook(person.id, session?.user?.name ?? null)
     return NextResponse.json(person, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: "Failed to create contact" }, { status: 500 })
