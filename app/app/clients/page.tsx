@@ -2,7 +2,7 @@
 
 import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 type Client = {
   id: string
@@ -26,8 +26,18 @@ function relativeTime(iso: string | null): string {
   return `${days}d ago`
 }
 
+function healthPillStyle(score: number | undefined): React.CSSProperties {
+  if (score === undefined) {
+    return { background: "rgba(148,163,184,0.14)", color: "#64748b" }
+  }
+  if (score >= 80) return { background: "rgba(34,197,94,0.14)", color: "#16a34a" }
+  if (score >= 50) return { background: "rgba(245,158,11,0.14)", color: "#b45309" }
+  return { background: "rgba(239,68,68,0.14)", color: "#dc2626" }
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
+  const [scores, setScores] = useState<Record<string, number>>({})
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -36,10 +46,16 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     fetchClients()
+    fetchScores()
   }, [])
+
+  useEffect(() => {
+    if (searchParams?.get("new") === "1") setShowAdd(true)
+  }, [searchParams])
 
   async function fetchClients() {
     setLoading(true)
@@ -51,6 +67,17 @@ export default function ClientsPage() {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchScores() {
+    try {
+      const res = await fetch("/api/clients/completeness")
+      if (!res.ok) return
+      const data = await res.json()
+      setScores(data)
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -190,11 +217,11 @@ export default function ClientsPage() {
 
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 80px",
+            display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 70px 80px",
             padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Client name", "Type", "Sites", "People", "Assets", "Alarms", "Last sync"].map((h) => (
+            {["Client name", "Type", "Sites", "People", "Assets", "Alarms", "Health", "Last sync"].map((h) => (
               <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
             ))}
           </div>
@@ -213,7 +240,7 @@ export default function ClientsPage() {
                 key={client.id}
                 onClick={() => router.push("/clients/" + client.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 80px",
+                  display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 70px 80px",
                   padding: "12px 16px", cursor: "pointer",
                   borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                   background: "var(--color-background-primary)",
@@ -248,6 +275,18 @@ export default function ClientsPage() {
                   ) : (
                     <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>
                   )}
+                </div>
+                <div>
+                  <span
+                    title="Documentation completeness"
+                    style={{
+                      display: "inline-block", fontSize: "11px", fontWeight: 600,
+                      padding: "2px 7px", borderRadius: "10px",
+                      ...healthPillStyle(scores[client.id]),
+                    }}
+                  >
+                    {scores[client.id] === undefined ? "…" : `${scores[client.id]}%`}
+                  </span>
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
                   {relativeTime(client.lastSyncedAt)}

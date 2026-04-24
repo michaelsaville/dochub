@@ -15,6 +15,7 @@ import PtpPanel from "@/components/PtpPanel"
 import SwitchPanel from "@/components/SwitchPanel"
 import NetworkDiagramPanel from "@/components/NetworkDiagramPanel"
 import TabFilter from "@/components/TabFilter"
+import ShareExternallyButton from "@/components/ShareExternallyButton"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -250,6 +251,13 @@ export default function ClientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const [client, setClient] = useState<Client | null>(null)
+  const [completeness, setCompleteness] = useState<{
+    score: number
+    checks: { label: string; met: boolean; weight: number }[]
+    gaps: string[]
+  } | null>(null)
+  const [completenessOpen, setCompletenessOpen] = useState(false)
+  const [tabCounts, setTabCounts] = useState<Record<string, number>>({})
   const [assets, setAssets] = useState<Asset[]>([])
   const [loadingClient, setLoadingClient] = useState(true)
   const [sourceColors, setSourceColors] = useState<Record<string, string>>(SOURCE_DEFAULTS)
@@ -399,7 +407,34 @@ export default function ClientDetailPage() {
     sourceTag(ds, si, pi, sourceColors)
 
   useEffect(() => {
-    if (id) fetchClient()
+    if (typeof window === "undefined") return
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get("new") !== "1") return
+    switch (activeTab) {
+      case "Credentials": setShowAddCred(true); break
+      case "Licenses":    setShowAddLicense(true); break
+      case "Locations":   setShowAddLocation(true); break
+      case "Applications": setShowAddApp(true); break
+      case "Vendors":     setShowAddVendor(true); break
+      case "People":      setShowAddPerson(true); break
+      case "Assets":      setShowAddAsset(true); break
+      case "Domains":     setShowAddWebsite(true); break
+      case "Network":     setShowAddDevice(true); break
+    }
+  }, [activeTab])
+
+  useEffect(() => {
+    if (id) {
+      fetchClient()
+      fetch(`/api/clients/${id}/completeness`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d && setCompleteness(d))
+        .catch(() => {})
+      fetch(`/api/clients/${id}/tab-counts`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d && setTabCounts(d))
+        .catch(() => {})
+    }
     fetch("/api/settings/source-colors")
       .then(r => r.json())
       .then(d => setSourceColors(d))
@@ -1444,7 +1479,7 @@ export default function ClientDetailPage() {
           <span style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{client.name}</span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", marginTop: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", marginTop: "8px", position: "relative" }}>
           <h1 style={{ fontSize: "22px", fontWeight: 500 }}>{client.name}</h1>
           <span style={{
             fontSize: "12px", padding: "3px 8px", borderRadius: "6px",
@@ -1454,17 +1489,76 @@ export default function ClientDetailPage() {
           }}>
             {client.type === "BUSINESS" ? "Business" : "Residential"}
           </span>
+          {completeness && (
+            <>
+              <button
+                onClick={() => setCompletenessOpen(v => !v)}
+                title="Click to see what's missing"
+                style={{
+                  fontSize: "12px", fontWeight: 600, padding: "3px 10px",
+                  borderRadius: "10px", border: "none", cursor: "pointer",
+                  ...(completeness.score >= 80
+                    ? { background: "rgba(34,197,94,0.14)", color: "#16a34a" }
+                    : completeness.score >= 50
+                    ? { background: "rgba(245,158,11,0.14)", color: "#b45309" }
+                    : { background: "rgba(239,68,68,0.14)", color: "#dc2626" }),
+                }}
+              >
+                {completeness.score}% complete
+              </button>
+              {completenessOpen && (
+                <div style={{
+                  position: "absolute", top: "36px", left: "calc(100% - 240px)",
+                  zIndex: 10, minWidth: "280px",
+                  background: "var(--color-background-primary)",
+                  border: "0.5px solid var(--color-border-secondary)",
+                  borderRadius: "10px", padding: "14px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
+                }}>
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: "10px" }}>
+                    Documentation completeness
+                  </div>
+                  {completeness.checks.map((c) => (
+                    <div key={c.label} style={{ display: "flex", justifyContent: "space-between", gap: "8px", padding: "4px 0", fontSize: "13px" }}>
+                      <span style={{ color: c.met ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}>
+                        {c.met ? "✓" : "○"} {c.label}
+                      </span>
+                      <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>+{c.weight}</span>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setCompletenessOpen(false)}
+                    style={{
+                      marginTop: "8px", fontSize: "11px",
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="pcc-tab-bar-wrap">
           <button className="pcc-tab-scroll-btn" onClick={() => { const el = document.querySelector('.pcc-tab-bar') as HTMLElement; if (el) el.scrollLeft -= 160 }}>‹</button>
           <div className="pcc-tab-bar">
-            {tabs.map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
-                {tab}{tab === "Assets" && assets.length > 0 ? ` (${assets.length})` : ""}
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const count = tabCounts[tab]
+              return (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
+                  {tab}
+                  {count !== undefined && count > 0 && (
+                    <span style={{ marginLeft: 5, fontSize: 10, color: "var(--color-text-muted)" }}>
+                      ({count})
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
           <button className="pcc-tab-scroll-btn" onClick={() => { const el = document.querySelector('.pcc-tab-bar') as HTMLElement; if (el) el.scrollLeft += 160 }}>›</button>
         </div>
@@ -2384,6 +2478,7 @@ export default function ClientDetailPage() {
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Edit</button>
                       )}
+                      <ShareExternallyButton resourceType="credential" resourceId={cred.id} compact label="Share" />
                       <button onClick={() => deleteCred(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Retire</button>
                     </div>
                   </div>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { marked } from "marked"
+import ShareExternallyButton from "@/components/ShareExternallyButton"
 
 type Attachment = {
   id: string
@@ -632,6 +633,7 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                           }}
                           style={{ fontSize: "12px", color: versionsOpen === doc.id ? "var(--color-text-primary)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >History</button>
+                        <ShareExternallyButton resourceType="document" resourceId={doc.id} compact label="Share" />
                         <button onClick={() => deleteDoc(doc.id)}
                           style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Delete</button>
                       </div>
