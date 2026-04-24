@@ -3,6 +3,7 @@
 import AppShell from "@/components/AppShell"
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
+import VendorContractsPanel from "@/components/VendorContractsPanel"
 
 const CATEGORIES = ["ISP", "SOFTWARE", "HARDWARE", "TELECOM", "CLOUD", "SECURITY", "SERVICES", "OTHER"]
 
@@ -520,6 +521,8 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
             </div>
           ))}
         </div>
+
+        <VendorContractsPanel vendorId={id} />
       </div>
     </AppShell>
   )

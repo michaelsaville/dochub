@@ -70,7 +70,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "sync-status" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -78,6 +78,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "asset-types", label: "Asset Types" },
   { id: "data-sources", label: "Data Sources" },
   { id: "data-management", label: "Data Management" },
+  { id: "sync-status", label: "Sync Status" },
   { id: "api-keys", label: "API Keys" },
   { id: "my-vault", label: "My Vault", group: "Personal" },
   { id: "alerts", label: "Email Alerts", group: "Notifications" },
@@ -145,7 +146,7 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>(() => {
     if (typeof window === "undefined") return "platform"
     const q = new URLSearchParams(window.location.search).get("section")
-    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","syncro","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
+    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","sync-status","syncro","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
     return (q && valid.includes(q as Section)) ? (q as Section) : "platform"
   })
   const { themeId, setThemeId } = useTheme()
@@ -979,6 +980,65 @@ export default function SettingsPage() {
                 <div style={{ marginTop: "16px", padding: "12px 14px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   The nightly digest runs automatically as part of the <code style={{ fontFamily: "monospace", fontSize: "12px" }}>/api/cron/sync</code> job. It only sends if there are items within the warning window.
                 </div>
+
+                <SectionCard
+                  title="Push channels"
+                  description="Optional ntfy + Pushover delivery alongside email. Configure either or both — the nightly digest fans out to whichever is set."
+                >
+                  <div style={{ display: "grid", gap: "12px", marginBottom: "16px" }}>
+                    <div>
+                      <label style={lbl}>ntfy URL (optional, default https://ntfy.sh)</label>
+                      <input
+                        value={cfg("push:ntfy:url")}
+                        onChange={e => setCfg("push:ntfy:url", e.target.value)}
+                        placeholder="https://ntfy.pcc2k.com"
+                        style={inp}
+                      />
+                    </div>
+                    <div>
+                      <label style={lbl}>ntfy topic</label>
+                      <input
+                        value={cfg("push:ntfy:topic")}
+                        onChange={e => setCfg("push:ntfy:topic", e.target.value)}
+                        placeholder="dochub-alerts"
+                        style={inp}
+                      />
+                    </div>
+                    <div>
+                      <label style={lbl}>Pushover application token</label>
+                      <input
+                        type="password"
+                        value={cfg("push:pushover:appToken")}
+                        onChange={e => setCfg("push:pushover:appToken", e.target.value)}
+                        placeholder="atoken..."
+                        style={inp}
+                      />
+                    </div>
+                    <div>
+                      <label style={lbl}>Pushover user key</label>
+                      <input
+                        type="password"
+                        value={cfg("push:pushover:userKey")}
+                        onChange={e => setCfg("push:pushover:userKey", e.target.value)}
+                        placeholder="ukey..."
+                        style={inp}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => saveIntegration([
+                      "push:ntfy:url", "push:ntfy:topic",
+                      "push:pushover:appToken", "push:pushover:userKey",
+                    ])}
+                    disabled={savingIntegration}
+                    style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
+                  >
+                    {savingIntegration ? "Saving..." : "Save"}
+                  </button>
+                  <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
+                    Tip: TicketHub also uses ntfy. Sharing a topic (e.g. <code>tickethub</code>) sends both apps&apos; alerts to the same subscriber list.
+                  </div>
+                </SectionCard>
               </SectionCard>
             )}
 
@@ -1519,6 +1579,10 @@ export default function SettingsPage() {
               </>
             )}
 
+            {activeSection === "sync-status" && (
+              <SyncStatusPanel />
+            )}
+
             {activeSection === "api-keys" && (
               <>
                 <SectionCard title="Browser Extension" description="Install the DocHub Chrome extension for credential search, autofill, TOTP codes, and password generation.">
@@ -1614,6 +1678,102 @@ export default function SettingsPage() {
 type PasskeyEntry = { id: string; name: string; lastUsedAt: string | null; createdAt: string }
 type VaultEntry = { id: string; label: string; username: string | null; url: string | null; notes: string | null; hasTotp: boolean; createdAt: string; updatedAt: string }
 type RevealedEntry = { password: string | null; totpCode: string | null; totpSecret: string | null }
+
+type SyncStatusRow = {
+  key: string
+  status: "OK" | "ERROR" | "DEGRADED" | "UNCONFIGURED"
+  lastRunAt: string
+  message: string | null
+}
+
+const INTEGRATION_LABELS: Record<string, string> = {
+  syncro:       "SyncroMSP",
+  domains:      "Domain / SSL monitor",
+  alerts:       "Expiration alerts",
+  synology:     "Synology backups",
+  unifiLocal:   "UniFi (local controller)",
+  uptime:       "HTTP uptime probes",
+  backupVerify: "Backup verification",
+}
+
+const STATUS_STYLES: Record<SyncStatusRow["status"], { bg: string; fg: string; label: string }> = {
+  OK:           { bg: "rgba(34,197,94,0.14)",  fg: "#16a34a", label: "OK" },
+  ERROR:        { bg: "rgba(239,68,68,0.14)",  fg: "#dc2626", label: "ERROR" },
+  DEGRADED:     { bg: "rgba(245,158,11,0.14)", fg: "#b45309", label: "DEGRADED" },
+  UNCONFIGURED: { bg: "rgba(148,163,184,0.18)", fg: "#64748b", label: "UNCONFIGURED" },
+}
+
+function relativeAgo(iso: string): string {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (secs < 60) return "just now"
+  const mins = Math.floor(secs / 60); if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60); if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+function SyncStatusPanel() {
+  const [rows, setRows] = useState<SyncStatusRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/sync-status")
+      .then(r => r.ok ? r.json() : [])
+      .then(setRows)
+      .finally(() => setLoading(false))
+  }, [])
+
+  return (
+    <SectionCard
+      title="Integration Sync Status"
+      description="Last run + last error per integration. Updated every nightly cron."
+    >
+      {loading ? (
+        <p style={{ color: "var(--color-text-secondary)", fontSize: 14 }}>Loading...</p>
+      ) : rows.length === 0 ? (
+        <p style={{ color: "var(--color-text-secondary)", fontSize: 14 }}>
+          No sync runs recorded yet. The next nightly cron will populate this list.
+        </p>
+      ) : (
+        <div style={{
+          border: "0.5px solid var(--color-border-tertiary)",
+          borderRadius: 10, overflow: "hidden",
+        }}>
+          {rows.map((r, i) => {
+            const s = STATUS_STYLES[r.status]
+            return (
+              <div key={r.key} style={{
+                display: "grid",
+                gridTemplateColumns: "1.5fr 100px 120px 1fr",
+                gap: 12,
+                padding: "12px 16px",
+                alignItems: "center",
+                borderBottom: i < rows.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                background: "var(--color-background-primary)",
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>
+                  {INTEGRATION_LABELS[r.key] ?? r.key}
+                </div>
+                <div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600,
+                    padding: "2px 7px", borderRadius: 10,
+                    background: s.bg, color: s.fg,
+                  }}>{s.label}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                  {relativeAgo(r.lastRunAt)}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                  {r.message || (r.status === "OK" ? "—" : "")}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </SectionCard>
+  )
+}
 
 function MyVaultSection() {
   const [vaultUnlocked, setVaultUnlocked] = useState(false)

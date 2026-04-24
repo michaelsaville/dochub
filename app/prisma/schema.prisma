@@ -95,6 +95,7 @@ model Client {
   vlans             Vlan[]
   websites          Website[]
   vendors           Vendor[]           @relation("ClientVendors")
+  vendorContracts   VendorContract[]   @relation("ClientContracts")
   adDomains         AdDomain[]
   networkShares     NetworkShare[]
   vpnGateways       VpnGateway[]
@@ -377,6 +378,10 @@ model Credential {
   personId            String?
   expiryDate          DateTime?
   dataSource          String           @default("MANUAL")
+  /// RBAC escape hatch: when true, TECH-role users can reveal this
+  /// credential's password/TOTP/notes. Default false — only ADMIN sees
+  /// values. Set per-credential when the whole team shares the login.
+  allowTechReveal     Boolean          @default(false)
   asset               Asset?           @relation(fields: [assetId], references: [id])
   client              Client           @relation(fields: [clientId], references: [id])
   person              Person?          @relation("CredentialPerson", fields: [personId], references: [id])
@@ -564,10 +569,55 @@ model Vendor {
   applications  Application[]
   licenses      License[]
   contacts      VendorContact[]
+  contracts     VendorContract[]
   clients       Client[]        @relation("ClientVendors")
   vpnAccess     VpnAccessor[]   @relation("VendorVpnAccess")
   sipTrunks     SipTrunk[]      @relation("VendorSipTrunks")
   potsLines     PotsLine[]      @relation("VendorPotsLines")
+}
+
+/// One row per integration cron — written on every run so Settings can
+/// surface "last ran X ago, OK" or the most recent error message.
+model IntegrationSyncStatus {
+  key       String   @id
+  status    String   // OK | ERROR | DEGRADED | UNCONFIGURED
+  lastRunAt DateTime
+  message   String?
+  detail    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Vendor contracts (MSAs, SLAs, leases, subscriptions). Distinct from
+/// software licenses (License model) — those track per-seat product
+/// licensing; this tracks the umbrella vendor agreement.
+model VendorContract {
+  id           String    @id @default(cuid())
+  vendorId     String
+  vendor       Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  /// Optional client scope — when set, the contract applies to that
+  /// client only (rather than vendor-wide). Useful for client-specific
+  /// MSAs that go through a shared vendor.
+  clientId     String?
+  client       Client?   @relation("ClientContracts", fields: [clientId], references: [id])
+  name         String
+  contractType String?   // MSA / SLA / LEASE / SUBSCRIPTION / NDA / OTHER
+  startDate    DateTime?
+  endDate      DateTime?
+  autoRenew    Boolean   @default(false)
+  renewalDate  DateTime?
+  /// Total contract value in cents (one-time) or per costPeriod amount.
+  cost         Int?
+  costPeriod   String?   // ANNUAL / MONTHLY / ONE_TIME
+  documentUrl  String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([vendorId])
+  @@index([clientId])
+  @@index([endDate])
+  @@index([renewalDate])
 }
 
 model Website {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { postExpirationDigestToTeams } from "@/lib/teams"
+import { sendPush } from "@/lib/push"
 import { sendMessage } from "@/lib/messaging/send"
 import type { ExpirationDigestItem } from "@/lib/messaging/templates"
 
@@ -110,5 +111,23 @@ export async function GET(req: Request) {
     teamsResult = await postExpirationDigestToTeams({ critical, warning }, teamsSetting.value)
   }
 
-  return NextResponse.json({ sent: true, messageId: send.id, total: all.length, critical: critical.length, warning: warning.length, teams: teamsResult })
+  // Push channels — same digest summary in 1-2 lines.
+  const pushResult = await sendPush({
+    title: critical.length > 0
+      ? `${critical.length} critical · ${warning.length} warning`
+      : `${warning.length} expiring soon`,
+    message: `DocHub digest: ${critical.length} critical, ${warning.length} warning, ${all.length} total`,
+    priority: critical.length > 0 ? "high" : "normal",
+    url: `${process.env.NEXTAUTH_URL || "https://dochub.pcc2k.com"}/expirations`,
+  })
+
+  return NextResponse.json({
+    sent: true,
+    messageId: send.id,
+    total: all.length,
+    critical: critical.length,
+    warning: warning.length,
+    teams: teamsResult,
+    push: pushResult,
+  })
 }

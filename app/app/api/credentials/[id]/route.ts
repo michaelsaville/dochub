@@ -22,6 +22,18 @@ export async function PATCH(
       return NextResponse.json({ ...updated, encryptedPassword: undefined, encryptedTotp: undefined, encryptedNotes: undefined, hasPassword: !!updated.encryptedPassword, hasTotp: !!updated.encryptedTotp, hasSecureNotes: !!updated.encryptedNotes })
     }
 
+    // Quick-update: allowTechReveal toggle only — admin gated.
+    if (body.allowTechReveal !== undefined && Object.keys(body).length === 1) {
+      if (session?.user?.role !== "ADMIN") {
+        return NextResponse.json({ error: "Admin role required" }, { status: 403 })
+      }
+      const updated = await prisma.credential.update({
+        where: { id },
+        data: { allowTechReveal: !!body.allowTechReveal },
+      })
+      return NextResponse.json({ ...updated, encryptedPassword: undefined, encryptedTotp: undefined, encryptedNotes: undefined, hasPassword: !!updated.encryptedPassword, hasTotp: !!updated.encryptedTotp, hasSecureNotes: !!updated.encryptedNotes })
+    }
+
     // Full edit — fetch current values for history
     const current = await prisma.credential.findUnique({ where: { id } })
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })

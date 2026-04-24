@@ -34,7 +34,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireApiKey(req)
+  const { staffUser, error } = await requireApiKey(req)
   if (error) return error
 
   const { id } = await params
@@ -48,11 +48,21 @@ export async function GET(
       encryptedPassword: true,
       encryptedTotp: true,
       isRetired: true,
+      allowTechReveal: true,
     },
   })
 
   if (!credential || credential.isRetired) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  // Same RBAC gate as the session-auth endpoint: TECH-key holders only see
+  // creds that are explicitly allowTechReveal. ADMIN bypasses.
+  if (staffUser?.role !== "ADMIN" && !credential.allowTechReveal) {
+    return NextResponse.json(
+      { error: "Admin role required to reveal this credential" },
+      { status: 403 },
+    )
   }
 
   const password = decrypt(credential.encryptedPassword)

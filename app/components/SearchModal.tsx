@@ -74,7 +74,15 @@ function flattenResults(data: {
   return results
 }
 
-export default function SearchModal({ onClose }: { onClose: () => void }) {
+export default function SearchModal({
+  onClose,
+  scopeClientId,
+  scopeClientName,
+}: {
+  onClose: () => void
+  scopeClientId?: string | null
+  scopeClientName?: string | null
+}) {
   const router = useRouter()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
@@ -93,15 +101,18 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
     if (query.length < 2) { setResults([]); setLoading(false); return }
 
     setLoading(true)
+    const url = scopeClientId
+      ? `/api/search?q=${encodeURIComponent(query)}&clientId=${encodeURIComponent(scopeClientId)}`
+      : `/api/search?q=${encodeURIComponent(query)}`
     debounceRef.current = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      fetch(url)
         .then(r => r.ok ? r.json() : null)
         .then(d => {
           if (d) { setResults(flattenResults(d)); setActiveIdx(0) }
         })
         .finally(() => setLoading(false))
     }, 200)
-  }, [query])
+  }, [query, scopeClientId])
 
   const navigate = useCallback((href: string) => {
     router.push(href)
@@ -162,10 +173,22 @@ export default function SearchModal({ onClose }: { onClose: () => void }) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
+          {scopeClientName && (
+            <span style={{
+              fontSize: "11px", fontWeight: 500,
+              background: "rgba(59,130,246,0.14)", color: "#3b82f6",
+              padding: "3px 8px", borderRadius: "6px", flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}>
+              in {scopeClientName}
+            </span>
+          )}
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search clients, assets, credentials, runbooks..."
+            placeholder={scopeClientName
+              ? `Search within ${scopeClientName}...`
+              : "Search clients, assets, credentials, runbooks..."}
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{

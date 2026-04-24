@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const clientId = url.searchParams.get("clientId") || undefined
 
-  const [sslCerts, domains, warranties, credentials, licenses] = await Promise.all([
+  const [sslCerts, domains, warranties, credentials, licenses, vendorContracts] = await Promise.all([
     prisma.website.findMany({
       where: {
         sslExpiresAt: { not: null },
@@ -73,6 +73,18 @@ export async function GET(req: Request) {
       },
       orderBy: { expiryDate: "asc" },
     }),
+    prisma.vendorContract.findMany({
+      where: {
+        endDate: { not: null },
+        ...(clientId ? { clientId } : {}),
+      },
+      select: {
+        id: true, name: true, contractType: true, endDate: true,
+        vendor: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true } },
+      },
+      orderBy: { endDate: "asc" },
+    }),
   ])
 
   const items = [
@@ -124,6 +136,16 @@ export async function GET(req: Request) {
       clientId: l.client.id,
       clientName: l.client.name,
       linkPath: `/clients/${l.client.id}?tab=Licenses`,
+    })),
+    ...vendorContracts.map(v => ({
+      id: `contract-${v.id}`,
+      category: "contract" as const,
+      label: v.name,
+      sublabel: [v.vendor.name, v.contractType].filter(Boolean).join(" · "),
+      expiresAt: v.endDate!.toISOString(),
+      clientId: v.client?.id ?? "",
+      clientName: v.client?.name ?? v.vendor.name,
+      linkPath: `/vendors/${v.vendor.id}`,
     })),
   ].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime())
 

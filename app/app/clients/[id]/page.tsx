@@ -16,6 +16,10 @@ import SwitchPanel from "@/components/SwitchPanel"
 import NetworkDiagramPanel from "@/components/NetworkDiagramPanel"
 import TabFilter from "@/components/TabFilter"
 import ShareExternallyButton from "@/components/ShareExternallyButton"
+import SearchModal from "@/components/SearchModal"
+import CredentialReferences from "@/components/CredentialReferences"
+import ExportCsvMenu from "@/components/ExportCsvMenu"
+import { useSession } from "next-auth/react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -250,6 +254,8 @@ function sourceTag(
 export default function ClientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
+  const { data: session } = useSession()
+  const isAdmin = (session?.user as any)?.role === "ADMIN"
   const [client, setClient] = useState<Client | null>(null)
   const [completeness, setCompleteness] = useState<{
     score: number
@@ -258,6 +264,7 @@ export default function ClientDetailPage() {
   } | null>(null)
   const [completenessOpen, setCompletenessOpen] = useState(false)
   const [tabCounts, setTabCounts] = useState<Record<string, number>>({})
+  const [scopedSearchOpen, setScopedSearchOpen] = useState(false)
   const [assets, setAssets] = useState<Asset[]>([])
   const [loadingClient, setLoadingClient] = useState(true)
   const [sourceColors, setSourceColors] = useState<Record<string, string>>(SOURCE_DEFAULTS)
@@ -423,6 +430,22 @@ export default function ClientDetailPage() {
     }
   }, [activeTab])
 
+  // "/" on a client page opens the client-scoped search modal. Respects
+  // input focus so typing "/" in a text field doesn't hijack it.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "/") return
+      const target = e.target as HTMLElement | null
+      const typing = target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      if (typing) return
+      e.preventDefault()
+      setScopedSearchOpen(true)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
   useEffect(() => {
     if (id) {
       fetchClient()
@@ -560,6 +583,17 @@ export default function ClientDetailPage() {
     setCredentials(prev => prev.map(c => c.id === credId ? { ...c, isFavorite: !current } : c))
     setDashboardData(null)
     if (activeTab === "Dashboard") fetchDashboard()
+  }
+
+  async function toggleCredAllowTechReveal(credId: string, current: boolean) {
+    const res = await fetch(`/api/credentials/${credId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allowTechReveal: !current }),
+    })
+    if (res.ok) {
+      setCredentials(prev => prev.map(c => c.id === credId ? { ...c, allowTechReveal: !current } : c))
+    }
   }
 
   async function revealDashPassword(credId: string) {
@@ -1489,6 +1523,30 @@ export default function ClientDetailPage() {
           }}>
             {client.type === "BUSINESS" ? "Business" : "Residential"}
           </span>
+          <button
+            onClick={() => setScopedSearchOpen(true)}
+            title="Search within this client (/)"
+            style={{
+              fontSize: "12px", padding: "3px 10px",
+              borderRadius: "10px",
+              border: "0.5px solid var(--color-border-secondary)",
+              background: "var(--color-background-secondary)",
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: "6px",
+            }}
+          >
+            <span style={{ opacity: 0.7 }}>🔍</span>
+            Search in client
+            <kbd style={{
+              fontSize: "10px", padding: "1px 5px", borderRadius: "3px",
+              background: "var(--color-background-primary)",
+              border: "0.5px solid var(--color-border-tertiary)",
+            }}>/</kbd>
+          </button>
+          {isAdmin && (
+            <ExportCsvMenu clientId={String(id)} />
+          )}
           {completeness && (
             <>
               <button
@@ -2462,6 +2520,35 @@ export default function ClientDetailPage() {
                           {cred.user.name}
                         </span>
                       )}
+                      {isAdmin ? (
+                        <button
+                          onClick={() => toggleCredAllowTechReveal(cred.id, cred.allowTechReveal)}
+                          title={cred.allowTechReveal
+                            ? "Visible to TECH users — click to restrict to ADMIN only"
+                            : "Admin-only — click to allow TECH users to reveal"}
+                          style={{
+                            fontSize: "10px", fontWeight: 600,
+                            padding: "1px 6px", borderRadius: "4px",
+                            border: "none", cursor: "pointer",
+                            background: cred.allowTechReveal
+                              ? "rgba(34,197,94,0.14)" : "rgba(148,163,184,0.18)",
+                            color: cred.allowTechReveal ? "#16a34a" : "#64748b",
+                          }}
+                        >
+                          {cred.allowTechReveal ? "TEAM" : "ADMIN"}
+                        </button>
+                      ) : !cred.allowTechReveal && (
+                        <span
+                          title="Admin-only credential — ask an admin to reveal"
+                          style={{
+                            fontSize: "10px", fontWeight: 600,
+                            padding: "1px 6px", borderRadius: "4px",
+                            background: "rgba(148,163,184,0.18)", color: "#64748b",
+                          }}
+                        >
+                          ADMIN
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                       <button
@@ -2605,6 +2692,9 @@ export default function ClientDetailPage() {
                       {cred.notes && (
                         <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>{cred.notes}</div>
                       )}
+
+                      {/* Reverse links */}
+                      <CredentialReferences credentialId={cred.id} />
 
                       {/* History */}
                       <div style={{ marginTop: "10px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "8px" }}>
@@ -3627,6 +3717,13 @@ export default function ClientDetailPage() {
           </div>
         )}
       </div>
+      {scopedSearchOpen && client && (
+        <SearchModal
+          onClose={() => setScopedSearchOpen(false)}
+          scopeClientId={client.id}
+          scopeClientName={client.name}
+        />
+      )}
     </AppShell>
   )
 }

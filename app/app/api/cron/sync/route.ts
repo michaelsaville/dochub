@@ -1,4 +1,31 @@
 import { NextResponse } from "next/server"
+import { recordSyncStatus, type SyncStatus } from "@/lib/sync-status"
+
+/**
+ * Map an integration JSON result to a sync status row. Each sub-cron
+ * varies in shape, so look at common signals: explicit `success: false`,
+ * `error` field, "Unauthorized" / "skipped" strings.
+ */
+function classifyResult(result: any): { status: SyncStatus; message: string | null } {
+  if (!result) return { status: "ERROR", message: "No response" }
+  if (result.success === false) {
+    return { status: "ERROR", message: result.error ?? "Unknown error" }
+  }
+  if (result.error) {
+    const lower = String(result.error).toLowerCase()
+    if (lower.includes("unauthorized") || lower.includes("401")) {
+      return { status: "ERROR", message: result.error }
+    }
+    if (lower.includes("not configured") || lower.includes("skipped")) {
+      return { status: "UNCONFIGURED", message: result.error }
+    }
+    return { status: "ERROR", message: result.error }
+  }
+  if (result.skipped) {
+    return { status: "UNCONFIGURED", message: String(result.skipped) }
+  }
+  return { status: "OK", message: null }
+}
 
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization")
@@ -67,6 +94,22 @@ export async function GET(req: Request) {
     results.backupVerify = { success: false, error: e.message }
   }
 
+  // Persist per-integration status so Settings can render last-run + last-error.
+  await Promise.all([
+    recordSyncStatus("syncro",       ...statusFor(results.syncro)),
+    recordSyncStatus("domains",      ...statusFor(results.domains)),
+    recordSyncStatus("alerts",       ...statusFor(results.alerts)),
+    recordSyncStatus("synology",     ...statusFor(results.synology)),
+    recordSyncStatus("unifiLocal",   ...statusFor(results.unifiLocal)),
+    recordSyncStatus("uptime",       ...statusFor(results.uptime)),
+    recordSyncStatus("backupVerify", ...statusFor(results.backupVerify)),
+  ])
+
   const success = results.syncro?.success !== false
   return NextResponse.json({ success, ...results })
+}
+
+function statusFor(r: any): [SyncStatus, string | null] {
+  const c = classifyResult(r)
+  return [c.status, c.message]
 }

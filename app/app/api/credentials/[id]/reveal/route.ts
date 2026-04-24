@@ -35,12 +35,23 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
     const credential = await prisma.credential.findUnique({ where: { id } })
     if (!credential) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    // RBAC: TECH users only get to reveal when the credential is explicitly
+    // flagged allowTechReveal. ADMIN bypasses. CLIENT never reaches staff
+    // credentials (blocked at proxy level, but belt-and-suspenders).
+    const role = session?.user?.role
+    if (role !== "ADMIN" && !credential.allowTechReveal) {
+      return NextResponse.json(
+        { error: "Admin role required to reveal this credential" },
+        { status: 403 },
+      )
+    }
 
     const password = decrypt(credential.encryptedPassword)
 

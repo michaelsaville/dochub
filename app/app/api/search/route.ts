@@ -7,13 +7,16 @@ export async function GET(req: NextRequest) {
   if (error) return error
 
   const q = req.nextUrl.searchParams.get("q")?.trim()
+  const scopeClientId = req.nextUrl.searchParams.get("clientId")?.trim() || null
   if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [] })
 
   const mode = "insensitive" as const
   const contains = (field: string) => ({ contains: q, mode })
 
   const [clients, assets, credentials, runbooks, documents] = await Promise.all([
-    prisma.client.findMany({
+    // When scoped to a client, never return other Client rows — the tech is
+    // already on that client's page.
+    scopeClientId ? Promise.resolve([] as any[]) : prisma.client.findMany({
       where: { isActive: true, name: { contains: q, mode } },
       select: { id: true, name: true, type: true },
       take: 5,
@@ -29,6 +32,7 @@ export async function GET(req: NextRequest) {
           { make: contains("make") },
           { model: contains("model") },
         ],
+        ...(scopeClientId ? { location: { clientId: scopeClientId } } : {}),
       },
       select: {
         id: true,
@@ -48,6 +52,7 @@ export async function GET(req: NextRequest) {
           { username: contains("username") },
           { url: contains("url") },
         ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
       },
       select: {
         id: true,
@@ -64,6 +69,7 @@ export async function GET(req: NextRequest) {
           { title: contains("title") },
           { summary: contains("summary") },
         ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
       },
       select: {
         id: true,
@@ -79,6 +85,7 @@ export async function GET(req: NextRequest) {
         OR: [
           { title: contains("title") },
         ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
       },
       select: {
         id: true,
