@@ -1,14 +1,7 @@
 "use client"
 
-// /clients, /runbooks/new, and /reports/custom/builder all use useSearchParams()
-// in a client component. Without this, Next.js tries to statically prerender
-// the JSX skeleton and bombs with: "useSearchParams() should be wrapped in
-// a suspense boundary". These are auth-gated user pages — there is no value
-// in static generation, so opt out wholesale.
-export const dynamic = "force-dynamic"
-
 import AppShell from "@/components/AppShell"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 type Client = {
@@ -42,7 +35,10 @@ function healthPillStyle(score: number | undefined): React.CSSProperties {
   return { background: "rgba(239,68,68,0.14)", color: "#dc2626" }
 }
 
-export default function ClientsPage() {
+// Inner component holds the useSearchParams() call — Next.js requires
+// the consumer to live inside a <Suspense> boundary so the static
+// prerender doesn't bail out. Default export below wraps it.
+function ClientsPageInner() {
   const [clients, setClients] = useState<Client[]>([])
   const [scores, setScores] = useState<Record<string, number>>({})
   const [search, setSearch] = useState("")
@@ -304,5 +300,13 @@ export default function ClientsPage() {
         </div>
       </div>
     </AppShell>
+  )
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientsPageInner />
+    </Suspense>
   )
 }

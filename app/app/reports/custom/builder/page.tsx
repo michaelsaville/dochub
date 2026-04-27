@@ -1,16 +1,10 @@
 "use client"
 
-// /clients, /runbooks/new, and /reports/custom/builder all use useSearchParams()
-// in a client component. Without this, Next.js tries to statically prerender
-// the JSX skeleton and bombs with: "useSearchParams() should be wrapped in
-// a suspense boundary". These are auth-gated user pages — there is no value
-// in static generation, so opt out wholesale.
-export const dynamic = "force-dynamic"
-
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ENTITIES, FILTER_OPS } from "@/lib/report-entities"
 import type { EntityKey, ReportConfig, Filter } from "@/lib/report-entities"
+
 
 type Client = { id: string; name: string }
 
