@@ -31,7 +31,8 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Allow cron, sync, webhook, public share, and BFF endpoints — authenticated via bearer token, HMAC, or public access
+  // Allow cron, sync, webhook, public share, BFF, and AI proxy
+  // endpoints — authenticated via bearer token, HMAC, or public access
   if (
     pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/api/sync/") ||
@@ -41,7 +42,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/share/") ||
     pathname.startsWith("/api/v1/") ||
     pathname.startsWith("/api/scout/") ||
-    pathname.startsWith("/api/bff/")
+    pathname.startsWith("/api/bff/") ||
+    pathname.startsWith("/api/ai/")
   ) {
     return NextResponse.next()
   }
