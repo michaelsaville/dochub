@@ -20,6 +20,7 @@ import SearchModal from "@/components/SearchModal"
 import CredentialReferences from "@/components/CredentialReferences"
 import ExportCsvMenu from "@/components/ExportCsvMenu"
 import LifecycleRunbooksCard from "@/components/LifecycleRunbooksCard"
+import IdentityPanel from "@/components/IdentityPanel"
 import { useSession } from "next-auth/react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -338,6 +339,7 @@ export default function ClientDetailPage() {
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
   const [assetSearch, setAssetSearch] = useState("")
   const [assetStatusFilter, setAssetStatusFilter] = useState("ALL")
+  const [assetSourceFilter, setAssetSourceFilter] = useState("ALL")
   const [assetTypeFilter, setAssetTypeFilter] = useState("ALL")
   const [credSearch, setCredSearch] = useState("")
   const [licenseSearch, setLicenseSearch] = useState("")
@@ -1393,8 +1395,16 @@ export default function ClientDetailPage() {
     if (q && !`${asset.name} ${asset.friendlyName ?? ""} ${asset.serial ?? ""}`.toLowerCase().includes(q)) return false
     if (assetStatusFilter !== "ALL" && asset.status !== assetStatusFilter) return false
     if (assetTypeFilter !== "ALL" && getTypeKey(asset) !== assetTypeFilter) return false
+    if (assetSourceFilter !== "ALL" && (asset.dataSource ?? "MANUAL") !== assetSourceFilter) return false
     return true
   })
+
+  // Distinct dataSource values present in this client's asset set —
+  // drives the Source filter chip below. Always include MANUAL since a
+  // null dataSource collapses to it.
+  const sourceOptions = Array.from(
+    new Set(["MANUAL", ...assets.map(a => a.dataSource ?? "MANUAL")]),
+  ).sort()
 
   const matchq = (q: string, ...fields: (string | null | undefined)[]) => {
     const needle = q.trim().toLowerCase()
@@ -1879,6 +1889,8 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "People" && (
+          <div>
+            <IdentityPanel clientName={client.name} role={session?.user?.role} />
           <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
             {/* People list */}
             <div style={{ width: "260px", flexShrink: 0 }}>
@@ -2093,6 +2105,7 @@ export default function ClientDetailPage() {
               )
             })()}
           </div>
+          </div>
         )}
 
         {activeTab === "Assets" && (
@@ -2209,13 +2222,26 @@ export default function ClientDetailPage() {
                     <option key={key} value={key}>{assets.find(a => getTypeKey(a) === key)?.assetType?.name ?? key}</option>
                   ))}
                 </select>
-                {(assetSearch || assetStatusFilter !== "ALL" || assetTypeFilter !== "ALL") && (
+                {sourceOptions.length > 1 && (
+                  <select
+                    value={assetSourceFilter}
+                    onChange={e => setAssetSourceFilter(e.target.value)}
+                    title="Filter by data source — useful for reviewing auto-ingested rows from PCC Scout / UniFi / ITFlow before promoting them"
+                    style={{ padding: "6px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+                  >
+                    <option value="ALL">All sources</option>
+                    {sourceOptions.map(src => (
+                      <option key={src} value={src}>{src}</option>
+                    ))}
+                  </select>
+                )}
+                {(assetSearch || assetStatusFilter !== "ALL" || assetTypeFilter !== "ALL" || assetSourceFilter !== "ALL") && (
                   <button
-                    onClick={() => { setAssetSearch(""); setAssetStatusFilter("ALL"); setAssetTypeFilter("ALL") }}
+                    onClick={() => { setAssetSearch(""); setAssetStatusFilter("ALL"); setAssetTypeFilter("ALL"); setAssetSourceFilter("ALL") }}
                     style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                   >Clear</button>
                 )}
-                {(assetSearch || assetStatusFilter !== "ALL" || assetTypeFilter !== "ALL") && (
+                {(assetSearch || assetStatusFilter !== "ALL" || assetTypeFilter !== "ALL" || assetSourceFilter !== "ALL") && (
                   <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
                     {filteredAssets.length} of {assets.length}
                   </span>
