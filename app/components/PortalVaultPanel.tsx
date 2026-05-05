@@ -11,7 +11,7 @@ type SharedCred = {
   password: string | null
   totpCode: string | null
   hasTotp: boolean
-  ownedByUser: { id: string; name: string; email: string } | null
+  ownedByUserId: string | null
   createdByStaffId: string | null
   createdAt: string
   updatedAt: string
@@ -119,8 +119,8 @@ export default function PortalVaultPanel({ clientId }: { clientId: string }) {
                   <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text-primary)" }}>{item.label}</div>
                   <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 2 }}>
                     {item.username && <span>{item.username} · </span>}
-                    {item.ownedByUser
-                      ? <span>shared by {item.ownedByUser.name}</span>
+                    {item.ownedByUserId
+                      ? <span>shared by client</span>
                       : <span>added by MSP</span>}
                   </div>
                   {item.url && <div style={{ fontSize: 12, marginTop: 2 }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>{item.url}</a></div>}

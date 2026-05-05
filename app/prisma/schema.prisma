@@ -1648,7 +1648,6 @@ model PortalUser {
   updatedAt     DateTime            @updatedAt
   client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   sessions      PortalSession[]
-  credentials   PortalCredential[]
   vaultSession  PortalVaultSession?
 }
 
@@ -1682,7 +1681,13 @@ model PortalCredential {
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
   client            Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  ownedByUser       PortalUser?                @relation(fields: [ownedByUserId], references: [id], onDelete: SetNull)
+
+  /// Free-form. Historically referenced public.PortalUser.id (DH's
+  /// single-client portal model). With the merged ~/portal/ launch
+  /// (Phase 2), it now holds portal.portal_users.id from the multi-
+  /// client portal. The FK was dropped so both ID spaces can coexist
+  /// during the migration window. Visibility filtering is by string
+  /// equality.
 
   @@index([clientId])
   @@index([ownedByUserId])

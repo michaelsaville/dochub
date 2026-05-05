@@ -15,9 +15,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const items = await prisma.portalCredential.findMany({
     where: { clientId, visibility: "MSP_SHARED" },
     orderBy: { label: "asc" },
-    include: {
-      ownedByUser: { select: { id: true, name: true, email: true } },
-    },
   })
 
   return NextResponse.json(items.map(i => {
@@ -35,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       password,
       totpCode,
       hasTotp: !!i.encryptedTotp,
-      ownedByUser: i.ownedByUser,
+      ownedByUserId: i.ownedByUserId,
       createdByStaffId: i.createdByStaffId,
       createdAt: i.createdAt,
       updatedAt: i.updatedAt,
