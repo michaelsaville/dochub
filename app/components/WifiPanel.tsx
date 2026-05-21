@@ -122,6 +122,64 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
+  // Revealed PSK passwords keyed by network id. Populated lazily by
+  // /api/credentials/[id]/reveal — gated server-side by ADMIN role or the
+  // credential's allowTechReveal flag. UI hides on subsequent click.
+  const [revealedPsk, setRevealedPsk] = useState<Record<string, string>>({})
+  const [revealError, setRevealError] = useState<Record<string, string>>({})
+  const [revealingId, setRevealingId] = useState<string | null>(null)
+  const [copiedPskId, setCopiedPskId] = useState<string | null>(null)
+
+  async function revealPsk(networkId: string, credentialId: string) {
+    // Click twice to hide.
+    if (revealedPsk[networkId] != null) {
+      setRevealedPsk(prev => { const n = { ...prev }; delete n[networkId]; return n })
+      return
+    }
+    setRevealingId(networkId)
+    setRevealError(prev => { const n = { ...prev }; delete n[networkId]; return n })
+    try {
+      const r = await fetch(`/api/credentials/${credentialId}/reveal`)
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}))
+        setRevealError(prev => ({ ...prev, [networkId]: data.error || `Reveal failed (${r.status})` }))
+        return
+      }
+      const data = await r.json()
+      setRevealedPsk(prev => ({ ...prev, [networkId]: data.password ?? "" }))
+    } catch (e: any) {
+      setRevealError(prev => ({ ...prev, [networkId]: e?.message || "Reveal failed" }))
+    } finally { setRevealingId(null) }
+  }
+
+  async function copyPsk(networkId: string, credentialId: string) {
+    const existing = revealedPsk[networkId]
+    let pw = existing
+    if (pw == null) {
+      // Fetch quietly without showing the password — copy straight to clipboard.
+      try {
+        const r = await fetch(`/api/credentials/${credentialId}/reveal`)
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}))
+          setRevealError(prev => ({ ...prev, [networkId]: data.error || `Copy failed (${r.status})` }))
+          return
+        }
+        const data = await r.json()
+        pw = data.password ?? ""
+      } catch (e: any) {
+        setRevealError(prev => ({ ...prev, [networkId]: e?.message || "Copy failed" }))
+        return
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(pw)
+      setCopiedPskId(networkId)
+      setTimeout(() => setCopiedPskId(prev => prev === networkId ? null : prev), 1500)
+    } catch (e: any) {
+      setRevealError(prev => ({ ...prev, [networkId]: "Copy to clipboard failed" }))
+    }
+  }
+
   // Self-managed live data for dropdowns. The parent passes `credentials`
   // and `subnets` as initial snapshots — but if the operator adds a new
   // credential / IPAM subnet in another tab and comes back here, those
@@ -401,7 +459,36 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
                               </span>
                             )}
                             {net.subnet && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Subnet: {net.subnet.cidr}</span>}
-                            {net.credential && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>PSK: {net.credential.label}</span>}
+                            {net.credential && (
+                              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                PSK: {net.credential.label}
+                                {revealedPsk[net.id] != null ? (
+                                  <code style={{ fontSize: 12, padding: "1px 6px", borderRadius: 4, background: "var(--color-background-hover)", color: "var(--color-text-primary)" }}>
+                                    {revealedPsk[net.id] || "(empty)"}
+                                  </code>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => revealPsk(net.id, net.credential!.id)}
+                                  disabled={revealingId === net.id}
+                                  title={revealedPsk[net.id] != null ? "Hide password" : "Reveal password"}
+                                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--color-accent)", fontSize: 12 }}
+                                >
+                                  {revealingId === net.id ? "…" : revealedPsk[net.id] != null ? "Hide" : "Reveal"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => copyPsk(net.id, net.credential!.id)}
+                                  title="Copy password to clipboard"
+                                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--color-text-muted)", fontSize: 12 }}
+                                >
+                                  {copiedPskId === net.id ? "Copied!" : "Copy"}
+                                </button>
+                                {revealError[net.id] && (
+                                  <span style={{ fontSize: 11, color: "#ef4444" }}>{revealError[net.id]}</span>
+                                )}
+                              </span>
+                            )}
                             {net.clientIsolation && <span style={{ fontSize: "12px", color: "#f59e0b" }}>Client isolated</span>}
                             {net.bandSteering && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Band steering</span>}
                             {net.notes && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{net.notes}</span>}
