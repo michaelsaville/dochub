@@ -5,6 +5,7 @@ import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import VendorContractsPanel from "@/components/VendorContractsPanel"
 import AttachmentsPanel from "@/components/AttachmentsPanel"
+import RelationLinker from "@/components/RelationLinker"
 
 const CATEGORIES = ["ISP", "SOFTWARE", "HARDWARE", "TELECOM", "CLOUD", "SECURITY", "SERVICES", "OTHER"]
 
@@ -64,8 +65,23 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
   const [allClients, setAllClients] = useState<LinkedClient[]>([])
   const [linkClientId, setLinkClientId] = useState("")
   const [linkingClient, setLinkingClient] = useState(false)
+  const [vendorLicenses, setVendorLicenses] = useState<any[]>([])
+  const [vendorApplications, setVendorApplications] = useState<any[]>([])
 
-  useEffect(() => { fetchVendor(); fetchAllClients() }, [id])
+  useEffect(() => { fetchVendor(); fetchAllClients(); fetchVendorLicenses(); fetchVendorApplications() }, [id])
+
+  async function fetchVendorLicenses() {
+    try {
+      const r = await fetch(`/api/licenses?vendorId=${id}`)
+      if (r.ok) setVendorLicenses(await r.json())
+    } catch {}
+  }
+  async function fetchVendorApplications() {
+    try {
+      const r = await fetch(`/api/applications?vendorId=${id}`)
+      if (r.ok) setVendorApplications(await r.json())
+    } catch {}
+  }
 
   async function fetchAllClients() {
     try {
@@ -524,6 +540,53 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         <VendorContractsPanel vendorId={id} />
+
+        <RelationLinker
+          title="Licenses"
+          itemNoun="license"
+          currentLinks={vendorLicenses.map((l: any) => ({
+            id: l.id, label: l.name,
+            sublabel: l.client?.name ? `${l.client.name}${l.seats ? ` · ${l.seats} seats` : ""}` : undefined,
+            href: `/clients/${l.clientId}?tab=Licenses`,
+          }))}
+          searchEndpoint={`/api/licenses?excludeVendorId=${id}`}
+          mapOption={(r) => ({ id: r.id, label: r.name, sublabel: r.client?.name || undefined })}
+          confirmUnlink
+          onLink={async (childIds) => {
+            const res = await fetch(`/api/vendors/${id}/licenses`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ childIds }),
+            })
+            if (res.ok) fetchVendorLicenses()
+          }}
+          onUnlink={async (childId) => {
+            const res = await fetch(`/api/vendors/${id}/licenses?childId=${childId}`, { method: "DELETE" })
+            if (res.ok) fetchVendorLicenses()
+          }}
+        />
+
+        <RelationLinker
+          title="Applications"
+          itemNoun="application"
+          currentLinks={vendorApplications.map((a: any) => ({
+            id: a.id, label: a.name,
+            sublabel: a.clientId ? `client-scoped` : undefined,
+            href: `/clients/${a.clientId}?tab=Applications`,
+          }))}
+          searchEndpoint={`/api/applications?excludeVendorId=${id}`}
+          mapOption={(r) => ({ id: r.id, label: r.name })}
+          onLink={async (childIds) => {
+            const res = await fetch(`/api/vendors/${id}/applications`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ childIds }),
+            })
+            if (res.ok) fetchVendorApplications()
+          }}
+          onUnlink={async (childId) => {
+            const res = await fetch(`/api/vendors/${id}/applications?childId=${childId}`, { method: "DELETE" })
+            if (res.ok) fetchVendorApplications()
+          }}
+        />
 
         <AttachmentsPanel entityType="vendor" entityId={id} />
       </div>

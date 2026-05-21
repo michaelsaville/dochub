@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 
+// GET /api/applications?vendorId=&excludeVendorId= — used by RelationLinker
+// pickers on Vendor detail. Returns all applications, optionally scoped.
 export async function GET(req: Request) {
   const { error } = await requireAuth()
   if (error) return error
@@ -12,17 +14,13 @@ export async function GET(req: Request) {
     const where: Record<string, unknown> = { isActive: true }
     if (vendorId) where.vendorId = vendorId
     if (excludeVendorId) where.vendorId = { not: excludeVendorId } as unknown
-    const licenses = await prisma.license.findMany({
+    const apps = await prisma.application.findMany({
       where,
-      include: {
-        client: { select: { id: true, name: true } },
-        vendorRef: { select: { id: true, name: true } },
-        person: { select: { id: true, name: true } },
-      },
-      orderBy: { renewalDate: "asc" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, vendor: true, vendorId: true, clientId: true },
     })
-    return NextResponse.json(licenses)
+    return NextResponse.json(apps)
   } catch (e) {
-    return NextResponse.json({ error: "Failed to fetch licenses" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch applications" }, { status: 500 })
   }
 }

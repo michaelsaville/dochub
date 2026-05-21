@@ -1884,7 +1884,10 @@ export default function ClientDetailPage() {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{loc.name}</div>
-                      <button onClick={() => { setEditingLocation(loc.id); setLocationForm({ name: loc.name, address: loc.address ?? "", city: loc.city ?? "", state: loc.state ?? "", zip: (loc as any).zip ?? "", ispName: (loc as any).ispName ?? "", wanIp: (loc as any).wanIp ?? "", notes: (loc as any).notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <a href={`/locations/${loc.id}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>Open →</a>
+                        <button onClick={() => { setEditingLocation(loc.id); setLocationForm({ name: loc.name, address: loc.address ?? "", city: loc.city ?? "", state: loc.state ?? "", zip: (loc as any).zip ?? "", ispName: (loc as any).ispName ?? "", wanIp: (loc as any).wanIp ?? "", notes: (loc as any).notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      </div>
                     </div>
                     {(loc.address || loc.city) && (
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
