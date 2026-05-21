@@ -1681,8 +1681,25 @@ export default function SettingsPage() {
 // ─── My Vault Section ───────────────────────────────────────────────────────
 
 type PasskeyEntry = { id: string; name: string; lastUsedAt: string | null; createdAt: string }
-type VaultEntry = { id: string; label: string; username: string | null; url: string | null; notes: string | null; hasTotp: boolean; createdAt: string; updatedAt: string }
-type RevealedEntry = { password: string | null; totpCode: string | null; totpSecret: string | null }
+type VaultEntry = { id: string; label: string; username: string | null; url: string | null; hasSecureNotes: boolean; hasTotp: boolean; createdAt: string; updatedAt: string }
+type RevealedEntry = { password: string | null; totpCode: string | null; totpSecret: string | null; secureNotes: string | null }
+type NoteEntry = { id: string; title: string; category: string; tags: string[]; isFavorite: boolean; expiryDate: string | null; hasBody: boolean; createdAt: string; updatedAt: string }
+type NoteCategory = "LICENSE_KEY" | "RECOVERY_CODES" | "BIOS_FIRMWARE" | "API_TOKEN" | "SOFTWARE_LICENSE" | "SSH_KEY" | "PROCEDURE" | "GENERIC"
+
+const NOTE_CATEGORIES: { value: NoteCategory; label: string }[] = [
+  { value: "LICENSE_KEY", label: "License key" },
+  { value: "RECOVERY_CODES", label: "Recovery codes" },
+  { value: "BIOS_FIRMWARE", label: "BIOS / Firmware" },
+  { value: "API_TOKEN", label: "API token" },
+  { value: "SOFTWARE_LICENSE", label: "Software license" },
+  { value: "SSH_KEY", label: "SSH key" },
+  { value: "PROCEDURE", label: "Procedure" },
+  { value: "GENERIC", label: "Generic" },
+]
+
+function noteCategoryLabel(c: string): string {
+  return NOTE_CATEGORIES.find(x => x.value === c)?.label ?? c
+}
 
 type SyncStatusRow = {
   key: string
@@ -1925,14 +1942,21 @@ function MyVaultSection() {
   const [vaultExpiresAt, setVaultExpiresAt] = useState<string | null>(null)
   const [passkeys, setPasskeys] = useState<PasskeyEntry[]>([])
   const [vaultItems, setVaultItems] = useState<VaultEntry[]>([])
+  const [vaultNotes, setVaultNotes] = useState<NoteEntry[]>([])
   const [revealed, setRevealed] = useState<Record<string, RevealedEntry>>({})
+  const [revealedNotes, setRevealedNotes] = useState<Record<string, string>>({})
   const [loadingAuth, setLoadingAuth] = useState(false)
   const [loadingRegister, setLoadingRegister] = useState(false)
   const [regName, setRegName] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
-  const [addForm, setAddForm] = useState({ label: "", username: "", password: "", totp: "", url: "", notes: "" })
+  const [showAddNoteForm, setShowAddNoteForm] = useState(false)
+  const [addForm, setAddForm] = useState({ label: "", username: "", password: "", totp: "", url: "", secureNotes: "" })
+  const [addNoteForm, setAddNoteForm] = useState({ title: "", category: "GENERIC" as NoteCategory, body: "", tags: "", expiryDate: "" })
   const [editId, setEditId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ label: "", username: "", password: "", totp: "", url: "", notes: "" })
+  const [editForm, setEditForm] = useState({ label: "", username: "", password: "", totp: "", url: "", secureNotes: "" })
+  const [editNoteId, setEditNoteId] = useState<string | null>(null)
+  const [editNoteForm, setEditNoteForm] = useState({ title: "", category: "GENERIC" as NoteCategory, body: "", tags: "", expiryDate: "" })
+  const [typeFilter, setTypeFilter] = useState<"all" | "credentials" | "notes">("all")
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [totpSecondsLeft, setTotpSecondsLeft] = useState(30 - (Math.floor(Date.now() / 1000) % 30))
 
@@ -1942,7 +1966,7 @@ function MyVaultSection() {
   }, [])
 
   useEffect(() => {
-    if (vaultUnlocked) loadVaultItems()
+    if (vaultUnlocked) { loadVaultItems(); loadVaultNotes() }
   }, [vaultUnlocked])
 
   useEffect(() => {
@@ -1992,6 +2016,11 @@ function MyVaultSection() {
   async function loadVaultItems() {
     const r = await fetch("/api/personal-vault")
     if (r.ok) setVaultItems(await r.json())
+  }
+
+  async function loadVaultNotes() {
+    const r = await fetch("/api/personal-vault/notes")
+    if (r.ok) setVaultNotes(await r.json())
   }
 
   function flash(type: "ok" | "err", text: string) {
@@ -2067,7 +2096,9 @@ function MyVaultSection() {
     setVaultUnlocked(false)
     setVaultExpiresAt(null)
     setVaultItems([])
+    setVaultNotes([])
     setRevealed({})
+    setRevealedNotes({})
   }
 
   async function revealItem(id: string) {
@@ -2075,6 +2106,13 @@ function MyVaultSection() {
     if (!r.ok) { flash("err", "Could not reveal — is vault still unlocked?"); return }
     const d = await r.json()
     setRevealed(prev => ({ ...prev, [id]: d }))
+  }
+
+  async function revealNote(id: string) {
+    const r = await fetch(`/api/personal-vault/notes/${id}/reveal`)
+    if (!r.ok) { flash("err", "Could not reveal — is vault still unlocked?"); return }
+    const d = await r.json()
+    setRevealedNotes(prev => ({ ...prev, [id]: d.body }))
   }
 
   async function addItem() {
@@ -2086,9 +2124,31 @@ function MyVaultSection() {
     })
     if (!r.ok) { flash("err", "Failed to add"); return }
     setShowAddForm(false)
-    setAddForm({ label: "", username: "", password: "", totp: "", url: "", notes: "" })
+    setAddForm({ label: "", username: "", password: "", totp: "", url: "", secureNotes: "" })
     loadVaultItems()
     flash("ok", "Added")
+  }
+
+  async function addNote() {
+    if (!addNoteForm.title.trim()) { flash("err", "Title is required"); return }
+    if (!addNoteForm.body) { flash("err", "Body is required"); return }
+    const tags = addNoteForm.tags.split(",").map(t => t.trim()).filter(Boolean)
+    const r = await fetch("/api/personal-vault/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: addNoteForm.title,
+        body: addNoteForm.body,
+        category: addNoteForm.category,
+        tags,
+        expiryDate: addNoteForm.expiryDate || null,
+      }),
+    })
+    if (!r.ok) { flash("err", "Failed to add note"); return }
+    setShowAddNoteForm(false)
+    setAddNoteForm({ title: "", category: "GENERIC", body: "", tags: "", expiryDate: "" })
+    loadVaultNotes()
+    flash("ok", "Note added")
   }
 
   async function saveEdit(id: string) {
@@ -2103,6 +2163,28 @@ function MyVaultSection() {
     flash("ok", "Saved")
   }
 
+  async function saveNoteEdit(id: string) {
+    const tags = editNoteForm.tags.split(",").map(t => t.trim()).filter(Boolean)
+    const payload: any = {
+      title: editNoteForm.title,
+      category: editNoteForm.category,
+      tags,
+      expiryDate: editNoteForm.expiryDate || null,
+    }
+    if (editNoteForm.body.length > 0) payload.body = editNoteForm.body
+    const r = await fetch(`/api/personal-vault/notes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!r.ok) { flash("err", "Failed to save"); return }
+    setEditNoteId(null)
+    // Clear cached reveal so a subsequent reveal fetches the new body
+    setRevealedNotes(prev => { const n = { ...prev }; delete n[id]; return n })
+    loadVaultNotes()
+    flash("ok", "Note saved")
+  }
+
   async function deleteItem(id: string) {
     if (!confirm("Delete this credential?")) return
     await fetch(`/api/personal-vault/${id}`, { method: "DELETE" })
@@ -2110,8 +2192,30 @@ function MyVaultSection() {
     flash("ok", "Deleted")
   }
 
+  async function deleteNote(id: string) {
+    if (!confirm("Delete this note? This cannot be undone.")) return
+    await fetch(`/api/personal-vault/notes/${id}`, { method: "DELETE" })
+    setVaultNotes(prev => prev.filter(x => x.id !== id))
+    flash("ok", "Note deleted")
+  }
+
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text).then(() => flash("ok", `${label} copied`))
+  }
+
+  function copyNoteAsMarkdown(title: string, body: string) {
+    const md = `### ${title}\n\n\`\`\`\n${body}\n\`\`\``
+    navigator.clipboard.writeText(md).then(() => flash("ok", "Markdown copied"))
+  }
+
+  function isExpiringSoon(iso: string | null): boolean {
+    if (!iso) return false
+    const t = new Date(iso).getTime()
+    return t - Date.now() < 30 * 86_400_000 && t > Date.now()
+  }
+  function isExpired(iso: string | null): boolean {
+    if (!iso) return false
+    return new Date(iso).getTime() < Date.now()
   }
 
   const cardStyle: React.CSSProperties = {
@@ -2186,11 +2290,11 @@ function MyVaultSection() {
         </div>
       </div>
 
-      {/* Vault Lock/Unlock */}
+      {/* Vault Lock/Unlock + mixed list of Credentials and Notes */}
       <div style={cardStyle}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div style={{ fontWeight: 600, fontSize: "15px" }}>Personal Credential Vault</div>
+            <div style={{ fontWeight: 600, fontSize: "15px" }}>Personal Vault</div>
             <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
               {vaultUnlocked
                 ? `Unlocked · expires ${vaultExpiresAt ? new Date(vaultExpiresAt).toLocaleTimeString() : "soon"}`
@@ -2210,13 +2314,25 @@ function MyVaultSection() {
 
         {vaultUnlocked && (
           <>
-            {vaultItems.length === 0 && !showAddForm && (
-              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: 12 }}>
-                No credentials yet.
-              </div>
-            )}
+            {/* Type filter chips */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {(["all", "credentials", "notes"] as const).map(f => {
+                const active = typeFilter === f
+                return (
+                  <button key={f} onClick={() => setTypeFilter(f)} style={{
+                    fontSize: 11, padding: "4px 10px", borderRadius: 12,
+                    background: active ? "var(--color-accent-muted)" : "var(--color-background-hover)",
+                    color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
+                    border: "none", cursor: "pointer", textTransform: "capitalize",
+                  }}>
+                    {f === "all" ? "All" : f === "credentials" ? `Credentials (${vaultItems.length})` : `Notes (${vaultNotes.length})`}
+                  </button>
+                )
+              })}
+            </div>
 
-            {vaultItems.map(item => (
+            {/* Credentials */}
+            {typeFilter !== "notes" && vaultItems.map(item => (
               <div key={item.id} style={{ marginBottom: 12, padding: "12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)" }}>
                 {editId === item.id ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2225,7 +2341,7 @@ function MyVaultSection() {
                     <input placeholder="Password (leave blank to keep existing)" type="password" value={editForm.password} onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} style={inp} />
                     <input placeholder="TOTP secret (leave blank to keep existing)" value={editForm.totp} onChange={e => setEditForm(f => ({ ...f, totp: e.target.value }))} style={inp} />
                     <input placeholder="URL" value={editForm.url} onChange={e => setEditForm(f => ({ ...f, url: e.target.value }))} style={inp} />
-                    <input placeholder="Notes" value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} style={inp} />
+                    <textarea placeholder="Secure notes (encrypted)" value={editForm.secureNotes} onChange={e => setEditForm(f => ({ ...f, secureNotes: e.target.value }))} rows={4} style={{ ...inp, resize: "vertical", fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12 }} />
                     <div style={{ display: "flex", gap: 8 }}>
                       <button style={btnPrimary} onClick={() => saveEdit(item.id)}>Save</button>
                       <button style={btnSecondary} onClick={() => setEditId(null)}>Cancel</button>
@@ -2234,14 +2350,27 @@ function MyVaultSection() {
                 ) : (
                   <div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ fontWeight: 500, fontSize: "14px" }}>{item.label}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-accent-muted)", color: "var(--color-accent)" }}>Credential</span>
+                        <div style={{ fontWeight: 500, fontSize: "14px" }}>{item.label}</div>
+                      </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button style={btnSecondary} onClick={() => { setEditId(item.id); setEditForm({ label: item.label, username: item.username || "", password: "", totp: "", url: item.url || "", notes: item.notes || "" }) }}>Edit</button>
+                        <button style={btnSecondary} onClick={async () => {
+                          // Pre-fetch existing secureNotes for editing
+                          let existingNotes = ""
+                          if (item.hasSecureNotes) {
+                            const r = await fetch(`/api/personal-vault/${item.id}/reveal`)
+                            if (r.ok) { const d = await r.json(); existingNotes = d.secureNotes || "" }
+                          }
+                          setEditId(item.id)
+                          setEditForm({ label: item.label, username: item.username || "", password: "", totp: "", url: item.url || "", secureNotes: existingNotes })
+                        }}>Edit</button>
                         <button style={btnDanger} onClick={() => deleteItem(item.id)}>Delete</button>
                       </div>
                     </div>
                     {item.username && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: 2 }}>{item.username}</div>}
                     {item.url && <div style={{ fontSize: "12px", color: "var(--color-brand)", marginTop: 2 }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.url}</a></div>}
+                    {item.hasSecureNotes && <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 2, fontStyle: "italic" }}>has secure notes</div>}
                     <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                       {!revealed[item.id] ? (
                         <button style={{ ...btnSecondary, fontSize: "12px", padding: "4px 10px" }} onClick={() => revealItem(item.id)}>Reveal</button>
@@ -2262,6 +2391,14 @@ function MyVaultSection() {
                               <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].totpCode!, "TOTP code")}>Copy</button>
                             </div>
                           )}
+                          {revealed[item.id].secureNotes && (
+                            <div style={{ width: "100%", marginTop: 6, padding: 8, background: "var(--color-background-secondary)", borderRadius: 4, fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12, whiteSpace: "pre-wrap" as const }}>
+                              {revealed[item.id].secureNotes}
+                              <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+                                <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].secureNotes!, "Notes")}>Copy</button>
+                              </div>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -2270,7 +2407,80 @@ function MyVaultSection() {
               </div>
             ))}
 
-            {showAddForm ? (
+            {/* Notes */}
+            {typeFilter !== "credentials" && vaultNotes.map(n => (
+              <div key={n.id} style={{ marginBottom: 12, padding: "12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)" }}>
+                {editNoteId === n.id ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input placeholder="Title *" value={editNoteForm.title} onChange={e => setEditNoteForm(f => ({ ...f, title: e.target.value }))} style={inp} />
+                    <select value={editNoteForm.category} onChange={e => setEditNoteForm(f => ({ ...f, category: e.target.value as NoteCategory }))} style={inp}>
+                      {NOTE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                    <textarea placeholder="Body (leave blank to keep existing)" value={editNoteForm.body} onChange={e => setEditNoteForm(f => ({ ...f, body: e.target.value }))} rows={10} style={{ ...inp, resize: "vertical", fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12 }} />
+                    <input placeholder="Tags (comma-separated)" value={editNoteForm.tags} onChange={e => setEditNoteForm(f => ({ ...f, tags: e.target.value }))} style={inp} />
+                    <input type="date" placeholder="Expires" value={editNoteForm.expiryDate} onChange={e => setEditNoteForm(f => ({ ...f, expiryDate: e.target.value }))} style={inp} />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button style={btnPrimary} onClick={() => saveNoteEdit(n.id)}>Save</button>
+                      <button style={btnSecondary} onClick={() => setEditNoteId(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-hover)", color: "var(--color-text-secondary)" }}>Note</span>
+                        <div style={{ fontWeight: 500, fontSize: "14px" }}>{n.title}</div>
+                        <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-hover)", color: "var(--color-text-muted)", fontStyle: "italic" }}>{noteCategoryLabel(n.category)}</span>
+                        {isExpired(n.expiryDate) && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-danger, rgba(239,68,68,0.14))", color: "var(--color-text-danger, #ef4444)" }}>Expired</span>}
+                        {!isExpired(n.expiryDate) && isExpiringSoon(n.expiryDate) && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, rgba(245,158,11,0.14))", color: "var(--color-text-warning, #b45309)" }}>Expiring ≤30d</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={btnSecondary} onClick={() => {
+                          setEditNoteId(n.id)
+                          setEditNoteForm({
+                            title: n.title,
+                            category: n.category as NoteCategory,
+                            body: "",
+                            tags: n.tags.join(", "),
+                            expiryDate: n.expiryDate ? n.expiryDate.slice(0, 10) : "",
+                          })
+                        }}>Edit</button>
+                        <button style={btnDanger} onClick={() => deleteNote(n.id)}>Delete</button>
+                      </div>
+                    </div>
+                    {n.tags.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, marginTop: 6 }}>
+                        {n.tags.map(t => <span key={t} style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-hover)", color: "var(--color-text-secondary)" }}>{t}</span>)}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                      {!revealedNotes[n.id] ? (
+                        <button style={{ ...btnSecondary, fontSize: "12px", padding: "4px 10px" }} onClick={() => revealNote(n.id)}>Reveal</button>
+                      ) : (
+                        <div style={{ width: "100%", padding: 8, background: "var(--color-background-secondary)", borderRadius: 4, fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12, whiteSpace: "pre-wrap" as const }}>
+                          {revealedNotes[n.id]}
+                          <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+                            <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealedNotes[n.id], "Body")}>Copy body</button>
+                            <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyNoteAsMarkdown(n.title, revealedNotes[n.id])}>Copy as markdown</button>
+                            <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => setRevealedNotes(prev => { const x = { ...prev }; delete x[n.id]; return x })}>Hide</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Empty state */}
+            {vaultItems.length === 0 && vaultNotes.length === 0 && !showAddForm && !showAddNoteForm && (
+              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: 12 }}>
+                Your vault is empty. Save your first credential or note below.
+              </div>
+            )}
+
+            {/* Add credential form */}
+            {showAddForm && (
               <div style={{ padding: "12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", marginBottom: 12 }}>
                 <div style={{ fontWeight: 500, fontSize: "13px", marginBottom: 10 }}>New Credential</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2279,15 +2489,41 @@ function MyVaultSection() {
                   <input placeholder="Password" type="password" value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} style={inp} />
                   <input placeholder="TOTP secret (base32)" value={addForm.totp} onChange={e => setAddForm(f => ({ ...f, totp: e.target.value }))} style={inp} />
                   <input placeholder="URL" value={addForm.url} onChange={e => setAddForm(f => ({ ...f, url: e.target.value }))} style={inp} />
-                  <input placeholder="Notes" value={addForm.notes} onChange={e => setAddForm(f => ({ ...f, notes: e.target.value }))} style={inp} />
+                  <textarea placeholder="Secure notes (encrypted)" value={addForm.secureNotes} onChange={e => setAddForm(f => ({ ...f, secureNotes: e.target.value }))} rows={4} style={{ ...inp, resize: "vertical", fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12 }} />
                   <div style={{ display: "flex", gap: 8 }}>
                     <button style={btnPrimary} onClick={addItem}>Add</button>
                     <button style={btnSecondary} onClick={() => setShowAddForm(false)}>Cancel</button>
                   </div>
                 </div>
               </div>
-            ) : (
-              <button style={btnPrimary} onClick={() => setShowAddForm(true)}>+ Add Credential</button>
+            )}
+
+            {/* Add note form */}
+            {showAddNoteForm && (
+              <div style={{ padding: "12px", background: "var(--color-background-primary)", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)", marginBottom: 12 }}>
+                <div style={{ fontWeight: 500, fontSize: "13px", marginBottom: 10 }}>New Secure Note</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input placeholder="Title *" value={addNoteForm.title} onChange={e => setAddNoteForm(f => ({ ...f, title: e.target.value }))} style={inp} />
+                  <select value={addNoteForm.category} onChange={e => setAddNoteForm(f => ({ ...f, category: e.target.value as NoteCategory }))} style={inp}>
+                    {NOTE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                  <textarea placeholder="Body * (e.g. recovery codes, license keys, BIOS unlock procedure)" value={addNoteForm.body} onChange={e => setAddNoteForm(f => ({ ...f, body: e.target.value }))} rows={10} style={{ ...inp, resize: "vertical", fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12 }} />
+                  <input placeholder="Tags (comma-separated, optional)" value={addNoteForm.tags} onChange={e => setAddNoteForm(f => ({ ...f, tags: e.target.value }))} style={inp} />
+                  <input type="date" value={addNoteForm.expiryDate} onChange={e => setAddNoteForm(f => ({ ...f, expiryDate: e.target.value }))} style={inp} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={btnPrimary} onClick={addNote}>Add Note</button>
+                    <button style={btnSecondary} onClick={() => setShowAddNoteForm(false)}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add buttons */}
+            {!showAddForm && !showAddNoteForm && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={btnPrimary} onClick={() => setShowAddForm(true)}>+ Credential</button>
+                <button style={btnSecondary} onClick={() => setShowAddNoteForm(true)}>+ Note</button>
+              </div>
             )}
           </>
         )}

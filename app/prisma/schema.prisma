@@ -27,6 +27,7 @@ model StaffUser {
   vpnAccess           VpnAccessor[]         @relation("StaffUserVpnAccess")
   apiKeys             ApiKey[]
   personalCredentials PersonalCredential[]
+  personalSecureNotes PersonalSecureNote[]
   passkeys            StaffUserPasskey[]
   vaultSession        PersonalVaultSession?
 }
@@ -38,11 +39,43 @@ model PersonalCredential {
   username          String?
   encryptedPassword String
   encryptedTotp     String?
+  encryptedNotes    String?
   url               String?
+  /// DEPRECATED — moved to encryptedNotes (encrypted at rest). Read path
+  /// falls back to this if encryptedNotes is null. Phase 2 drops this col.
   notes             String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   staffUser         StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+}
+
+model PersonalSecureNote {
+  id             String                @id @default(cuid())
+  staffUserId    String
+  title          String
+  category       PersonalNoteCategory  @default(GENERIC)
+  encryptedBody  String
+  tags           String[]              @default([])
+  isFavorite     Boolean               @default(false)
+  expiryDate     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  staffUser      StaffUser             @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@index([staffUserId, updatedAt])
+  @@index([staffUserId, category])
+  @@index([expiryDate])
+}
+
+enum PersonalNoteCategory {
+  LICENSE_KEY
+  RECOVERY_CODES
+  BIOS_FIRMWARE
+  API_TOKEN
+  SOFTWARE_LICENSE
+  SSH_KEY
+  PROCEDURE
+  GENERIC
 }
 
 model StaffUserPasskey {

@@ -64,5 +64,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     totpCode = generateTotp(totpSecret)
   }
 
-  return NextResponse.json({ password, totpCode, totpSecret })
+  // Prefer encryptedNotes; fall back to legacy plaintext `notes` during the transition window.
+  let secureNotes: string | null = null
+  if (item.encryptedNotes) secureNotes = decrypt(item.encryptedNotes)
+  else if (item.notes) secureNotes = item.notes
+
+  return NextResponse.json({ password, totpCode, totpSecret, secureNotes })
 }
