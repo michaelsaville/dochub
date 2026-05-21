@@ -185,6 +185,11 @@ model Location {
   ptpSideB       PtpLink[]       @relation("PtpSideB")
   attachments    ClientAttachment[] @relation("LocationAttachments")
   internetCircuits InternetCircuit[]
+  /// Cross-app pointer to TicketHub's TH_Site.id. Populated lazily on
+  /// first successful name-match resolve so subsequent cross-schema
+  /// lookups are O(1). Null = no matching TH_Site yet (DocHub has 178
+  /// locations vs ~61 TH sites today, so most rows stay null).
+  thSiteId       String?         @unique
 }
 
 model Person {

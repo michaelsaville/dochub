@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react"
 import { QRCodeCanvas } from "qrcode.react"
 import { useParams, useRouter } from "next/navigation"
 import AttachmentsPanel from "@/components/AttachmentsPanel"
+import RelationLinker from "@/components/RelationLinker"
 
 type Credential = {
   id: string
@@ -196,6 +197,8 @@ export default function AssetDetailPage() {
   const [linkedDocuments, setLinkedDocuments] = useState<any[]>([])
   const [linkedLicenses, setLinkedLicenses] = useState<any[]>([])
   const [linkedApplications, setLinkedApplications] = useState<any[]>([])
+  const [linkedRunbooks, setLinkedRunbooks] = useState<any[]>([])
+  const [linkedWebsites, setLinkedWebsites] = useState<any[]>([])
   const [tickethubTickets, setTickethubTickets] = useState<any[]>([])
   const [showAddLink, setShowAddLink] = useState(false)
   const [linkForm, setLinkForm] = useState({ linkedAssetId: "", relationType: "RELATED", notes: "" })
@@ -260,6 +263,18 @@ export default function AssetDetailPage() {
       <script>window.onload=function(){window.print();setTimeout(function(){window.close()},500)}</script>
     </body></html>`)
     win.document.close()
+  }
+
+  async function reloadAsset() {
+    if (!id) return
+    try {
+      const r = await fetch("/api/assets/" + id)
+      if (r.ok) {
+        const d = await r.json()
+        setAsset(d)
+      }
+    } catch {}
+    fetchAssetLinks()
   }
 
   useEffect(() => {
@@ -384,6 +399,8 @@ export default function AssetDetailPage() {
         setLinkedDocuments(data.documents || [])
         setLinkedLicenses(data.licenses || [])
         setLinkedApplications(data.applications || [])
+        setLinkedRunbooks(data.runbooks || [])
+        setLinkedWebsites(data.websites || [])
       }
     } catch {}
   }
@@ -885,42 +902,32 @@ export default function AssetDetailPage() {
               </div>
             )}
 
-            {/* Credentials linked to this asset */}
-            {asset.credentials.length > 0 && (
-              <div style={card}>
-                <div style={cardTitle}>Credentials</div>
-                {asset.credentials.map((cred, i) => (
-                  <div key={cred.id} style={{ paddingBottom: "10px", marginBottom: "10px", borderBottom: i < asset.credentials.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "6px" }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: "13px", fontWeight: 500 }}>{cred.label}</div>
-                        {cred.username && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", fontFamily: "monospace", marginTop: "1px" }}>{cred.username}</div>}
-                        {cred.url && (
-                          <a href={cred.url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {cred.url}
-                          </a>
-                        )}
-                      </div>
-                      {cred.hasPassword && (
-                        <button
-                          onClick={() => revealPassword(cred.id)}
-                          disabled={revealingId === cred.id}
-                          style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-secondary)", cursor: "pointer", flexShrink: 0 }}
-                        >
-                          {revealingId === cred.id ? "…" : revealedPasswords[cred.id] !== undefined ? "Hide" : "Reveal"}
-                        </button>
-                      )}
-                    </div>
-                    {revealedPasswords[cred.id] !== undefined && (
-                      <div style={{ marginTop: "6px", padding: "6px 10px", borderRadius: "6px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", fontSize: "13px", fontFamily: "monospace", wordBreak: "break-all", userSelect: "all" }}>
-                        {revealedPasswords[cred.id] || "(empty)"}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Credentials linked to this asset — RelationLinker handles + Link / Unlink + click-through */}
+            <RelationLinker
+              title="Credentials"
+              itemNoun="credential"
+              currentLinks={asset.credentials.map(c => ({
+                id: c.id,
+                label: c.label,
+                sublabel: c.username || undefined,
+                href: `/credentials?focus=${c.id}`,
+              }))}
+              searchEndpoint={`/api/clients/${asset.location.client.id}/credentials?excludeAssetId=${id}`}
+              clientScope={asset.location.client.id}
+              confirmUnlink
+              createHref={`/credentials/new?clientId=${asset.location.client.id}&assetId=${id}`}
+              onLink={async (childIds) => {
+                const res = await fetch(`/api/assets/${id}/credentials`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ childIds }),
+                })
+                if (res.ok) reloadAsset()
+              }}
+              onUnlink={async (childId) => {
+                const res = await fetch(`/api/assets/${id}/credentials?childId=${childId}`, { method: "DELETE" })
+                if (res.ok) reloadAsset()
+              }}
+            />
 
             {/* Synology Backups — NAS assets only */}
             {asset.assetType?.name === "NAS" && (
@@ -1200,45 +1207,122 @@ export default function AssetDetailPage() {
             <AttachmentsPanel entityType="asset" entityId={asset.id} compact />
 
             {/* Documents linked to this asset */}
-            {linkedDocuments.length > 0 && (
-              <div style={card}>
-                <div style={cardTitle}>Documents</div>
-                {linkedDocuments.map((doc: any, i: number) => (
-                  <div key={doc.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedDocuments.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                    <a href={`/clients/${doc.clientId}?tab=Documents`} style={{ fontSize: "13px", color: "var(--color-accent)", textDecoration: "none", fontWeight: 500 }}>
-                      {doc.title}
-                    </a>
-                    {doc.category && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{doc.category}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
+            <RelationLinker
+              title="Documents"
+              itemNoun="document"
+              currentLinks={linkedDocuments.map((d: any) => ({
+                id: d.id, label: d.title, sublabel: d.category || undefined,
+                href: `/clients/${d.clientId}?tab=Documents`,
+              }))}
+              searchEndpoint={`/api/clients/${asset.location.client.id}/documents?excludeAssetId=${id}`}
+              clientScope={asset.location.client.id}
+              confirmUnlink
+              mapOption={(r) => ({ id: r.id, label: r.title, sublabel: r.category || undefined })}
+              onLink={async (childIds) => {
+                const res = await fetch(`/api/assets/${id}/documents`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ childIds }),
+                })
+                if (res.ok) fetchAssetLinks()
+              }}
+              onUnlink={async (childId) => {
+                const res = await fetch(`/api/assets/${id}/documents?childId=${childId}`, { method: "DELETE" })
+                if (res.ok) fetchAssetLinks()
+              }}
+            />
 
-            {/* Licenses linked to this asset */}
-            {linkedLicenses.length > 0 && (
-              <div style={card}>
-                <div style={cardTitle}>Licenses</div>
-                {linkedLicenses.map((lic: any, i: number) => (
-                  <div key={lic.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedLicenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                    <div style={{ fontSize: "13px", fontWeight: 500 }}>{lic.name}</div>
-                    {lic.vendor && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{lic.vendor}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
+            <RelationLinker
+              title="Licenses"
+              itemNoun="license"
+              currentLinks={linkedLicenses.map((l: any) => ({
+                id: l.id, label: l.name, sublabel: l.vendor || undefined,
+                href: `/licenses?focus=${l.id}`,
+              }))}
+              searchEndpoint={`/api/clients/${asset.location.client.id}/licenses?excludeAssetId=${id}`}
+              clientScope={asset.location.client.id}
+              confirmUnlink
+              mapOption={(r) => ({ id: r.id, label: r.name, sublabel: r.vendor || undefined })}
+              onLink={async (childIds) => {
+                const res = await fetch(`/api/assets/${id}/licenses`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ childIds }),
+                })
+                if (res.ok) fetchAssetLinks()
+              }}
+              onUnlink={async (childId) => {
+                const res = await fetch(`/api/assets/${id}/licenses?childId=${childId}`, { method: "DELETE" })
+                if (res.ok) fetchAssetLinks()
+              }}
+            />
 
-            {/* Applications linked to this asset */}
-            {linkedApplications.length > 0 && (
-              <div style={card}>
-                <div style={cardTitle}>Applications</div>
-                {linkedApplications.map((app: any, i: number) => (
-                  <div key={app.id} style={{ paddingBottom: "8px", marginBottom: "8px", borderBottom: i < linkedApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-                    <div style={{ fontSize: "13px", fontWeight: 500 }}>{app.name}</div>
-                    {app.vendor && <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{app.vendor}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
+            <RelationLinker
+              title="Applications"
+              itemNoun="application"
+              currentLinks={linkedApplications.map((a: any) => ({
+                id: a.id, label: a.name, sublabel: a.vendor || undefined,
+                href: `/clients/${a.clientId}?tab=Applications`,
+              }))}
+              searchEndpoint={`/api/clients/${asset.location.client.id}/applications?excludeAssetId=${id}`}
+              clientScope={asset.location.client.id}
+              mapOption={(r) => ({ id: r.id, label: r.name, sublabel: r.vendor?.name || r.vendor || undefined })}
+              onLink={async (childIds) => {
+                const res = await fetch(`/api/assets/${id}/applications`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ childIds }),
+                })
+                if (res.ok) fetchAssetLinks()
+              }}
+              onUnlink={async (childId) => {
+                const res = await fetch(`/api/assets/${id}/applications?childId=${childId}`, { method: "DELETE" })
+                if (res.ok) fetchAssetLinks()
+              }}
+            />
+
+            <RelationLinker
+              title="Runbooks"
+              itemNoun="runbook"
+              currentLinks={linkedRunbooks.map((r: any) => ({
+                id: r.id, label: r.title,
+                href: `/runbooks/${r.id}`,
+              }))}
+              searchEndpoint={`/api/clients/${asset.location.client.id}/runbooks?excludeAssetId=${id}`}
+              clientScope={asset.location.client.id}
+              mapOption={(r) => ({ id: r.id, label: r.title })}
+              onLink={async (childIds) => {
+                const res = await fetch(`/api/assets/${id}/runbooks`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ childIds }),
+                })
+                if (res.ok) fetchAssetLinks()
+              }}
+              onUnlink={async (childId) => {
+                const res = await fetch(`/api/assets/${id}/runbooks?childId=${childId}`, { method: "DELETE" })
+                if (res.ok) fetchAssetLinks()
+              }}
+            />
+
+            <RelationLinker
+              title="Websites"
+              itemNoun="website"
+              currentLinks={linkedWebsites.map((w: any) => ({
+                id: w.id, label: w.domain, sublabel: w.label || undefined,
+                href: `/clients/${w.clientId}?tab=Domains`,
+              }))}
+              searchEndpoint={`/api/clients/${asset.location.client.id}/websites?excludeAssetId=${id}`}
+              clientScope={asset.location.client.id}
+              mapOption={(r) => ({ id: r.id, label: r.domain, sublabel: r.label || undefined })}
+              onLink={async (childIds) => {
+                const res = await fetch(`/api/assets/${id}/websites`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ childIds }),
+                })
+                if (res.ok) fetchAssetLinks()
+              }}
+              onUnlink={async (childId) => {
+                const res = await fetch(`/api/assets/${id}/websites?childId=${childId}`, { method: "DELETE" })
+                if (res.ok) fetchAssetLinks()
+              }}
+            />
 
             {/* Switch/Router: port table */}
             {asset.networkDevice && (
