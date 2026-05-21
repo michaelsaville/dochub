@@ -125,6 +125,7 @@ model Client {
   networkDiagram    NetworkDiagram?
   backupConfigs     BackupConfig[]
   intakeSuggestions IntakeSuggestion[]
+  internetCircuits  InternetCircuit[]
 }
 
 model Location {
@@ -150,6 +151,7 @@ model Location {
   ptpSideA       PtpLink[]       @relation("PtpSideA")
   ptpSideB       PtpLink[]       @relation("PtpSideB")
   attachments    ClientAttachment[] @relation("LocationAttachments")
+  internetCircuits InternetCircuit[]
 }
 
 model Person {
@@ -283,6 +285,8 @@ model Asset {
   ptpLinksSideB      PtpLink[]              @relation("PtpLinkSideB")
   linkedAlarms       Alarm[]                @relation("AlarmAsset")
   attachments        ClientAttachment[]     @relation("AssetAttachments")
+  circuitsAsModem    InternetCircuit[]      @relation("CircuitModemAsset")
+  circuitsAsEdge     InternetCircuit[]      @relation("CircuitEdgeAsset")
 }
 
 model SynologyConfig {
@@ -415,6 +419,7 @@ model Credential {
   ptpLinks            PtpLink[]        @relation("CredentialPtpLink")
   adDomains           AdDomain[]       @relation("CredentialAdDomain")
   assetInterfaces     AssetInterface[]
+  internetCircuits    InternetCircuit[] @relation("CredentialInternetCircuit")
 }
 
 model License {
@@ -594,6 +599,7 @@ model Vendor {
   sipTrunks     SipTrunk[]      @relation("VendorSipTrunks")
   potsLines     PotsLine[]      @relation("VendorPotsLines")
   attachments   ClientAttachment[] @relation("VendorAttachments")
+  internetCircuits InternetCircuit[] @relation("VendorInternetCircuits")
 }
 
 /// One row per integration cron — written on every run so Settings can
@@ -1033,6 +1039,7 @@ model Subnet {
   wifiNetworks  WifiNetwork[]
   client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   location      Location?      @relation(fields: [locationId], references: [id])
+  internetCircuits InternetCircuit[] @relation("CircuitSubnet")
 }
 
 model IpAssignment {
@@ -1783,4 +1790,109 @@ model IntakeSuggestion {
 
   @@index([clientId, status])
   @@index([status, createdAt])
+}
+
+// ─── Internet Circuits ────────────────────────────────────────────────────────
+// Documents an ISP service: static IP block, gateway, DNS, modem, edge device,
+// support contacts, contract terms. Replaces flat Location.ispName/wanIp.
+
+model InternetCircuit {
+  id              String              @id @default(cuid())
+  clientId        String
+  locationId      String
+  // identification
+  label           String
+  circuitId       String?
+  accountNumber   String?
+  serviceType     CircuitServiceType  @default(OTHER)
+  role            CircuitRole         @default(PRIMARY)
+  status          CircuitStatus       @default(ACTIVE)
+  // ISP linkage
+  vendorId        String?
+  ispNameFallback String?
+  supportPhone    String?
+  supportEmail    String?
+  portalUrl       String?
+  credentialId    String?
+  // bandwidth
+  downloadMbps    Int?
+  uploadMbps      Int?
+  isSymmetric     Boolean             @default(false)
+  // static IP block
+  wanIp           String?
+  staticBlockCidr String?
+  subnetMask      String?
+  gatewayIp       String?
+  usableStartIp   String?
+  usableEndIp     String?
+  dns1            String?
+  dns2            String?
+  ipv6PrefixCidr  String?
+  ipv6Gateway     String?
+  subnetId        String?
+  // hardware
+  modemAssetId    String?
+  edgeAssetId     String?
+  // lifecycle / cost
+  installDate     DateTime?
+  contractStart   DateTime?
+  contractEnd     DateTime?
+  cancelDate      DateTime?
+  monthlyCost     Float?
+  // misc
+  notes           String?
+  legacyImported  Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  // relations
+  client          Client              @relation(fields: [clientId],   references: [id], onDelete: Cascade)
+  location        Location            @relation(fields: [locationId], references: [id])
+  vendor          Vendor?             @relation("VendorInternetCircuits",     fields: [vendorId],     references: [id])
+  modemAsset      Asset?              @relation("CircuitModemAsset",          fields: [modemAssetId], references: [id])
+  edgeAsset       Asset?              @relation("CircuitEdgeAsset",           fields: [edgeAssetId],  references: [id])
+  subnet          Subnet?             @relation("CircuitSubnet",              fields: [subnetId],     references: [id])
+  credential      Credential?         @relation("CredentialInternetCircuit",  fields: [credentialId], references: [id])
+
+  @@unique([locationId, label])
+  @@index([clientId])
+  @@index([locationId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([role])
+  @@index([contractEnd])
+}
+
+enum CircuitServiceType {
+  FIBER
+  CABLE
+  DSL
+  FIXED_WIRELESS
+  CELLULAR_LTE
+  CELLULAR_5G
+  SATELLITE
+  T1
+  METRO_ETHERNET
+  MPLS
+  SDWAN_BROADBAND
+  OTHER
+}
+
+enum CircuitRole {
+  PRIMARY
+  FAILOVER
+  LOAD_BALANCED
+  OUT_OF_BAND
+  GUEST
+  OTHER
+}
+
+enum CircuitStatus {
+  PLANNED
+  ORDERED
+  INSTALLING
+  ACTIVE
+  DEGRADED
+  SUSPENDED
+  CANCELLED
+  RETIRED
 }

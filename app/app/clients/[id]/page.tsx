@@ -14,6 +14,7 @@ import WifiPanel from "@/components/WifiPanel"
 import PtpPanel from "@/components/PtpPanel"
 import SwitchPanel from "@/components/SwitchPanel"
 import NetworkDiagramPanel from "@/components/NetworkDiagramPanel"
+import CircuitsPanel from "@/components/CircuitsPanel"
 import TabFilter from "@/components/TabFilter"
 import ShareExternallyButton from "@/components/ShareExternallyButton"
 import SearchModal from "@/components/SearchModal"
@@ -380,7 +381,7 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "racks" | "shares" | "wireless" | "ptp" | "diagram">("ipam")
+  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "circuits" | "racks" | "shares" | "wireless" | "ptp" | "diagram">("ipam")
   const [ptpLinks, setPtpLinks] = useState<any[]>([])
   const [loadingPtp, setLoadingPtp] = useState(false)
   const [subnets, setSubnets] = useState<any[]>([])
@@ -501,6 +502,10 @@ export default function ClientDetailPage() {
   useEffect(() => {
     if (activeTab !== "Network") return
     if (networkSubTab === "ipam" && subnets.length === 0) fetchSubnets()
+    if (networkSubTab === "circuits") {
+      if (subnets.length === 0) fetchSubnets()
+      if (assets.length === 0) fetchAssets()
+    }
     if (networkSubTab === "racks" && racks.length === 0) { fetchRacks(); if (networkDevices.length === 0) fetchNetworkDevices(); if (assets.length === 0) fetchAssets() }
     if (networkSubTab === "shares") {
       if (adDomains.length === 0 && clientShares.length === 0) fetchShares()
@@ -1853,8 +1858,6 @@ export default function ClientDetailPage() {
                       { key: "city", label: "City" },
                       { key: "state", label: "State" },
                       { key: "zip", label: "ZIP" },
-                      { key: "ispName", label: "ISP" },
-                      { key: "wanIp", label: "WAN IP" },
                       { key: "notes", label: "Notes" },
                     ].map(({ key, label }) => (
                       <div key={key} style={{ marginBottom: "10px" }}>
@@ -1863,6 +1866,13 @@ export default function ClientDetailPage() {
                           style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
                       </div>
                     ))}
+                    {((loc as any).ispName || (loc as any).wanIp) && (
+                      <div style={{ marginBottom: "10px", padding: "8px 12px", background: "var(--color-background-hover)", borderRadius: "8px", fontSize: "12px", color: "var(--color-text-muted)" }}>
+                        Legacy ISP / WAN fields are now read-only. Manage them under <strong>Network → Circuits</strong>.
+                        {(loc as any).ispName && <div style={{ marginTop: "4px" }}>ISP: <span style={{ fontFamily: "monospace" }}>{(loc as any).ispName}</span></div>}
+                        {(loc as any).wanIp && <div>WAN IP: <span style={{ fontFamily: "monospace" }}>{(loc as any).wanIp}</span></div>}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                       <button onClick={() => saveLocation(loc.id)} disabled={savingLocation} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                         {savingLocation ? "Saving..." : "Save"}
@@ -1879,6 +1889,11 @@ export default function ClientDetailPage() {
                     {(loc.address || loc.city) && (
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
                         {[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}
+                      </div>
+                    )}
+                    {((loc as any).ispName || (loc as any).wanIp) && (
+                      <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--color-text-muted)", fontStyle: "italic" }}>
+                        Legacy ISP/WAN fields present — promote under <button onClick={() => { setActiveTab("Network"); setNetworkSubTab("circuits") }} style={{ fontSize: "12px", color: "var(--color-accent)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Network → Circuits</button>.
                       </div>
                     )}
                   </div>
@@ -3473,7 +3488,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["ipam", "racks", "wireless", "ptp", "shares", "diagram"] as const).map(t => (
+              {(["ipam", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const).map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",
@@ -3481,11 +3496,21 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "ipam" ? "IPAM" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : t === "ptp" ? "PTP Bridges" : t === "shares" ? "File Shares" : "Topology Diagram"}
+                  {t === "ipam" ? "IPAM" : t === "circuits" ? "Circuits" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : t === "ptp" ? "PTP Bridges" : t === "shares" ? "File Shares" : "Topology Diagram"}
                 </button>
               ))}
             </div>
 
+
+            {/* Circuits sub-tab */}
+            {networkSubTab === "circuits" && (
+              <CircuitsPanel
+                clientId={id as string}
+                locations={client.locations.map((l: any) => ({ id: l.id, name: l.name }))}
+                assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName ?? null, category: a.category }))}
+                subnets={subnets.map((s: any) => ({ id: s.id, cidr: s.cidr }))}
+              />
+            )}
 
             {/* IPAM sub-tab */}
             {networkSubTab === "ipam" && (
