@@ -221,136 +221,11 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
     setEditingNetId(n.id)
   }
 
-  // ── Controller Form ────────────────────────────────────────────────────────
-
-  function CtrlForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-          <div>
-            <label style={lbl}>Name *</label>
-            <input style={inp} value={ctrlForm.name} onChange={e => setCtrlForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Unifi Controller" />
-          </div>
-          <div>
-            <label style={lbl}>Type *</label>
-            <select style={inp} value={ctrlForm.type} onChange={e => setCtrlForm(f => ({ ...f, type: e.target.value }))}>
-              {Object.entries(CONTROLLER_TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Management URL</label>
-            <input style={inp} value={ctrlForm.managementUrl} onChange={e => setCtrlForm(f => ({ ...f, managementUrl: e.target.value }))} placeholder="https://192.168.1.1" />
-          </div>
-          <div>
-            <label style={lbl}>Admin Credential</label>
-            <select style={inp} value={ctrlForm.credentialId} onChange={e => setCtrlForm(f => ({ ...f, credentialId: e.target.value }))}>
-              <option value="">— None —</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Controller Asset</label>
-            <select style={inp} value={ctrlForm.assetId} onChange={e => setCtrlForm(f => ({ ...f, assetId: e.target.value }))}>
-              <option value="">— None —</option>
-              {assets.map(a => <option key={a.id} value={a.id}>{assetLabel(a)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Controller Network Device</label>
-            <select style={inp} value={ctrlForm.networkDeviceId} onChange={e => setCtrlForm(f => ({ ...f, networkDeviceId: e.target.value }))}>
-              <option value="">— None —</option>
-              {networkDevices.map(d => <option key={d.id} value={d.id}>{d.name} ({d.type})</option>)}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label style={lbl}>Notes</label>
-          <textarea style={{ ...inp, minHeight: "60px", resize: "vertical" }} value={ctrlForm.notes} onChange={e => setCtrlForm(f => ({ ...f, notes: e.target.value }))} />
-        </div>
-        {error && <div style={{ color: "#ef4444", fontSize: "13px" }}>{error}</div>}
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button style={btn("primary")} onClick={onSubmit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
-          <button style={btn("ghost")} onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Network Form ───────────────────────────────────────────────────────────
-
-  function NetForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "16px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", marginTop: "12px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-          <div>
-            <label style={lbl}>SSID *</label>
-            <input style={inp} value={netForm.ssid} onChange={e => setNetForm(f => ({ ...f, ssid: e.target.value }))} placeholder="Corp-WiFi" />
-          </div>
-          <div>
-            <label style={lbl}>Band</label>
-            <select style={inp} value={netForm.band} onChange={e => setNetForm(f => ({ ...f, band: e.target.value }))}>
-              {Object.entries(BANDS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Security</label>
-            <select style={inp} value={netForm.security} onChange={e => setNetForm(f => ({ ...f, security: e.target.value }))}>
-              {Object.entries(SECURITY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-          <div>
-            <label style={lbl}>Purpose</label>
-            <select style={inp} value={netForm.purpose} onChange={e => setNetForm(f => ({ ...f, purpose: e.target.value }))}>
-              {Object.entries(PURPOSES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>PSK / Credential</label>
-            <select style={inp} value={netForm.credentialId} onChange={e => setNetForm(f => ({ ...f, credentialId: e.target.value }))}>
-              <option value="">— None —</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Linked Subnet (IPAM)</label>
-            <select style={inp} value={netForm.subnetId} onChange={e => setNetForm(f => ({ ...f, subnetId: e.target.value }))}>
-              <option value="">— None —</option>
-              {subnets.map(s => <option key={s.id} value={s.id}>{subnetLabel(s)}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "10px" }}>
-          <div>
-            <label style={lbl}>VLAN ID</label>
-            <input style={inp} type="number" value={netForm.vlanId} onChange={e => setNetForm(f => ({ ...f, vlanId: e.target.value }))} placeholder="20" />
-          </div>
-          <div>
-            <label style={lbl}>VLAN Name</label>
-            <input style={inp} value={netForm.vlanName} onChange={e => setNetForm(f => ({ ...f, vlanName: e.target.value }))} placeholder="Guest" />
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-          {([["isHidden", "Hidden SSID"], ["clientIsolation", "Client isolation"], ["bandSteering", "Band steering"]] as const).map(([key, label]) => (
-            <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}>
-              <input type="checkbox" checked={netForm[key] as boolean} onChange={e => setNetForm(f => ({ ...f, [key]: e.target.checked }))} />
-              {label}
-            </label>
-          ))}
-        </div>
-        <div>
-          <label style={lbl}>Notes</label>
-          <input style={inp} value={netForm.notes} onChange={e => setNetForm(f => ({ ...f, notes: e.target.value }))} />
-        </div>
-        {error && <div style={{ color: "#ef4444", fontSize: "13px" }}>{error}</div>}
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button style={btn("primary")} onClick={onSubmit} disabled={saving}>{saving ? "Saving…" : "Save Network"}</button>
-          <button style={btn("ghost")} onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
-    )
-  }
+  // CtrlForm + NetForm are extracted to module scope below (see end of file).
+  // Defining them inline here gave them a new function identity on every
+  // render, which made React unmount + remount the entire <input> subtree
+  // on every keystroke — the user reported the cursor "jumping around like
+  // it's constantly refreshing." Made worse by the page's 1-sec TOTP tick.
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -369,7 +244,14 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
       {showAddCtrl && (
         <div style={card}>
           <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px" }}>New Wifi Controller</div>
-          <CtrlForm onSubmit={saveCtrl} onCancel={() => { setShowAddCtrl(false); setError("") }} />
+          <CtrlForm
+            form={ctrlForm} setForm={setCtrlForm}
+            credentials={credentials} assets={assets} assetLabel={assetLabel}
+            networkDevices={networkDevices}
+            error={error} saving={saving}
+            onSubmit={saveCtrl}
+            onCancel={() => { setShowAddCtrl(false); setError("") }}
+          />
         </div>
       )}
 
@@ -410,7 +292,14 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
             {/* Edit controller form */}
             {editingCtrlId === ctrl.id && (
               <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
-                <CtrlForm onSubmit={() => updateCtrl(ctrl.id)} onCancel={() => { setEditingCtrlId(null); setError("") }} />
+                <CtrlForm
+                  form={ctrlForm} setForm={setCtrlForm}
+                  credentials={credentials} assets={assets} assetLabel={assetLabel}
+                  networkDevices={networkDevices}
+                  error={error} saving={saving}
+                  onSubmit={() => updateCtrl(ctrl.id)}
+                  onCancel={() => { setEditingCtrlId(null); setError("") }}
+                />
               </div>
             )}
 
@@ -431,7 +320,13 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
                 {ctrl.networks.map(net => (
                   <div key={net.id}>
                     {editingNetId === net.id ? (
-                      <NetForm onSubmit={() => updateNetwork(net.id, ctrl.id)} onCancel={() => { setEditingNetId(null); setError("") }} />
+                      <NetForm
+                        form={netForm} setForm={setNetForm}
+                        credentials={credentials} subnets={subnets} subnetLabel={subnetLabel}
+                        error={error} saving={saving}
+                        onSubmit={() => updateNetwork(net.id, ctrl.id)}
+                        onCancel={() => { setEditingNetId(null); setError("") }}
+                      />
                     ) : (
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", gap: "10px" }}>
                         <div style={{ flex: 1 }}>
@@ -466,7 +361,13 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
                 ))}
 
                 {addingNetFor === ctrl.id && (
-                  <NetForm onSubmit={() => addNetwork(ctrl.id)} onCancel={() => { setAddingNetFor(null); setError("") }} />
+                  <NetForm
+                    form={netForm} setForm={setNetForm}
+                    credentials={credentials} subnets={subnets} subnetLabel={subnetLabel}
+                    error={error} saving={saving}
+                    onSubmit={() => addNetwork(ctrl.id)}
+                    onCancel={() => { setAddingNetFor(null); setError("") }}
+                  />
                 )}
 
                 {ctrl.notes && (
@@ -479,6 +380,195 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Module-level form components. MUST live outside the WifiPanel function so
+// React preserves the same function identity across parent re-renders and
+// keeps the existing input DOM nodes mounted (i.e. cursor stays put).
+// ───────────────────────────────────────────────────────────────────────────
+
+type CtrlFormState = {
+  name: string
+  type: string
+  assetId: string
+  networkDeviceId: string
+  credentialId: string
+  managementUrl: string
+  notes: string
+}
+
+function CtrlForm({
+  form, setForm,
+  credentials, assets, assetLabel, networkDevices,
+  error, saving,
+  onSubmit, onCancel,
+}: {
+  form: CtrlFormState
+  setForm: (updater: (f: CtrlFormState) => CtrlFormState) => void
+  credentials: { id: string; label: string }[]
+  assets: { id: string; name: string; friendlyName: string | null }[]
+  assetLabel: (a: { name: string; friendlyName: string | null }) => string
+  networkDevices: { id: string; name: string; type: string }[]
+  error: string
+  saving: boolean
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        <div>
+          <label style={lbl}>Name *</label>
+          <input style={inp} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Unifi Controller" />
+        </div>
+        <div>
+          <label style={lbl}>Type *</label>
+          <select style={inp} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+            {Object.entries(CONTROLLER_TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Management URL</label>
+          <input style={inp} value={form.managementUrl} onChange={e => setForm(f => ({ ...f, managementUrl: e.target.value }))} placeholder="https://192.168.1.1" />
+        </div>
+        <div>
+          <label style={lbl}>Admin Credential</label>
+          <select style={inp} value={form.credentialId} onChange={e => setForm(f => ({ ...f, credentialId: e.target.value }))}>
+            <option value="">— None —</option>
+            {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Controller Asset</label>
+          <select style={inp} value={form.assetId} onChange={e => setForm(f => ({ ...f, assetId: e.target.value }))}>
+            <option value="">— None —</option>
+            {assets.map(a => <option key={a.id} value={a.id}>{assetLabel(a)}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Controller Network Device</label>
+          <select style={inp} value={form.networkDeviceId} onChange={e => setForm(f => ({ ...f, networkDeviceId: e.target.value }))}>
+            <option value="">— None —</option>
+            {networkDevices.map(d => <option key={d.id} value={d.id}>{d.name} ({d.type})</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style={lbl}>Notes</label>
+        <textarea style={{ ...inp, minHeight: "60px", resize: "vertical" }} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+      </div>
+      {error && <div style={{ color: "#ef4444", fontSize: "13px" }}>{error}</div>}
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button style={btn("primary")} onClick={onSubmit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        <button style={btn("ghost")} onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+type NetFormState = {
+  ssid: string
+  band: string
+  security: string
+  purpose: string
+  credentialId: string
+  subnetId: string
+  vlanId: string
+  vlanName: string
+  isHidden: boolean
+  clientIsolation: boolean
+  bandSteering: boolean
+  notes: string
+}
+
+function NetForm({
+  form, setForm,
+  credentials, subnets, subnetLabel,
+  error, saving,
+  onSubmit, onCancel,
+}: {
+  form: NetFormState
+  setForm: (updater: (f: NetFormState) => NetFormState) => void
+  credentials: { id: string; label: string }[]
+  subnets: { id: string; cidr: string; vlan: string | null; description: string | null }[]
+  subnetLabel: (s: { cidr: string; vlan: string | null; description: string | null }) => string
+  error: string
+  saving: boolean
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "16px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", marginTop: "12px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+        <div>
+          <label style={lbl}>SSID *</label>
+          <input style={inp} value={form.ssid} onChange={e => setForm(f => ({ ...f, ssid: e.target.value }))} placeholder="Corp-WiFi" />
+        </div>
+        <div>
+          <label style={lbl}>Band</label>
+          <select style={inp} value={form.band} onChange={e => setForm(f => ({ ...f, band: e.target.value }))}>
+            {Object.entries(BANDS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Security</label>
+          <select style={inp} value={form.security} onChange={e => setForm(f => ({ ...f, security: e.target.value }))}>
+            {Object.entries(SECURITY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+        <div>
+          <label style={lbl}>Purpose</label>
+          <select style={inp} value={form.purpose} onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))}>
+            {Object.entries(PURPOSES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>PSK / Credential</label>
+          <select style={inp} value={form.credentialId} onChange={e => setForm(f => ({ ...f, credentialId: e.target.value }))}>
+            <option value="">— None —</option>
+            {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Linked Subnet (IPAM)</label>
+          <select style={inp} value={form.subnetId} onChange={e => setForm(f => ({ ...f, subnetId: e.target.value }))}>
+            <option value="">— None —</option>
+            {subnets.map(s => <option key={s.id} value={s.id}>{subnetLabel(s)}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "10px" }}>
+        <div>
+          <label style={lbl}>VLAN ID</label>
+          <input style={inp} type="number" value={form.vlanId} onChange={e => setForm(f => ({ ...f, vlanId: e.target.value }))} placeholder="20" />
+        </div>
+        <div>
+          <label style={lbl}>VLAN Name</label>
+          <input style={inp} value={form.vlanName} onChange={e => setForm(f => ({ ...f, vlanName: e.target.value }))} placeholder="Guest" />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+        {([["isHidden", "Hidden SSID"], ["clientIsolation", "Client isolation"], ["bandSteering", "Band steering"]] as const).map(([key, label]) => (
+          <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}>
+            <input type="checkbox" checked={form[key] as boolean} onChange={e => setForm(f => ({ ...f, [key]: e.target.checked }))} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div>
+        <label style={lbl}>Notes</label>
+        <input style={inp} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+      </div>
+      {error && <div style={{ color: "#ef4444", fontSize: "13px" }}>{error}</div>}
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button style={btn("primary")} onClick={onSubmit} disabled={saving}>{saving ? "Saving…" : "Save Network"}</button>
+        <button style={btn("ghost")} onClick={onCancel}>Cancel</button>
+      </div>
     </div>
   )
 }
