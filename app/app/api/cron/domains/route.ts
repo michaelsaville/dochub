@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { checkWebsite } from "@/lib/website-check"
 
 // Called by cron: GET /api/cron/domains  (Bearer CRON_SECRET)
 export async function GET(req: Request) {
@@ -24,11 +25,11 @@ export async function GET(req: Request) {
 
   for (const site of websites) {
     try {
-      const res = await fetch(
-        `http://localhost:3000/api/clients/${site.clientId}/websites/${site.id}/check`,
-        { method: "POST" }
-      )
-      if (res.ok) checked++
+      // Call the check logic directly. Previously this re-fetched the
+      // session-gated HTTP route with no credentials, so every check was
+      // redirected to /login and counted as an error.
+      const result = await checkWebsite(site.clientId, site.id)
+      if (result) checked++
       else errors++
     } catch {
       errors++
