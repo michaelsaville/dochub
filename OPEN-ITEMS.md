@@ -10,13 +10,16 @@ touched in this session. Checkboxes are yours to tick off as work lands.
 The Linode→Dell migration left artifacts on disk that should have been
 cleaned up but weren't.
 
-- [ ] Dispose of **`~/archive/from-linode-2026-04-10/creds.csv`** (42 KB plaintext)
-      → decide: encrypt at rest, import into DocHub vault + delete, or move
-      to offline secrets manager
-- [ ] Dispose of **`~/archive/from-linode-2026-04-10/itflow.sql`** (97 MB full
-      DB dump, contains hashed passwords + API keys + all client data) and
-      its companion `itflow_import.sql`, `itflow_import.py`,
-      `itflow_import_report.md`
+- [x] ~~Dispose of **`~/archive/from-linode-2026-04-10/creds.csv`** (42 KB plaintext)~~
+      → **DONE 2026-05-28.** Verified all 578 passwords already in the vault
+      (decrypt-match) and backfilled the 26 TOTP seeds that had never been
+      migrated (ITFLOW creds had 0 TOTP). Then `shred -uvz` the file. Backup:
+      `~/backup-dochub-pre-totp-backfill-20260528-234926.sql`.
+- [x] ~~Dispose of **`~/archive/from-linode-2026-04-10/itflow.sql`** + companions~~
+      → **DONE.** The 97 MB `itflow*.sql` dumps were already gone; shredded the
+      remaining `itflow_import.py`. Preserved the secret-free `itflow_import_report.md`
+      into `Notes/VibeCodeing Projects/DocHub/` then shredded the archive copy.
+      (Only `dochubext.zip` — an extension build, no secrets — remains in the dir.)
 - [ ] **Decommission old Linode `45.79.134.250`** — still pingable (~27 ms
       round-trip from the Dell host). Before cancellation:
   - Rotate the GitHub PAT that's sitting in its `.git-credentials`
@@ -24,10 +27,9 @@ cleaned up but weren't.
     patterns from past shell sessions)
   - Delete the `creds.csv` + `itflow*.sql` copies still on that host
   - Then cancel at Linode
-- [ ] **Remove `changeme_before_production` placeholder** from committed
-      `docker-compose.yml`. Runtime overrides it via `env_file: .env`, but
-      a public-repo reader shouldn't see fake DB creds. Either delete the
-      line and rely on env_file, or replace with `REPLACE_ME`.
+- [x] ~~**Remove `changeme_before_production` placeholder** from committed
+      `docker-compose.yml`~~ → **DONE** (verified 2026-05-28: no longer present
+      in `docker-compose.yml`).
 
 ---
 
