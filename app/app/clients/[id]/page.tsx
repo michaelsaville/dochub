@@ -260,6 +260,23 @@ function sourceTag(
   return <SourceStamp sourceKey={src} color={color} label={label} />
 }
 
+// Derived support chip for any vendor-linked record (license/app/etc.) — the
+// linked Vendor's phone/portal surfaced here so techs don't re-paste it into
+// notes. Renders nothing when the vendor has no support info.
+function vendorSupportChip(vendor?: { supportPhone?: string | null; supportEmail?: string | null; portalUrl?: string | null } | null) {
+  if (!vendor) return null
+  const { supportPhone, supportEmail, portalUrl } = vendor
+  if (!supportPhone && !supportEmail && !portalUrl) return null
+  const link = { fontSize: "11px", color: "var(--color-accent)", textDecoration: "none" } as const
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }} onClick={e => e.stopPropagation()}>
+      {supportPhone && <a href={`tel:${supportPhone}`} style={link}>☎ {supportPhone}</a>}
+      {supportEmail && <a href={`mailto:${supportEmail}`} style={link}>✉ {supportEmail}</a>}
+      {portalUrl && <a href={portalUrl} target="_blank" rel="noopener noreferrer" style={link}>↗ portal</a>}
+    </div>
+  )
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -2993,7 +3010,10 @@ export default function ClientDetailPage() {
                         </div>
                         {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}
                       </div>
-                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.vendorRef?.name ?? lic.vendor ?? "—"}</div>
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                        {lic.vendorRef?.name ?? lic.vendor ?? "—"}
+                        {vendorSupportChip(lic.vendorRef)}
+                      </div>
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                         {lic.seats ? `${lic._count?.seatAssignments ?? lic.assignedSeats ?? 0}/${lic.seats}` : "—"}
                       </div>
@@ -3226,7 +3246,10 @@ export default function ClientDetailPage() {
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{app.name}</div>
                       {app.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{app.notes}</div>}
                     </div>
-                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.vendor ?? "—"}</div>
+                    <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                      {app.vendorRef?.name ?? app.vendor ?? "—"}
+                      {vendorSupportChip(app.vendorRef)}
+                    </div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{app.version ?? "—"}</div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.person?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>

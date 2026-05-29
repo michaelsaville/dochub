@@ -19,7 +19,7 @@ export async function GET(
       orderBy: { name: "asc" },
       include: {
         person: { select: { id: true, name: true, email: true } },
-        vendorRef: { select: { id: true, name: true } },
+        vendorRef: { select: { id: true, name: true, supportPhone: true, supportEmail: true, portalUrl: true } },
         _count: { select: { seatAssignments: true } },
       },
     })
