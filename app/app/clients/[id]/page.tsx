@@ -290,6 +290,9 @@ export default function ClientDetailPage() {
   } | null>(null)
   const [completenessOpen, setCompletenessOpen] = useState(false)
   const [tabCounts, setTabCounts] = useState<Record<string, number>>({})
+  // FleetHub discovery — devices the agent sees that aren't documented yet
+  const [discovered, setDiscovered] = useState<any[]>([])
+  const [promotingId, setPromotingId] = useState<string | null>(null)
   const [scopedSearchOpen, setScopedSearchOpen] = useState(false)
   const [assets, setAssets] = useState<Asset[]>([])
   const [loadingClient, setLoadingClient] = useState(true)
@@ -493,7 +496,7 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (activeTab === "Dashboard" && !dashboardData) fetchDashboard()
-    if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes(); if (vendorsList.length === 0) fetchVendorsList() }
+    if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes(); if (vendorsList.length === 0) fetchVendorsList(); fetchDiscovered() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList(); if (assets.length === 0) fetchAssets() }
     if (activeTab === "Subscriptions" && subscriptions.length === 0) fetchSubscriptions()
@@ -1302,6 +1305,32 @@ export default function ClientDetailPage() {
       setAssets(await res.json())
     } catch {}
     finally { setLoadingAssets(false) }
+  }
+
+  async function fetchDiscovered() {
+    try {
+      const res = await fetch(`/api/clients/${id}/discovered`)
+      if (res.ok) setDiscovered(await res.json())
+    } catch {}
+  }
+
+  // Confirm a FleetHub-discovered device into a real, prefilled asset.
+  async function promoteDiscovered(deviceId: string) {
+    setPromotingId(deviceId)
+    try {
+      const res = await fetch(`/api/clients/${id}/discovered/promote`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId }),
+      })
+      if (res.ok) {
+        const asset = await res.json()
+        setAssets(prev => [asset, ...prev])
+        setDiscovered(prev => prev.filter(d => d.id !== deviceId))
+      } else {
+        const e = await res.json().catch(() => ({}))
+        alert(e.error || "Failed to confirm device")
+      }
+    } finally { setPromotingId(null) }
   }
 
   async function selectPerson(personId: string) {
@@ -2142,6 +2171,38 @@ export default function ClientDetailPage() {
                 New asset
               </button>
             </div>
+
+            {discovered.length > 0 && (
+              <div style={{ background: "rgba(74,144,226,0.06)", border: "0.5px solid rgba(74,144,226,0.3)", borderRadius: "10px", padding: "14px 16px", marginBottom: "20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)" }}>Discovered by FleetHub</span>
+                  <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "4px", background: "rgba(74,144,226,0.15)", color: "#4A90E2" }}>{discovered.length}</span>
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>
+                  The FleetHub agent sees these machines but they aren&apos;t documented yet. Confirm to create a prefilled asset.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {discovered.map((d: any) => (
+                    <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "8px 10px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: d.isOnline ? "#22c55e" : "var(--color-text-muted)", flexShrink: 0 }} />
+                          <span style={{ fontSize: "13px", fontWeight: 500 }}>{d.friendlyName || d.hostname || "Unknown device"}</span>
+                          {d.role && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{d.role}</span>}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--color-text-secondary)", marginTop: "2px" }}>
+                          {[d.os && [d.os, d.osVersion].filter(Boolean).join(" "), d.ipAddress].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <button onClick={() => promoteDiscovered(d.id)} disabled={promotingId === d.id}
+                        style={{ flexShrink: 0, fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                        {promotingId === d.id ? "Confirming…" : "Confirm → asset"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {showAddAsset && (
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "20px" }}>
