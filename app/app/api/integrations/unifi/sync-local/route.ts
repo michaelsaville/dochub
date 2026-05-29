@@ -17,9 +17,14 @@ import {
  *   - WiFi SSIDs               -> WifiNetwork (via WifiController)
  *   - Switch port tables       -> SwitchPort live data (PoE, uplink, speed)
  */
-export async function POST() {
-  const { error } = await requireAuth()
-  if (error) return error
+export async function POST(req: Request) {
+  // Allow the nightly cron (Bearer CRON_SECRET) OR an authenticated session.
+  const auth = req.headers.get("authorization")
+  const isCron = !!process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`
+  if (!isCron) {
+    const { error } = await requireAuth()
+    if (error) return error
+  }
 
   try {
     // Get controller credentials from AppSettings

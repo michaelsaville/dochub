@@ -32,6 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       accountNumber: body.accountNumber?.trim() || null,
       credentialId: body.credentialId || null,
       autoRenew: body.autoRenew === true,
+      uptimeEnabled: body.uptimeEnabled === true,
       notes: body.notes?.trim() || null,
     },
   })

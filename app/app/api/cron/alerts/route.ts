@@ -85,8 +85,9 @@ export async function GET(req: Request) {
       orderBy: { expiryDate: "asc" },
     }) : [],
     inclLicenses ? prisma.license.findMany({
-      where: { isActive: true, expiryDate: { not: null, lte: inWarn } },
-      select: { id: true, name: true, expiryDate: true, client: { select: { name: true } } },
+      // Pax8 subs carry renewalDate only — include both so renewals alert too.
+      where: { isActive: true, OR: [{ expiryDate: { not: null, lte: inWarn } }, { renewalDate: { not: null, lte: inWarn } }] },
+      select: { id: true, name: true, expiryDate: true, renewalDate: true, client: { select: { name: true } } },
       orderBy: { expiryDate: "asc" },
     }) : [],
     inclVpnCerts ? prisma.vpnAccessor.findMany({
@@ -110,7 +111,7 @@ export async function GET(req: Request) {
     ...domains.map(w => ({ category: "Domain", label: w.domain, clientName: w.client.name, expiresAt: w.expiresAt! })),
     ...warranties.map(a => ({ category: "Warranty", label: a.friendlyName ?? a.name, clientName: a.location.client.name, expiresAt: a.warrantyExpiry! })),
     ...credentials.map(c => ({ category: "Credential", label: c.label, clientName: c.client.name, expiresAt: c.expiryDate! })),
-    ...licenses.map(l => ({ category: "License", label: l.name, clientName: l.client.name, expiresAt: l.expiryDate! })),
+    ...licenses.map(l => ({ category: "License", label: l.name, clientName: l.client.name, expiresAt: new Date(Math.min(...[l.expiryDate, l.renewalDate].filter(Boolean).map(d => new Date(d!).getTime()))) })),
     ...vpnCerts.map(a => ({ category: "VPN cert", label: `${a.person?.name ?? a.vendor?.name ?? a.staffUser?.name ?? a.thirdPartyName ?? "VPN access"} (${a.gateway.name})`, clientName: a.gateway.client.name, expiresAt: a.certExpiry! })),
     ...circuits.map(c => ({ category: "Circuit", label: c.label, clientName: c.client.name, expiresAt: c.contractEnd! })),
   ].sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())

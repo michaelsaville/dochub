@@ -10,15 +10,18 @@ export async function PATCH(
   if (error) return error
   const { id, websiteId } = await params
   const body = await req.json()
-  const { label, registrar, registrarUrl, accountNumber, autoRenew, notes } = body
+  const { label, registrar, registrarVendorId, registrarUrl, accountNumber, credentialId, autoRenew, uptimeEnabled, notes } = body
   const updated = await prisma.website.update({
     where: { id: websiteId },
     data: {
       ...(label !== undefined && { label: label?.trim() || null }),
       ...(registrar !== undefined && { registrar: registrar?.trim() || null }),
+      ...(registrarVendorId !== undefined && { registrarVendorId: registrarVendorId || null }),
       ...(registrarUrl !== undefined && { registrarUrl: registrarUrl?.trim() || null }),
       ...(accountNumber !== undefined && { accountNumber: accountNumber?.trim() || null }),
+      ...(credentialId !== undefined && { credentialId: credentialId || null }),
       ...(autoRenew !== undefined && { autoRenew }),
+      ...(uptimeEnabled !== undefined && { uptimeEnabled }),
       ...(notes !== undefined && { notes: notes?.trim() || null }),
     },
   })

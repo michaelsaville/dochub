@@ -63,11 +63,13 @@ export async function GET(req: Request) {
     prisma.license.findMany({
       where: {
         isActive: true,
-        expiryDate: { not: null },
+        // Pax8 subs only carry renewalDate, manual licenses carry expiryDate —
+        // either one makes a license expiring.
+        OR: [{ expiryDate: { not: null } }, { renewalDate: { not: null } }],
         ...(clientId ? { clientId } : {}),
       },
       select: {
-        id: true, name: true, vendor: true, expiryDate: true,
+        id: true, name: true, vendor: true, expiryDate: true, renewalDate: true,
         client: { select: { id: true, name: true } },
         vendorRef: { select: { id: true, name: true } },
       },
@@ -159,7 +161,8 @@ export async function GET(req: Request) {
       category: "license" as const,
       label: l.name,
       sublabel: l.vendorRef?.name ?? l.vendor ?? undefined,
-      expiresAt: l.expiryDate!.toISOString(),
+      // Soonest of expiry / renewal (Pax8 only sets renewalDate).
+      expiresAt: new Date(Math.min(...[l.expiryDate, l.renewalDate].filter(Boolean).map(d => new Date(d!).getTime()))).toISOString(),
       clientId: l.client.id,
       clientName: l.client.name,
       linkPath: `/clients/${l.client.id}?tab=Licenses`,

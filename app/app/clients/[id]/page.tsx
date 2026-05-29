@@ -383,7 +383,7 @@ export default function ClientDetailPage() {
   const [websites, setWebsites] = useState<any[]>([])
   const [loadingWebsites, setLoadingWebsites] = useState(false)
   const [showAddWebsite, setShowAddWebsite] = useState(false)
-  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "", registrar: "", registrarVendorId: "", registrarUrl: "", accountNumber: "", credentialId: "", autoRenew: false, notes: "" })
+  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "", registrar: "", registrarVendorId: "", registrarUrl: "", accountNumber: "", credentialId: "", autoRenew: false, uptimeEnabled: false, notes: "" })
   const [editingWebsite, setEditingWebsite] = useState<string | null>(null)
   const [websiteEditForm, setWebsiteEditForm] = useState<any>({})
   const [savingWebsite, setSavingWebsite] = useState(false)
@@ -1515,7 +1515,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const site = await res.json()
         setWebsites(w => [...w, site])
-        setWebsiteForm({ domain: "", label: "", registrar: "", registrarVendorId: "", registrarUrl: "", accountNumber: "", credentialId: "", autoRenew: false, notes: "" })
+        setWebsiteForm({ domain: "", label: "", registrar: "", registrarVendorId: "", registrarUrl: "", accountNumber: "", credentialId: "", autoRenew: false, uptimeEnabled: false, notes: "" })
         setShowAddWebsite(false)
       }
     } catch {}
@@ -3533,6 +3533,10 @@ export default function ClientDetailPage() {
                     <input type="checkbox" id="autoRenew" checked={websiteForm.autoRenew} onChange={e => setWebsiteForm(f => ({ ...f, autoRenew: e.target.checked }))} />
                     <label htmlFor="autoRenew" style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Auto-renews</label>
                   </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", paddingTop: "20px" }}>
+                    <input type="checkbox" id="uptimeEnabled" checked={websiteForm.uptimeEnabled} onChange={e => setWebsiteForm(f => ({ ...f, uptimeEnabled: e.target.checked }))} />
+                    <label htmlFor="uptimeEnabled" style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Monitor uptime</label>
+                  </div>
                   <div style={{ gridColumn: "1 / -1" }}>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Notes</label>
                     <input value={websiteForm.notes} onChange={e => setWebsiteForm(f => ({ ...f, notes: e.target.value }))}
@@ -3593,6 +3597,10 @@ export default function ClientDetailPage() {
                               <input type="checkbox" checked={websiteEditForm.autoRenew ?? false} onChange={e => setWebsiteEditForm((f: any) => ({ ...f, autoRenew: e.target.checked }))} />
                               <label style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Auto-renews</label>
                             </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <input type="checkbox" checked={websiteEditForm.uptimeEnabled ?? false} onChange={e => setWebsiteEditForm((f: any) => ({ ...f, uptimeEnabled: e.target.checked }))} />
+                              <label style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Monitor uptime</label>
+                            </div>
                           </div>
                           <div style={{ display: "flex", gap: "8px" }}>
                             <button onClick={() => updateWebsite(site.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
@@ -3605,6 +3613,14 @@ export default function ClientDetailPage() {
                             <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{site.domain}</div>
                             {site.label && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{site.label}</div>}
                             {site.autoRenew && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Auto-renews</div>}
+                            {site.uptimeEnabled && (
+                              <div style={{ fontSize: "11px", marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: site.isUp ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
+                                <span style={{ color: site.isUp ? "#22c55e" : "#ef4444", fontWeight: 500 }}>{site.isUp ? "Up" : "Down"}</span>
+                                {site.responseTimeMs != null && <span style={{ color: "var(--color-text-muted)" }}>· {site.responseTimeMs}ms</span>}
+                                {site.uptimeCheckedAt && <span style={{ color: "var(--color-text-muted)" }}>· {new Date(site.uptimeCheckedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
+                              </div>
+                            )}
                           </div>
                           <div>
                             <span style={{ fontSize: "12px", padding: "3px 8px", borderRadius: "6px", background: domainBadge.bg, color: domainBadge.color, fontWeight: 500 }}>
@@ -3637,7 +3653,7 @@ export default function ClientDetailPage() {
                             <button onClick={() => checkWebsite(site.id)} disabled={isChecking} style={{ fontSize: "12px", color: "var(--color-accent)", background: "none", border: "none", cursor: isChecking ? "not-allowed" : "pointer", padding: 0, opacity: isChecking ? 0.5 : 1 }}>
                               {isChecking ? "Checking..." : "Check"}
                             </button>
-                            <button onClick={() => { setEditingWebsite(site.id); setWebsiteEditForm({ label: site.label ?? "", registrar: site.registrar ?? "", registrarUrl: site.registrarUrl ?? "", accountNumber: site.accountNumber ?? "", autoRenew: site.autoRenew ?? false, notes: site.notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                            <button onClick={() => { setEditingWebsite(site.id); setWebsiteEditForm({ label: site.label ?? "", registrar: site.registrar ?? "", registrarUrl: site.registrarUrl ?? "", accountNumber: site.accountNumber ?? "", autoRenew: site.autoRenew ?? false, uptimeEnabled: site.uptimeEnabled ?? false, notes: site.notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                               Edit
                             </button>
                             {dns && (

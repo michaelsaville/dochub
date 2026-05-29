@@ -36,5 +36,8 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ checked, errors, total: websites.length })
+  // Don't report green on a total failure (every check errored) — that's the
+  // silent-failure class that hid the 38-day-dead cron.
+  const success = !(websites.length > 0 && checked === 0 && errors > 0)
+  return NextResponse.json({ success, checked, errors, total: websites.length })
 }

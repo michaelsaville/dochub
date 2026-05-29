@@ -70,7 +70,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const res = await fetch("http://localhost:3000/api/integrations/unifi/sync-local", { method: "POST" })
+    const res = await fetch("http://localhost:3000/api/integrations/unifi/sync-local", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
     results.unifiLocal = await res.json()
   } catch (e: any) {
     results.unifiLocal = { success: false, error: e.message }
