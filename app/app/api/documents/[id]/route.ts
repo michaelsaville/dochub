@@ -30,7 +30,7 @@ export async function PUT(
   if (error) return error
   try {
     const { id } = await params
-    const { title, content, category, isPinned, folderId } = await req.json()
+    const { title, content, category, isPinned, folderId, portalVisible } = await req.json()
 
     // Snapshot current content before overwriting (only if title or content changed)
     const current = await prisma.clientDocument.findUnique({ where: { id }, select: { title: true, content: true } })
@@ -53,9 +53,12 @@ export async function PUT(
       where: { id },
       data: {
         title: title?.trim(),
-        content: content?.trim() ?? null,
-        category: category?.trim() ?? null,
+        // Only touch content when the caller actually sent it — a metadata-only
+        // PATCH (e.g. a pin/portal toggle) must not wipe the body.
+        ...(content !== undefined ? { content: content?.trim() ?? null } : {}),
+        category: category?.trim() ?? undefined,
         isPinned: isPinned ?? undefined,
+        portalVisible: portalVisible ?? undefined,
         ...(folderId !== undefined ? { folderId: folderId ?? null } : {}),
       },
       include,

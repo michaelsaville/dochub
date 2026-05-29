@@ -790,6 +790,7 @@ model ClientDocument {
   content     String?
   category    String?
   isPinned    Boolean            @default(false)
+  portalVisible Boolean          @default(false) // shared to the customer portal (default deny)
   needsReview Boolean            @default(false)
   reviewNote  String? // reason it was flagged
   flaggedAt   DateTime?

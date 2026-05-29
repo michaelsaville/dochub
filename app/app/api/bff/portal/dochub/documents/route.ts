@@ -19,7 +19,9 @@ export async function POST(req: Request) {
   if (!payload.clientId) return NextResponse.json({ ok: false, error: "clientId required" }, { status: 400 })
 
   const documents = await prisma.clientDocument.findMany({
-    where: { clientId: payload.clientId },
+    // Only docs explicitly shared to the portal — never expose internal
+    // MSP runbooks/notes to the customer (default deny).
+    where: { clientId: payload.clientId, portalVisible: true },
     select: {
       id: true,
       title: true,

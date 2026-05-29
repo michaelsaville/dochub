@@ -20,6 +20,7 @@ type Doc = {
   category: string | null
   folderId: string | null
   isPinned: boolean
+  portalVisible: boolean
   createdAt: string
   updatedAt: string
   attachments: Attachment[]
@@ -338,6 +339,20 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
     }
   }
 
+  // Share/unshare a doc to the customer portal. Default deny — internal
+  // runbooks stay private unless a tech explicitly opts them in.
+  async function togglePortalVisible(doc: Doc) {
+    const res = await fetch(`/api/documents/${doc.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ portalVisible: !doc.portalVisible }),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      onDocsChange(docs.map(d => d.id === doc.id ? updated : d))
+    }
+  }
+
   async function uploadFile(docId: string, file: File) {
     setUploading(true)
     try {
@@ -621,6 +636,9 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                       <div style={{ display: "flex", gap: "8px", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => togglePin(doc)} style={{ fontSize: "11px", color: doc.isPinned ? "#f59e0b" : "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }} title={doc.isPinned ? "Unpin" : "Pin"}>
                           {doc.isPinned ? "📌 Unpin" : "Pin"}
+                        </button>
+                        <button onClick={() => togglePortalVisible(doc)} style={{ fontSize: "11px", color: doc.portalVisible ? "#22c55e" : "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }} title={doc.portalVisible ? "Visible to customer portal — click to make private" : "Private — click to share with customer portal"}>
+                          {doc.portalVisible ? "👁 Portal" : "Share to portal"}
                         </button>
                         <button onClick={() => { setEditingDoc(doc.id); setEditForm({ title: doc.title, content: doc.content ?? "", category: doc.category ?? "", isPinned: doc.isPinned, folderId: doc.folderId ?? null }); setExpandedDoc(doc.id) }}
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>

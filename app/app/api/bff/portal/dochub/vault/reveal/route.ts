@@ -36,11 +36,11 @@ export async function POST(req: Request) {
 
   const password = item.encryptedPassword ? decrypt(item.encryptedPassword) : null
   let totpCode: string | null = null
-  let totpSecret: string | null = null
   if (item.encryptedTotp) {
-    totpSecret = decrypt(item.encryptedTotp)
-    totpCode = generateTotp(totpSecret)
+    // Generate the rotating code but DO NOT return the seed — handing the
+    // customer the TOTP secret would let them re-enroll the 2FA permanently.
+    totpCode = generateTotp(decrypt(item.encryptedTotp))
   }
 
-  return NextResponse.json({ ok: true, password, totpCode, totpSecret })
+  return NextResponse.json({ ok: true, password, totpCode })
 }
