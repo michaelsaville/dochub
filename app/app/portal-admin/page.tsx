@@ -31,8 +31,8 @@ function formatDate(iso: string | null) {
 }
 
 function hasActiveSession(sessions: { expiresAt: string }[]): boolean {
-  if (!sessions.length) return false
-  return new Date(sessions[0].expiresAt) > new Date()
+  // Any unexpired session counts — don't assume the array is sorted.
+  return sessions.some(s => new Date(s.expiresAt) > new Date())
 }
 
 export default function PortalAdminPage() {
@@ -231,7 +231,11 @@ export default function PortalAdminPage() {
                     {user.client.name}
                   </div>
                   {/* Last login */}
-                  <div style={{ fontSize: "12px", color: "var(--muted)" }}>{formatDate(user.lastLoginAt)}</div>
+                  <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+                    {user.lastLoginAt
+                      ? formatDate(user.lastLoginAt)
+                      : <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", fontWeight: 500, background: "rgba(245,158,11,0.14)", color: "#f59e0b" }}>Never logged in</span>}
+                  </div>
                   {/* Status badge */}
                   <div>
                     <span style={{

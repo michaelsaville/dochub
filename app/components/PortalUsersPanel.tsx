@@ -129,7 +129,9 @@ export default function PortalUsersPanel({ clientId, people = [] }: { clientId: 
     } finally { setResetting(false) }
   }
 
-  const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/portal/login` : "/portal/login"
+  // The customer portal moved to the unified super-portal — /portal here just
+  // redirects there, so hand customers the real login URL.
+  const portalUrl = "https://portal.pcc2k.com/"
 
   return (
     <div>
