@@ -17,15 +17,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  watchtower:
-    image: containrrr/watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/msaville/.docker/config.json:/root/.docker/config.json:ro
-    environment:
-      - DOCKER_API_VERSION=1.41
-    command: --interval 30 --cleanup
+  # Watchtower removed 2026-05-29 — it was a non-functional zombie on this host
+  # (containerd image store + DOCKER_API_VERSION pin; the poll loop never ran,
+  # even after a clean restart). Deploys are now explicit and reliable:
+  #   ./deploy.sh   (after CI finishes building a pushed commit)
+  # deploy.sh self-heals GHCR auth from the gh CLI token, so an expired docker
+  # credential can't silently break deploys again.
 
 volumes:
   postgres_data:

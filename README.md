@@ -137,7 +137,21 @@ Caddy handles TLS automatically via Let's Encrypt.
 
 ### Updates
 
-Watchtower polls for new image versions every 30 seconds and restarts the `app` container automatically when a new image is published to GHCR. No action needed.
+Pushing to `master` triggers the GitHub Actions workflow, which builds the image
+and pushes it to GHCR. To deploy that image to the server, run the deploy script
+on the host:
+
+```bash
+~/dochub/deploy.sh
+```
+
+It logs into GHCR (refreshing the credential from the `gh` CLI token), pulls
+`ghcr.io/michaelsaville/dochub:latest`, recreates the `app` container, and waits
+for a healthy response before exiting.
+
+> Watchtower used to do this automatically but was removed on 2026-05-29 — it
+> was non-functional on this host's containerd image store (the poll loop never
+> ran). Deploys are now explicit via `deploy.sh`.
 
 ---
 
