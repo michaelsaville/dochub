@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google"
 import "./globals.css"
 import Providers from "./providers"
@@ -27,6 +27,15 @@ export const metadata: Metadata = {
   icons: {
     apple: "/icons/icon-192.png",
   },
+}
+
+// Real mobile rendering: device-width + cover so the PWA isn't a shrunk
+// desktop page and safe-area insets (notch / home bar) activate.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#3b82f6",
 }
 
 export default function RootLayout({

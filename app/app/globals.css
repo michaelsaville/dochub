@@ -146,11 +146,30 @@ html, body {
     z-index: 30;
     border-top: 0.5px solid var(--color-border-secondary);
     background: var(--color-background-primary);
+    /* Clear the iOS home indicator. */
+    padding-bottom: env(safe-area-inset-bottom);
   }
   /* Bump bottom padding on scrollable main content so the bar doesn't
-     cover the last row. */
+     cover the last row (account for the home-bar inset too). */
   main {
-    padding-bottom: 72px !important;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+  }
+  /* Page bodies use inline 32px padding — claw back screen on phones. */
+  main > div {
+    padding: 16px !important;
+  }
+  /* Opt-in: collapse a multi-column card grid to a single column on phones
+     (applied to the per-client dashboard cards + asset form). */
+  .pcc-collapse-mobile {
+    grid-template-columns: 1fr !important;
+  }
+  /* Lift the FAB + sync badge above the bottom bar (+ home-bar inset) so they
+     don't sit on top of the nav. */
+  .pcc-fab {
+    bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+  }
+  .pcc-sync-badge {
+    bottom: calc(84px + env(safe-area-inset-bottom)) !important;
   }
   /* Tab bar gets a scroll-snap so swipes land cleanly on tab edges. */
   .pcc-tab-bar {

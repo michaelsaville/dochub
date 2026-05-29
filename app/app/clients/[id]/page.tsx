@@ -1687,7 +1687,7 @@ export default function ClientDetailPage() {
         {activeTab === "Dashboard" && (
           <div style={{ maxWidth: "960px" }}>
             {/* Top row: details + notes */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+            <div className="pcc-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "20px" }}>
                 <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>Details</div>
                 {[
@@ -1801,6 +1801,9 @@ export default function ClientDetailPage() {
                           } style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                             {dashRevealedPasswords[cred.id] ? "Hide" : "Show"}
                           </button>
+                          {dashRevealedPasswords[cred.id] && (
+                            <button onClick={() => navigator.clipboard.writeText(dashRevealedPasswords[cred.id])} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
+                          )}
                         </div>
                       )}
                       {cred.hasTotp && (
@@ -1922,8 +1925,9 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                     {(loc.address || loc.city) && (
-                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
-                        {[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}
+                      <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginTop: "4px", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                        <span>{[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}</span>
+                        <a href={`https://maps.google.com/?q=${encodeURIComponent([loc.address, loc.city, loc.state].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>↗ Directions</a>
                       </div>
                     )}
                     {((loc as any).ispName || (loc as any).wanIp) && (
@@ -2048,9 +2052,9 @@ export default function ClientDetailPage() {
                     </div>
                     {(person.email || person.phone || person.mobile || person.m365Upn) && (
                       <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "12px" }}>
-                        {person.email && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{person.email}</span>}
-                        {person.phone && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{person.phone}</span>}
-                        {person.mobile && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{person.mobile}</span>}
+                        {person.email && <a href={`mailto:${person.email}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>✉ {person.email}</a>}
+                        {person.phone && <a href={`tel:${person.phone}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>☎ {person.phone}</a>}
+                        {person.mobile && <><a href={`tel:${person.mobile}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>☎ {person.mobile}</a><a href={`sms:${person.mobile}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>💬 text</a></>}
                         {person.m365Upn && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{person.m365Upn}</span>}
                       </div>
                     )}

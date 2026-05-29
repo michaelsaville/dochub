@@ -60,7 +60,7 @@ export default function QuickAddFab() {
       ]
 
   return (
-    <div ref={ref} style={{ position: "fixed", bottom: 28, right: 28, zIndex: 40 }}>
+    <div ref={ref} className="pcc-fab" style={{ position: "fixed", bottom: 28, right: 28, zIndex: 40 }}>
       {open && (
         <div
           style={{

@@ -439,7 +439,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
               <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "6px" }}>
                 <label style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", background: "rgba(0,0,0,0.7)", color: "#e2e8f0", cursor: "pointer", border: "1px solid #475569" }}>
                   Replace
-                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadRackPhoto(rack.id, f); e.target.value = "" }} />
+                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadRackPhoto(rack.id, f); e.target.value = "" }} />
                 </label>
                 <button onClick={() => removeRackPhoto(rack.id)} style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", background: "rgba(0,0,0,0.7)", color: "#fca5a5", cursor: "pointer", border: "1px solid #7f1d1d" }}>
                   Remove
@@ -454,7 +454,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
               background: "transparent",
             }}>
               {uploadingPhotoFor === rack.id ? "Uploading..." : "+ Add rack photo"}
-              <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingPhotoFor === rack.id} onChange={e => { const f = e.target.files?.[0]; if (f) uploadRackPhoto(rack.id, f); e.target.value = "" }} />
+              <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} disabled={uploadingPhotoFor === rack.id} onChange={e => { const f = e.target.files?.[0]; if (f) uploadRackPhoto(rack.id, f); e.target.value = "" }} />
             </label>
           )}
         </div>

@@ -18,6 +18,7 @@ export default function MobileBottomBar({ onOpenSearch }: Props) {
   const items: { label: string; icon: string; onClick: () => void; match: string }[] = [
     { label: "Home",    icon: "🏠", onClick: () => router.push("/dashboard"), match: "/dashboard" },
     { label: "Clients", icon: "🏢", onClick: () => router.push("/clients"),   match: "/clients" },
+    { label: "Scan",    icon: "📷", onClick: () => router.push("/scan"),       match: "/scan" },
     { label: "Search",  icon: "🔍", onClick: () => onOpenSearch?.(),           match: "" },
     { label: "Vault",   icon: "🔐", onClick: () => router.push("/settings?section=my-vault"), match: "/settings" },
   ]

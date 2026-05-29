@@ -529,7 +529,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                             <div style={{ position: "absolute", top: "6px", right: "6px", display: "flex", gap: "4px" }}>
                               <label style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: "rgba(0,0,0,0.7)", color: "#e2e8f0", cursor: "pointer", border: "1px solid #475569" }}>
                                 Replace
-                                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCameraPhoto(cam.id, system.id, f); e.target.value = "" }} />
+                                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCameraPhoto(cam.id, system.id, f); e.target.value = "" }} />
                               </label>
                               <button onClick={() => removeCameraPhoto(cam.id, system.id)} style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "4px", background: "rgba(0,0,0,0.7)", color: "#fca5a5", cursor: "pointer", border: "1px solid #7f1d1d" }}>Remove</button>
                             </div>
@@ -542,7 +542,7 @@ export default function CameraPanel({ systems, assets, credentials, clientId, on
                         ) : (
                           <label style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--color-text-muted)", cursor: "pointer", padding: "4px 8px", borderRadius: "5px", border: "1px dashed var(--color-border-secondary)" }}>
                             {uploadingPhotoFor === cam.id ? "Uploading..." : "📷 Add field-of-view photo"}
-                            <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingPhotoFor === cam.id} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCameraPhoto(cam.id, system.id, f); e.target.value = "" }} />
+                            <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} disabled={uploadingPhotoFor === cam.id} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCameraPhoto(cam.id, system.id, f); e.target.value = "" }} />
                           </label>
                         )}
                       </div>

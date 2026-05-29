@@ -26,6 +26,7 @@ export default function SyncStatusBadge() {
   return (
     <button
       onClick={() => { if (state.online) flushQueue() }}
+      className="pcc-sync-badge"
       style={{
         position: "fixed",
         bottom: "16px",
