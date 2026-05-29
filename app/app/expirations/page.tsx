@@ -4,7 +4,7 @@ import AppShell from "@/components/AppShell"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 
-type Category = "ssl" | "domain" | "warranty" | "credential" | "license"
+type Category = "ssl" | "domain" | "warranty" | "credential" | "license" | "contract" | "vpncert" | "circuit"
 type UrgencyKey = "expired" | "critical" | "warning" | "upcoming"
 
 type ExpirationItem = {
@@ -24,6 +24,9 @@ const CATEGORY_META: Record<Category, { label: string; color: string; bg: string
   warranty:   { label: "Warranty",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
   credential: { label: "Credential", color: "#ec4899", bg: "rgba(236,72,153,0.12)"  },
   license:    { label: "License",    color: "#3b82f6", bg: "rgba(59,130,246,0.12)"  },
+  contract:   { label: "Contract",   color: "#8b5cf6", bg: "rgba(139,92,246,0.12)"  },
+  vpncert:    { label: "VPN cert",   color: "#14b8a6", bg: "rgba(20,184,166,0.12)"  },
+  circuit:    { label: "Circuit",    color: "#0ea5e9", bg: "rgba(14,165,233,0.12)"  },
 }
 
 const URGENCY_META: Record<UrgencyKey, { label: string; color: string; bg: string }> = {
@@ -104,6 +107,9 @@ const CATEGORIES: Array<{ key: Category | "all"; label: string }> = [
   { key: "warranty",   label: "Warranties"  },
   { key: "credential", label: "Credentials" },
   { key: "license",    label: "Licenses"    },
+  { key: "contract",   label: "Contracts"   },
+  { key: "vpncert",    label: "VPN certs"   },
+  { key: "circuit",    label: "Circuits"    },
 ]
 
 export default function ExpirationsPage() {

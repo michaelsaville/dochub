@@ -1924,7 +1924,13 @@ export default function ClientDetailPage() {
                       <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>{f.label}</label>
                       <input
                         value={(personForm as any)[f.key]}
-                        onChange={e => setPersonForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        onChange={e => setPersonForm(prev => {
+                          const next = { ...prev, [f.key]: e.target.value }
+                          // M365 UPN is the email for the vast majority of users — keep
+                          // it mirroring email until the tech deliberately diverges it.
+                          if (f.key === "email" && (!prev.m365Upn || prev.m365Upn === prev.email)) next.m365Upn = e.target.value
+                          return next
+                        })}
                         placeholder={f.placeholder}
                         style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}
                       />
@@ -2534,7 +2540,13 @@ export default function ClientDetailPage() {
                 {client.people.length > 0 && (
                   <div style={{ marginBottom: "12px" }}>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Link to person</label>
-                    <select value={credForm.userId} onChange={e => setCredForm(f => ({ ...f, userId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
+                    <select value={credForm.userId} onChange={e => {
+                      const pid = e.target.value
+                      const p = client.people.find(x => x.id === pid)
+                      // Linking a person prefills the login username from their UPN/email
+                      // when it's still blank — the login is almost always their email.
+                      setCredForm(f => ({ ...f, userId: pid, username: f.username || (p ? (p.m365Upn || p.email || "") : "") }))
+                    }} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
                       <option value="">None</option>
                       {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>

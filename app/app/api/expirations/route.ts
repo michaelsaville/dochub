@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const clientId = url.searchParams.get("clientId") || undefined
 
-  const [sslCerts, domains, warranties, credentials, licenses, vendorContracts] = await Promise.all([
+  const [sslCerts, domains, warranties, credentials, licenses, vendorContracts, vpnCerts, circuits] = await Promise.all([
     prisma.website.findMany({
       where: {
         sslExpiresAt: { not: null },
@@ -85,6 +85,33 @@ export async function GET(req: Request) {
       },
       orderBy: { endDate: "asc" },
     }),
+    prisma.vpnAccessor.findMany({
+      where: {
+        isActive: true,
+        certExpiry: { not: null },
+        ...(clientId ? { gateway: { clientId } } : {}),
+      },
+      select: {
+        id: true, certExpiry: true, thirdPartyName: true,
+        person: { select: { name: true } },
+        vendor: { select: { name: true } },
+        staffUser: { select: { name: true } },
+        gateway: { select: { id: true, name: true, client: { select: { id: true, name: true } } } },
+      },
+      orderBy: { certExpiry: "asc" },
+    }),
+    prisma.internetCircuit.findMany({
+      where: {
+        contractEnd: { not: null },
+        ...(clientId ? { clientId } : {}),
+      },
+      select: {
+        id: true, label: true, contractEnd: true,
+        client: { select: { id: true, name: true } },
+        vendor: { select: { name: true } },
+      },
+      orderBy: { contractEnd: "asc" },
+    }),
   ])
 
   const items = [
@@ -146,6 +173,26 @@ export async function GET(req: Request) {
       clientId: v.client?.id ?? "",
       clientName: v.client?.name ?? v.vendor.name,
       linkPath: `/vendors/${v.vendor.id}`,
+    })),
+    ...vpnCerts.map(a => ({
+      id: `vpncert-${a.id}`,
+      category: "vpncert" as const,
+      label: `${a.person?.name ?? a.vendor?.name ?? a.staffUser?.name ?? a.thirdPartyName ?? "VPN access"} cert`,
+      sublabel: a.gateway.name,
+      expiresAt: a.certExpiry!.toISOString(),
+      clientId: a.gateway.client.id,
+      clientName: a.gateway.client.name,
+      linkPath: `/clients/${a.gateway.client.id}?tab=Remote Access`,
+    })),
+    ...circuits.map(c => ({
+      id: `circuit-${c.id}`,
+      category: "circuit" as const,
+      label: c.label,
+      sublabel: c.vendor?.name ?? undefined,
+      expiresAt: c.contractEnd!.toISOString(),
+      clientId: c.client.id,
+      clientName: c.client.name,
+      linkPath: `/clients/${c.client.id}?tab=Network`,
     })),
   ].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime())
 

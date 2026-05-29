@@ -525,7 +525,13 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
           </div>
           <div>
             <label style={lbl}>Person</label>
-            <select style={inp} value={extForm.personId} onChange={e => setExtForm(f => ({ ...f, personId: e.target.value }))}>
+            <select style={inp} value={extForm.personId} onChange={e => {
+              const pid = e.target.value
+              const p = people.find(x => x.id === pid)
+              // Picking the extension's owner fills the display name from their
+              // name when it's blank (ring groups/IVR have no person, so keep editable).
+              setExtForm(f => ({ ...f, personId: pid, displayName: f.displayName || (p?.name ?? "") }))
+            }}>
               <option value="">— None —</option>
               {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>

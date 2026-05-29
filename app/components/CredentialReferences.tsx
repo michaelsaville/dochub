@@ -8,6 +8,15 @@ type Refs = {
   vpnGateways: { id: string; name: string; clientId: string | null }[]
   vpnAccessors: { id: string; vendor: { id: string; name: string } | null }[]
   phoneSystems: { id: string; name: string; clientId: string | null }[]
+  phoneExtensions: { id: string; extension: string; displayName: string }[]
+  voicemailExtensions: { id: string; extension: string; displayName: string }[]
+  wifiControllers: { id: string; name: string; clientId: string | null }[]
+  wifiNetworks: { id: string; ssid: string; controller: { clientId: string } | null }[]
+  cameraSystems: { id: string; name: string; clientId: string | null }[]
+  internetCircuits: { id: string; label: string; clientId: string | null }[]
+  adDomains: { id: string; name: string; clientId: string | null }[]
+  ptpLinks: { id: string; name: string; clientId: string | null }[]
+  assetInterfaces: { id: string; name: string; asset: { id: string; name: string; friendlyName: string | null } | null }[]
   total: number
 }
 
@@ -76,6 +85,35 @@ export default function CredentialReferences({ credentialId }: { credentialId: s
               ))}
               {refs.phoneSystems.map(p => (
                 <li key={p.id}>Phone system: {p.name}</li>
+              ))}
+              {refs.phoneExtensions.map(e => (
+                <li key={e.id}>Phone ext {e.extension}{e.displayName ? ` — ${e.displayName}` : ""}</li>
+              ))}
+              {refs.voicemailExtensions.map(e => (
+                <li key={`vm-${e.id}`}>Voicemail ext {e.extension}{e.displayName ? ` — ${e.displayName}` : ""}</li>
+              ))}
+              {refs.wifiControllers.map(w => (
+                <li key={w.id}>WiFi controller: {w.name}</li>
+              ))}
+              {refs.wifiNetworks.map(w => (
+                <li key={w.id}>WiFi PSK: {w.ssid}</li>
+              ))}
+              {refs.cameraSystems.map(c => (
+                <li key={c.id}>Camera system: {c.name}</li>
+              ))}
+              {refs.internetCircuits.map(c => (
+                <li key={c.id}>Circuit: {c.label}</li>
+              ))}
+              {refs.adDomains.map(d => (
+                <li key={d.id}>AD domain: {d.name}</li>
+              ))}
+              {refs.ptpLinks.map(p => (
+                <li key={p.id}>PTP link: {p.name}</li>
+              ))}
+              {refs.assetInterfaces.map(i => (
+                <li key={i.id}>
+                  Interface {i.name}{i.asset ? <> on <a href={`/assets/${i.asset.id}`} style={{ color: "#3b82f6", textDecoration: "none" }}>{i.asset.friendlyName ?? i.asset.name}</a></> : ""}
+                </li>
               ))}
             </ul>
           )}

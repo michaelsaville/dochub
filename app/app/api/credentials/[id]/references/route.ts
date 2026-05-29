@@ -23,6 +23,15 @@ export async function GET(
       vpnGateways: { select: { id: true, name: true, clientId: true } },
       vpnAccessors: { select: { id: true, vendor: { select: { id: true, name: true } } } },
       phoneSystems: { select: { id: true, name: true, clientId: true } },
+      phoneExtensions: { select: { id: true, extension: true, displayName: true } },
+      voicemailExtensions: { select: { id: true, extension: true, displayName: true } },
+      wifiControllers: { select: { id: true, name: true, clientId: true } },
+      wifiNetworks: { select: { id: true, ssid: true, controller: { select: { clientId: true } } } },
+      cameraSystems: { select: { id: true, name: true, clientId: true } },
+      internetCircuits: { select: { id: true, label: true, clientId: true } },
+      adDomains: { select: { id: true, name: true, clientId: true } },
+      ptpLinks: { select: { id: true, name: true, clientId: true } },
+      assetInterfaces: { select: { id: true, name: true, asset: { select: { id: true, name: true, friendlyName: true } } } },
     },
   })
   if (!cred) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -33,11 +42,29 @@ export async function GET(
     vpnGateways: cred.vpnGateways,
     vpnAccessors: cred.vpnAccessors,
     phoneSystems: cred.phoneSystems,
+    phoneExtensions: cred.phoneExtensions,
+    voicemailExtensions: cred.voicemailExtensions,
+    wifiControllers: cred.wifiControllers,
+    wifiNetworks: cred.wifiNetworks,
+    cameraSystems: cred.cameraSystems,
+    internetCircuits: cred.internetCircuits,
+    adDomains: cred.adDomains,
+    ptpLinks: cred.ptpLinks,
+    assetInterfaces: cred.assetInterfaces,
     total:
       (cred.asset ? 1 : 0) +
       (cred.person ? 1 : 0) +
       cred.vpnGateways.length +
       cred.vpnAccessors.length +
-      cred.phoneSystems.length,
+      cred.phoneSystems.length +
+      cred.phoneExtensions.length +
+      cred.voicemailExtensions.length +
+      cred.wifiControllers.length +
+      cred.wifiNetworks.length +
+      cred.cameraSystems.length +
+      cred.internetCircuits.length +
+      cred.adDomains.length +
+      cred.ptpLinks.length +
+      cred.assetInterfaces.length,
   })
 }

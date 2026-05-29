@@ -939,6 +939,8 @@ export default function SettingsPage() {
                         { key: "alerts:categories:warranties",  label: "Warranties"  },
                         { key: "alerts:categories:credentials", label: "Credentials" },
                         { key: "alerts:categories:licenses",    label: "Licenses"    },
+                        { key: "alerts:categories:vpncerts",    label: "VPN certs"   },
+                        { key: "alerts:categories:circuits",    label: "Circuits"    },
                       ].map(({ key, label }) => (
                         <label key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
                           <input
@@ -959,6 +961,7 @@ export default function SettingsPage() {
                       "alerts:threshold:warn", "alerts:threshold:critical",
                       "alerts:categories:ssl", "alerts:categories:domains", "alerts:categories:warranties",
                       "alerts:categories:credentials", "alerts:categories:licenses",
+                      "alerts:categories:vpncerts", "alerts:categories:circuits",
                     ])}
                     disabled={savingIntegration}
                     style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}

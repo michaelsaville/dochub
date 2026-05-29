@@ -36,6 +36,7 @@ export async function GET(req: Request) {
           "alerts:threshold:warn", "alerts:threshold:critical",
           "alerts:categories:ssl", "alerts:categories:domains", "alerts:categories:warranties",
           "alerts:categories:credentials", "alerts:categories:licenses",
+          "alerts:categories:vpncerts", "alerts:categories:circuits",
         ],
       },
     },
@@ -51,6 +52,8 @@ export async function GET(req: Request) {
   const inclWarranties  = cfg["alerts:categories:warranties"]  !== "false"
   const inclCredentials = cfg["alerts:categories:credentials"] !== "false"
   const inclLicenses    = cfg["alerts:categories:licenses"]    !== "false"
+  const inclVpnCerts    = cfg["alerts:categories:vpncerts"]    !== "false"
+  const inclCircuits    = cfg["alerts:categories:circuits"]    !== "false"
 
   // Email is just one channel — a missing Resend config must NOT short-circuit
   // Teams/push (it used to early-return and skip every channel).
@@ -60,7 +63,7 @@ export async function GET(req: Request) {
   const inWarn = new Date(Date.now() + warnDays     * 86400000)
   const inCrit = new Date(Date.now() + criticalDays * 86400000)
 
-  const [sslCerts, domains, warranties, credentials, licenses] = await Promise.all([
+  const [sslCerts, domains, warranties, credentials, licenses, vpnCerts, circuits] = await Promise.all([
     inclSsl ? prisma.website.findMany({
       where: { sslExpiresAt: { not: null, lte: inWarn } },
       select: { id: true, domain: true, sslExpiresAt: true, client: { select: { name: true } } },
@@ -86,6 +89,20 @@ export async function GET(req: Request) {
       select: { id: true, name: true, expiryDate: true, client: { select: { name: true } } },
       orderBy: { expiryDate: "asc" },
     }) : [],
+    inclVpnCerts ? prisma.vpnAccessor.findMany({
+      where: { isActive: true, certExpiry: { not: null, lte: inWarn } },
+      select: {
+        id: true, certExpiry: true, thirdPartyName: true,
+        person: { select: { name: true } }, vendor: { select: { name: true } }, staffUser: { select: { name: true } },
+        gateway: { select: { name: true, client: { select: { name: true } } } },
+      },
+      orderBy: { certExpiry: "asc" },
+    }) : [],
+    inclCircuits ? prisma.internetCircuit.findMany({
+      where: { contractEnd: { not: null, lte: inWarn } },
+      select: { id: true, label: true, contractEnd: true, client: { select: { name: true } } },
+      orderBy: { contractEnd: "asc" },
+    }) : [],
   ])
 
   const all: ExpirationDigestItem[] = [
@@ -94,6 +111,8 @@ export async function GET(req: Request) {
     ...warranties.map(a => ({ category: "Warranty", label: a.friendlyName ?? a.name, clientName: a.location.client.name, expiresAt: a.warrantyExpiry! })),
     ...credentials.map(c => ({ category: "Credential", label: c.label, clientName: c.client.name, expiresAt: c.expiryDate! })),
     ...licenses.map(l => ({ category: "License", label: l.name, clientName: l.client.name, expiresAt: l.expiryDate! })),
+    ...vpnCerts.map(a => ({ category: "VPN cert", label: `${a.person?.name ?? a.vendor?.name ?? a.staffUser?.name ?? a.thirdPartyName ?? "VPN access"} (${a.gateway.name})`, clientName: a.gateway.client.name, expiresAt: a.certExpiry! })),
+    ...circuits.map(c => ({ category: "Circuit", label: c.label, clientName: c.client.name, expiresAt: c.contractEnd! })),
   ].sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
 
   if (all.length === 0) {
