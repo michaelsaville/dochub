@@ -183,7 +183,7 @@ export default function AssetDetailPage() {
   const [loadingIfaces, setLoadingIfaces] = useState(false)
   const [showAddIface, setShowAddIface] = useState(false)
   const [ifaceForm, setIfaceForm] = useState({
-    name: "eth0", type: "ETHERNET", macAddress: "", ipAddress: "", notes: "",
+    name: "eth0", type: "ETHERNET", macAddress: "", ipAddress: "", vlanId: "", notes: "",
     tailscaleIp: "", tailscaleHostname: "", tailscaleDeviceId: "",
     tailscaleIsExitNode: false, tailscaleIsSubnetRouter: false,
     tailscaleSubnets: "", tailscaleTags: "", tailscaleOs: "", tailscaleVersion: "",
@@ -191,6 +191,12 @@ export default function AssetDetailPage() {
   const [savingIface, setSavingIface] = useState(false)
   const [editingIface, setEditingIface] = useState<string | null>(null)
   const [ifaceEditForm, setIfaceEditForm] = useState<any>({})
+
+  // Client VLANs — for the interface VLAN picker (relate, don't retype)
+  const [vlans, setVlans] = useState<{ id: string; vlanNumber: number; name: string; color: string }[]>([])
+  const [showNewVlan, setShowNewVlan] = useState<string | null>(null)
+  const [newVlanForm, setNewVlanForm] = useState({ vlanNumber: "", name: "", color: "#6366f1" })
+  const [savingVlan, setSavingVlan] = useState(false)
 
   // Asset links
   const [assetLinks, setAssetLinks] = useState<any[]>([])
@@ -281,7 +287,7 @@ export default function AssetDetailPage() {
     if (id) {
       fetch("/api/assets/" + id)
         .then(r => r.ok ? r.json() : Promise.reject())
-        .then(d => { setAsset(d); if (d.assetType?.name === "NAS") fetchSynology() })
+        .then(d => { setAsset(d); if (d.assetType?.name === "NAS") fetchSynology(); if (d.location?.client?.id) fetchVlans(d.location.client.id) })
         .catch(() => router.back())
         .finally(() => setLoading(false))
       fetchInterfaces()
@@ -343,6 +349,39 @@ export default function AssetDetailPage() {
     }
   }
 
+  async function fetchVlans(clientId: string) {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/vlans`)
+      if (res.ok) setVlans(await res.json())
+    } catch { /* non-fatal — picker just shows existing none */ }
+  }
+
+  // Inline create-and-link: add a VLAN to the client without leaving the asset.
+  // `onPicked` receives the new VLAN id so the open form can select it immediately.
+  async function createVlan(onPicked: (vlanId: string) => void) {
+    const clientId = asset?.location?.client?.id
+    if (!clientId || !newVlanForm.vlanNumber || !newVlanForm.name.trim()) return
+    setSavingVlan(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/vlans`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newVlanForm),
+      })
+      if (res.ok) {
+        const v = await res.json()
+        setVlans(prev => [...prev, v].sort((a, b) => a.vlanNumber - b.vlanNumber))
+        onPicked(v.id)
+        setNewVlanForm({ vlanNumber: "", name: "", color: "#6366f1" })
+        setShowNewVlan(null)
+      } else {
+        const e = await res.json().catch(() => ({}))
+        alert(e.error || "Failed to create VLAN")
+      }
+    } finally {
+      setSavingVlan(false)
+    }
+  }
+
   async function addInterface() {
     if (!ifaceForm.name.trim()) return
     setSavingIface(true)
@@ -355,7 +394,7 @@ export default function AssetDetailPage() {
         const iface = await res.json()
         setInterfaces(prev => [...prev, iface])
         setIfaceForm({
-          name: "eth0", type: "ETHERNET", macAddress: "", ipAddress: "", notes: "",
+          name: "eth0", type: "ETHERNET", macAddress: "", ipAddress: "", vlanId: "", notes: "",
           tailscaleIp: "", tailscaleHostname: "", tailscaleDeviceId: "",
           tailscaleIsExitNode: false, tailscaleIsSubnetRouter: false,
           tailscaleSubnets: "", tailscaleTags: "", tailscaleOs: "", tailscaleVersion: "",
@@ -504,6 +543,36 @@ export default function AssetDetailPage() {
   const hasRemoteAccess = asset.splashtopUrl || asset.rdpEnabled || asset.vncEnabled || asset.managementUrl
   const vncTarget = `vnc://${asset.vncHost || asset.ipAddress}:${asset.vncPort ?? 5900}`
   const warrantyExpired = asset.warrantyExpiry && new Date(asset.warrantyExpiry) < new Date()
+
+  // VLAN picker — reused by the add-interface and edit-interface forms.
+  // A render helper (invoked as a call, not a <Component/>) so its inputs keep
+  // focus across re-renders. scopeKey isolates the inline-create toggle per form.
+  const fieldStyle = { width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
+  function renderVlanPicker(currentVlanId: string, onChange: (v: string) => void, scopeKey: string) {
+    return (
+      <div style={{ marginBottom: "6px" }}>
+        <label style={{ fontSize: "11px", color: "var(--color-text-muted)", display: "block", marginBottom: "2px" }}>VLAN</label>
+        {showNewVlan === scopeKey ? (
+          <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+            <input type="number" value={newVlanForm.vlanNumber} onChange={e => setNewVlanForm(f => ({ ...f, vlanNumber: e.target.value }))} placeholder="VID"
+              style={{ ...fieldStyle, width: "60px" }} />
+            <input value={newVlanForm.name} onChange={e => setNewVlanForm(f => ({ ...f, name: e.target.value }))} placeholder="Name (e.g. Servers)"
+              style={{ ...fieldStyle, flex: 1 }} />
+            <button type="button" onClick={() => createVlan(onChange)} disabled={savingVlan || !newVlanForm.vlanNumber || !newVlanForm.name.trim()}
+              style={{ fontSize: "11px", padding: "5px 8px", borderRadius: "5px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", whiteSpace: "nowrap" as const }}>{savingVlan ? "..." : "Add"}</button>
+            <button type="button" onClick={() => setShowNewVlan(null)}
+              style={{ fontSize: "11px", padding: "5px 6px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>✕</button>
+          </div>
+        ) : (
+          <select value={currentVlanId} onChange={e => { if (e.target.value === "__new__") { setShowNewVlan(scopeKey) } else { onChange(e.target.value) } }} style={fieldStyle}>
+            <option value="">— none —</option>
+            {vlans.map(v => <option key={v.id} value={v.id}>VLAN {v.vlanNumber} – {v.name}</option>)}
+            <option value="__new__">+ New VLAN…</option>
+          </select>
+        )}
+      </div>
+    )
+  }
 
   return (
     <AppShell>
@@ -747,6 +816,7 @@ export default function AssetDetailPage() {
                         style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                     </div>
                   ))}
+                  {ifaceForm.type !== "TAILSCALE" && renderVlanPicker(ifaceForm.vlanId, v => setIfaceForm(f => ({ ...f, vlanId: v })), "add")}
                   {ifaceForm.type === "TAILSCALE" && (
                     <>
                       {[
@@ -806,6 +876,7 @@ export default function AssetDetailPage() {
                           style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                       </div>
                     ))}
+                    {iface.type !== "TAILSCALE" && renderVlanPicker(ifaceEditForm.vlanId ?? "", v => setIfaceEditForm((f: any) => ({ ...f, vlanId: v })), iface.id)}
                     <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
                       <button onClick={() => updateInterface(iface.id)} disabled={savingIface}
                         style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "5px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
@@ -822,7 +893,7 @@ export default function AssetDetailPage() {
                         {iface.type !== "ETHERNET" && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: iface.type === "TAILSCALE" ? "rgba(74,144,226,0.15)" : "var(--color-background-hover)", color: iface.type === "TAILSCALE" ? "#4A90E2" : "var(--color-text-muted)" }}>{iface.type.toLowerCase()}</span>}
                       </div>
                       <div style={{ display: "flex", gap: "6px" }}>
-                        <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", notes: iface.notes ?? "", tailscaleIp: iface.tailscaleIp ?? "", tailscaleHostname: iface.tailscaleHostname ?? "", tailscaleDeviceId: iface.tailscaleDeviceId ?? "", tailscaleIsExitNode: iface.tailscaleIsExitNode, tailscaleIsSubnetRouter: iface.tailscaleIsSubnetRouter, tailscaleSubnets: iface.tailscaleSubnets ?? "", tailscaleTags: iface.tailscaleTags ?? "", tailscaleOs: iface.tailscaleOs ?? "", tailscaleVersion: iface.tailscaleVersion ?? "" }) }}
+                        <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", vlanId: iface.vlan?.id ?? "", notes: iface.notes ?? "", tailscaleIp: iface.tailscaleIp ?? "", tailscaleHostname: iface.tailscaleHostname ?? "", tailscaleDeviceId: iface.tailscaleDeviceId ?? "", tailscaleIsExitNode: iface.tailscaleIsExitNode, tailscaleIsSubnetRouter: iface.tailscaleIsSubnetRouter, tailscaleSubnets: iface.tailscaleSubnets ?? "", tailscaleTags: iface.tailscaleTags ?? "", tailscaleOs: iface.tailscaleOs ?? "", tailscaleVersion: iface.tailscaleVersion ?? "" }) }}
                           style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }}>Edit</button>
                         <button onClick={() => deleteInterface(iface.id)}
                           style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: 0 }}>×</button>
