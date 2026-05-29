@@ -79,11 +79,17 @@ type Asset = {
   make: string | null
   model: string | null
   serial: string | null
+  assetTag: string | null
   ipAddress: string | null
   macAddress: string | null
+  vlan: string | null
+  switchPort: string | null
+  room: string | null
+  purchaseDate: string | null
   status: string
   managementUrl: string | null
   splashtopUrl: string | null
+  driverUrl: string | null
   isFavorite: boolean
   rdpEnabled: boolean
   rdpHost: string | null
@@ -2389,13 +2395,20 @@ export default function ClientDetailPage() {
                           {[
                             { key: "name", label: "Name" }, { key: "friendlyName", label: "Friendly Name" },
                             { key: "make", label: "Make" }, { key: "model", label: "Model" },
-                            { key: "serial", label: "Serial" },
+                            { key: "serial", label: "Serial" }, { key: "assetTag", label: "Asset Tag" },
                             { key: "ipAddress", label: "IP Address" }, { key: "macAddress", label: "MAC Address" },
-                            { key: "managementUrl", label: "Management URL" }, { key: "notes", label: "Notes" },
-                          ].map(({ key, label }) => (
-                            <div key={key} style={key === "notes" || key === "managementUrl" ? { gridColumn: "1 / -1" } : {}}>
+                            { key: "vlan", label: "VLAN" }, { key: "switchPort", label: "Switch Port" },
+                            { key: "room", label: "Room" },
+                            { key: "os", label: "OS" }, { key: "cpu", label: "CPU" },
+                            { key: "ram", label: "RAM" }, { key: "storageCapacity", label: "Storage" },
+                            { key: "firmwareVersion", label: "Firmware" }, { key: "portCount", label: "Port Count", type: "number" },
+                            { key: "purchaseDate", label: "Purchase Date", type: "date" }, { key: "warrantyExpiry", label: "Warranty Expiry", type: "date" },
+                            { key: "managementUrl", label: "Management URL" }, { key: "splashtopUrl", label: "Splashtop URL" },
+                            { key: "driverUrl", label: "Driver URL" }, { key: "notes", label: "Notes" },
+                          ].map(({ key, label, type }) => (
+                            <div key={key} style={key === "notes" || key === "managementUrl" || key === "splashtopUrl" || key === "driverUrl" ? { gridColumn: "1 / -1" } : {}}>
                               <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                              <input value={assetEditForm[key] ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
+                              <input type={type ?? "text"} value={assetEditForm[key] ?? ""} onChange={e => setAssetEditForm((f: any) => ({ ...f, [key]: e.target.value }))}
                                 style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                             </div>
                           ))}
@@ -2556,7 +2569,7 @@ export default function ClientDetailPage() {
                           <button onClick={() => toggleAssetHistory(asset.id)} style={{ fontSize: "12px", color: loadingAssetHistory[asset.id] ? "var(--color-text-muted)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                             {loadingAssetHistory[asset.id] ? "..." : expandedAssetHistory[asset.id] !== undefined ? "History ▲" : "History"}
                           </button>
-                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", managementUrl: asset.managementUrl ?? "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", assetTag: asset.assetTag ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", vlan: asset.vlan ?? "", switchPort: asset.switchPort ?? "", room: asset.room ?? "", managementUrl: asset.managementUrl ?? "", splashtopUrl: asset.splashtopUrl ?? "", driverUrl: asset.driverUrl ?? "", firmwareVersion: asset.firmwareVersion ?? "", portCount: asset.portCount ?? "", os: asset.os ?? "", ram: asset.ram ?? "", cpu: asset.cpu ?? "", storageCapacity: asset.storageCapacity ?? "", purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : "", warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.slice(0, 10) : "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                         </div>
                       </div>
                       {expandedAssetHistory[asset.id] !== undefined && (

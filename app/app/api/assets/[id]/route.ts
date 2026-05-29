@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { isIpv4, ipInCidr } from "@/lib/cidr"
 
 export async function GET(
   req: Request,
@@ -185,6 +186,47 @@ export async function PATCH(
 
     if (historyEntries.length > 0) {
       await prisma.fieldHistory.createMany({ data: historyEntries })
+    }
+
+    // "Enter once" at EDIT time too: when the asset's IP/MAC change, keep the
+    // primary interface + its IPAM row in sync so the same datum doesn't drift
+    // across the 4 places the create-time spawn unified. Best-effort, non-fatal.
+    const ipChanged = ipAddress !== undefined && (ipAddress?.trim() || null) !== (current?.ipAddress ?? null)
+    const macChanged = macAddress !== undefined && (macAddress?.trim() || null) !== (current?.macAddress ?? null)
+    if (ipChanged || macChanged) {
+      try {
+        const newIp = ipAddress?.trim() || null
+        const newMac = macAddress?.trim() || null
+        const primary = await prisma.assetInterface.findFirst({ where: { assetId: id, isPrimary: true } })
+        if (primary) {
+          await prisma.assetInterface.update({
+            where: { id: primary.id },
+            data: { ...(ipChanged && { ipAddress: newIp }), ...(macChanged && { macAddress: newMac }) },
+          })
+        } else if (newIp || newMac) {
+          await prisma.assetInterface.create({
+            data: { assetId: id, name: "Primary", type: "ETHERNET", ipAddress: newIp, macAddress: newMac, isPrimary: true },
+          })
+        }
+        // Move the asset's existing IPAM row to the new IP when it still fits the
+        // same subnet; never reassign across subnets automatically.
+        if (ipChanged && newIp && isIpv4(newIp)) {
+          const existingAssign = await prisma.ipAssignment.findFirst({
+            where: { assetId: id }, include: { subnet: { select: { cidr: true } } },
+          })
+          if (existingAssign && existingAssign.ipAddress !== newIp && ipInCidr(newIp, existingAssign.subnet.cidr)) {
+            // Guard the @@unique([subnetId, ipAddress]) — only move if the target is free.
+            const clash = await prisma.ipAssignment.findUnique({
+              where: { subnetId_ipAddress: { subnetId: existingAssign.subnetId, ipAddress: newIp } },
+            })
+            if (!clash) {
+              await prisma.ipAssignment.update({ where: { id: existingAssign.id }, data: { ipAddress: newIp } })
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[asset PATCH] interface/IPAM sync failed", id, String(e))
+      }
     }
 
     return NextResponse.json(asset)
