@@ -20,18 +20,42 @@ cleaned up but weren't.
       remaining `itflow_import.py`. Preserved the secret-free `itflow_import_report.md`
       into `Notes/VibeCodeing Projects/DocHub/` then shredded the archive copy.
       (Only `dochubext.zip` — an extension build, no secrets — remains in the dir.)
-- [ ] **Decommission old Linode `45.79.134.250`** — still pingable (~27 ms
-      round-trip from the Dell host). Before cancellation:
-  - Rotate the GitHub PAT that's sitting in its `.git-credentials`
-  - Wipe `.bash_history` (contains ~17 inlined TOKEN / SECRET / PASSWORD
-    patterns from past shell sessions)
-  - Delete the `creds.csv` + `itflow*.sql` copies still on that host
-  - Then cancel at Linode
+- [x] ~~**Decommission old Linode `45.79.134.250`**~~ → **CONFIRMED GONE
+      2026-05-29.** ICMP 100% loss (was ~27 ms in April), and TCP 22/80/443/3000
+      all unreachable — the VM is decommissioned. Its on-disk secrets
+      (`.bash_history`, `creds.csv`/`itflow*.sql` copies) went with it.
+  - [ ] **Residual:** confirm the GitHub PAT that lived in that host's
+        `.git-credentials` was rotated/revoked. The server is gone but the token
+        could still be valid on GitHub — check
+        github.com → Settings → Developer settings → Personal access tokens and
+        delete any old/unrecognised one. (Independent of the dead VM.)
 - [x] ~~**Remove `changeme_before_production` placeholder** from committed
       `docker-compose.yml`~~ → **DONE** (verified 2026-05-28: no longer present
       in `docker-compose.yml`).
 
 ---
+
+## 🟢 Deploy pipeline — diagnosed + FIXED 2026-05-29 (commit `a5f01b4`)
+
+The "push → CI → GHCR → Watchtower" model was broken. Root causes + fixes:
+
+- [x] ~~Host CLI cannot pull from GHCR~~ → **FIXED.** The `ghcr.io` cred in
+      `~/.docker/config.json` was an **expired classic PAT**. Re-logged in with
+      the `gh` CLI token (`gh auth token | docker login ghcr.io -u
+      michaelsaville --password-stdin`) — pull works. `deploy.sh` refreshes this
+      login on every run so it can't silently expire again.
+- [x] ~~Watchtower looks dead~~ → **REMOVED.** It was a zombie (running/healthy
+      but the poll loop never executed — containerd store + `DOCKER_API_VERSION`
+      pin; no logs even after a clean restart). Deleted the service from
+      `docker-compose.yml` and the container.
+- [x] ~~Containerd image-store gotcha~~ → **HANDLED.** New `./deploy.sh` always
+      `docker pull`s then `compose rm -sf app && compose up -d app` (recreate
+      from current `:latest`, never diff image IDs — they're unreliable here) and
+      health-gates on `/login`. Verified end-to-end: push → CI → `./deploy.sh`.
+- [ ] **Make `gh` auth durable** (optional) — `deploy.sh` depends on `gh` staying
+      logged in. If it ever logs out, deploys fail at the login step with a clear
+      error. A long-lived fine-grained PAT with `read:packages` would be an
+      alternative, but the gh-token path needs no secret management.
 
 ## 🟠 P1 — Operational drift visible in `cron.log`
 
@@ -41,10 +65,14 @@ contacts) but three integrations are firing empty or unauthorized.
 - [ ] **UnifiLocal: `"Unauthorized"`** on every nightly sync — credentials
       drifted or the controller's local admin was changed. Re-auth in
       Settings → Integrations.
-- [ ] **Alerts: `skipped — Resend API key or alert email not configured`**.
-      If Teams webhook alarms are now the intended channel for expiry /
-      breach / uptime alerts, this is fine to leave as-is — just confirm
-      the intent and delete the Resend scaffolding. Otherwise, wire Resend.
+- [x] ~~**Alerts: `skipped — Resend API key or alert email not configured`**~~
+      → **DONE 2026-05-29.** Wired **ntfy push** (topic in `push:ntfy:topic`;
+      subscribe in the ntfy app). Fixed a gate bug where a missing Resend config
+      early-returned and skipped Teams/push too (commit `033f1fd`) — channels now
+      fire independently; added `GET /api/cron/alerts?test=1`. Disabled the
+      `warranties` category (`alerts:categories:warranties=false`) because 298
+      long-expired asset warranties were flooding the "critical" bucket. Resend
+      email + Teams remain available, just unconfigured.
 - [ ] **Synology: `0 devices`** — integration works, just no devices
       registered yet. Add devices when ready (not a bug).
 - [ ] **Domains: `0 checked`** — likewise, no domains populated. Ops data,
@@ -56,13 +84,18 @@ contacts) but three integrations are firing empty or unauthorized.
 
 Two items on DocHub's in-repo roadmap never got picked up.
 
-- [ ] **RBAC middleware** — restrict TECH users from reading sensitive
-      credential fields (passwords, API keys, private keys). ADMIN sees
-      everything, TECH sees redacted values. Mirrors TicketHub's
-      finance-blind pattern but applied to secrets instead of money.
-- [ ] **Add Michael Frye StaffUser record** — deferred until platform stable;
-      platform is stable now, this is a 2-minute admin task once auth +
-      RBAC line up.
+- [x] ~~**RBAC middleware** — restrict TECH users from reading sensitive
+      credential fields~~ → **DONE 2026-05-29 (commit `3935c98`).** Audited all
+      ~22 `decrypt()` sites. The per-credential `allowTechReveal` gate was sound
+      on the direct reveal routes but bypassable via: the client **report**
+      (bulk plaintext to any TECH), **share-link creation** (mint a public link
+      to an un-revealable cred), and **license-key reveal** (any TECH). Fixed all
+      three + gated check-breach + blocked CLIENT explicitly. License keys are
+      now ADMIN-only. Full write-up: `project_dochub_rbac_audit_2026_05_29.md`
+      in Claude memory.
+- [x] ~~**Add Michael Frye StaffUser record**~~ → **ALREADY DONE** (verified
+      2026-05-29: `mfrye@pcc2k.com`, role ADMIN, created 2026-03-24). The audit
+      doc was just stale.
 
 ---
 
