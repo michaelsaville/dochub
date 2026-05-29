@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import CredentialPicker from "@/components/CredentialPicker"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -251,6 +252,7 @@ export default function VpnPanel({
           serverAssets={serverAssets}
           firewallDevices={firewallDevices}
           credentials={credentials}
+          clientId={clientId}
           title="New VPN gateway"
         />
       )}
@@ -273,6 +275,7 @@ export default function VpnPanel({
                 serverAssets={serverAssets}
                 firewallDevices={firewallDevices}
                 credentials={credentials}
+                clientId={clientId}
                 title="Edit gateway"
               />
             </div>
@@ -388,7 +391,7 @@ export default function VpnPanel({
 
 // ── Gateway form (shared for add / edit) ──────────────────────────────────────
 
-function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, firewallDevices, credentials, title }: {
+function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, firewallDevices, credentials, clientId, title }: {
   form: any
   setForm: (fn: (f: any) => any) => void
   onSave: () => void
@@ -397,6 +400,7 @@ function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, fi
   serverAssets: { id: string; name: string; friendlyName: string | null; ipAddress?: string | null }[]
   firewallDevices: { id: string; name: string; ipAddress?: string | null }[]
   credentials: { id: string; label: string }[]
+  clientId: string
   title: string
 }) {
   const hint = VPN_TYPE_NOTES[form.type]
@@ -469,15 +473,17 @@ function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, fi
         )}
 
         {/* Admin / PSK credential */}
-        {credentials.length > 0 && (
-          <div>
-            <label style={lbl}>{isTailscale ? "Tailscale admin credential" : "Admin / PSK credential"}</label>
-            <select value={form.credentialId || ""} onChange={e => setForm(f => ({ ...f, credentialId: e.target.value || null }))} style={inp}>
-              <option value="">None</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-          </div>
-        )}
+        <div>
+          <CredentialPicker
+            clientId={clientId}
+            label={isTailscale ? "Tailscale admin credential" : "Admin / PSK credential"}
+            emptyLabel="None"
+            value={form.credentialId || ""}
+            onChange={v => setForm(f => ({ ...f, credentialId: v || null }))}
+            credentials={credentials}
+            prefillLabel={form.name ? `${form.name} ${isTailscale ? "admin" : "PSK"}` : ""}
+          />
+        </div>
 
         {/* Server config */}
         {!isTailscale && (

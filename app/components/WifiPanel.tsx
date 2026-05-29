@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import CredentialPicker from "@/components/CredentialPicker"
 
 const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }
 const lbl: React.CSSProperties = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
@@ -100,7 +101,7 @@ type WifiController = {
 
 type Props = {
   controllers: WifiController[]
-  assets: { id: string; name: string; friendlyName: string | null; category: string }[]
+  assets: { id: string; name: string; friendlyName: string | null; category: string; managementUrl?: string | null; ipAddress?: string | null }[]
   networkDevices: { id: string; name: string; type: string }[]
   subnets: { id: string; cidr: string; vlan: string | null; description: string | null }[]
   credentials: { id: string; label: string }[]
@@ -356,7 +357,7 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
           <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px" }}>New Wifi Controller</div>
           <CtrlForm
             form={ctrlForm} setForm={setCtrlForm}
-            credentials={liveCreds} onRefreshCreds={refreshCreds} refreshingCreds={refreshingCreds}
+            clientId={clientId} credentials={liveCreds}
             assets={assets} assetLabel={assetLabel}
             networkDevices={networkDevices}
             error={error} saving={saving}
@@ -405,7 +406,7 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
               <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
                 <CtrlForm
                   form={ctrlForm} setForm={setCtrlForm}
-                  credentials={liveCreds} onRefreshCreds={refreshCreds} refreshingCreds={refreshingCreds}
+                  clientId={clientId} credentials={liveCreds}
             assets={assets} assetLabel={assetLabel}
                   networkDevices={networkDevices}
                   error={error} saving={saving}
@@ -434,7 +435,7 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
                     {editingNetId === net.id ? (
                       <NetForm
                         form={netForm} setForm={setNetForm}
-                        credentials={liveCreds} onRefreshCreds={refreshCreds} refreshingCreds={refreshingCreds}
+                        clientId={clientId} credentials={liveCreds}
                         subnets={liveSubnets} onRefreshSubnets={refreshSubnets} refreshingSubnets={refreshingSubnets}
                         subnetLabel={subnetLabel}
                         error={error} saving={saving}
@@ -506,7 +507,7 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
                 {addingNetFor === ctrl.id && (
                   <NetForm
                     form={netForm} setForm={setNetForm}
-                    credentials={liveCreds} onRefreshCreds={refreshCreds} refreshingCreds={refreshingCreds}
+                    clientId={clientId} credentials={liveCreds}
                         subnets={liveSubnets} onRefreshSubnets={refreshSubnets} refreshingSubnets={refreshingSubnets}
                         subnetLabel={subnetLabel}
                     error={error} saving={saving}
@@ -546,18 +547,17 @@ type CtrlFormState = {
 }
 
 function CtrlForm({
-  form, setForm,
-  credentials, onRefreshCreds, refreshingCreds,
+  form, setForm, clientId,
+  credentials,
   assets, assetLabel, networkDevices,
   error, saving,
   onSubmit, onCancel,
 }: {
   form: CtrlFormState
   setForm: (updater: (f: CtrlFormState) => CtrlFormState) => void
+  clientId: string
   credentials: { id: string; label: string }[]
-  onRefreshCreds: () => void
-  refreshingCreds: boolean
-  assets: { id: string; name: string; friendlyName: string | null }[]
+  assets: { id: string; name: string; friendlyName: string | null; managementUrl?: string | null; ipAddress?: string | null }[]
   assetLabel: (a: { name: string; friendlyName: string | null }) => string
   networkDevices: { id: string; name: string; type: string }[]
   error: string
@@ -583,26 +583,28 @@ function CtrlForm({
           <input style={inp} value={form.managementUrl} onChange={e => setForm(f => ({ ...f, managementUrl: e.target.value }))} placeholder="https://192.168.1.1" />
         </div>
         <div>
-          <label style={lbl}>
-            Admin Credential
-            <button
-              type="button"
-              onClick={onRefreshCreds}
-              disabled={refreshingCreds}
-              title="Refresh — picks up credentials you added in another tab"
-              style={{ marginLeft: 6, padding: "0 6px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 12 }}
-            >
-              {refreshingCreds ? "…" : "↻"}
-            </button>
-          </label>
-          <select style={inp} value={form.credentialId} onChange={e => setForm(f => ({ ...f, credentialId: e.target.value }))}>
-            <option value="">— None —</option>
-            {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
+          <CredentialPicker
+            clientId={clientId}
+            label="Admin Credential"
+            value={form.credentialId}
+            onChange={v => setForm(f => ({ ...f, credentialId: v }))}
+            credentials={credentials}
+            prefillLabel={form.name ? `${form.name} admin` : ""}
+          />
         </div>
         <div>
           <label style={lbl}>Controller Asset</label>
-          <select style={inp} value={form.assetId} onChange={e => setForm(f => ({ ...f, assetId: e.target.value }))}>
+          <select style={inp} value={form.assetId} onChange={e => {
+            const a = assets.find(x => x.id === e.target.value)
+            // Linking the controller asset fills the mgmt URL + name from it (blank-only)
+            // so the URL/name documented on the asset isn't re-typed here.
+            setForm(f => ({
+              ...f,
+              assetId: e.target.value,
+              managementUrl: f.managementUrl || (a ? (a.managementUrl || (a.ipAddress ? `https://${a.ipAddress}` : "")) : ""),
+              name: f.name || (a ? (a.friendlyName || a.name) : ""),
+            }))
+          }}>
             <option value="">— None —</option>
             {assets.map(a => <option key={a.id} value={a.id}>{assetLabel(a)}</option>)}
           </select>
@@ -644,8 +646,8 @@ type NetFormState = {
 }
 
 function NetForm({
-  form, setForm,
-  credentials, onRefreshCreds, refreshingCreds,
+  form, setForm, clientId,
+  credentials,
   subnets, onRefreshSubnets, refreshingSubnets,
   subnetLabel,
   error, saving,
@@ -653,9 +655,8 @@ function NetForm({
 }: {
   form: NetFormState
   setForm: (updater: (f: NetFormState) => NetFormState) => void
+  clientId: string
   credentials: { id: string; label: string }[]
-  onRefreshCreds: () => void
-  refreshingCreds: boolean
   subnets: { id: string; cidr: string; vlan: string | null; description: string | null }[]
   onRefreshSubnets: () => void
   refreshingSubnets: boolean
@@ -693,22 +694,15 @@ function NetForm({
           </select>
         </div>
         <div>
-          <label style={lbl}>
-            PSK / Credential
-            <button
-              type="button"
-              onClick={onRefreshCreds}
-              disabled={refreshingCreds}
-              title="Refresh — picks up credentials you added in another tab"
-              style={{ marginLeft: 6, padding: "0 6px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 12 }}
-            >
-              {refreshingCreds ? "…" : "↻"}
-            </button>
-          </label>
-          <select style={inp} value={form.credentialId} onChange={e => setForm(f => ({ ...f, credentialId: e.target.value }))}>
-            <option value="">— None —</option>
-            {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
+          <CredentialPicker
+            clientId={clientId}
+            label="PSK / Credential"
+            value={form.credentialId}
+            onChange={v => setForm(f => ({ ...f, credentialId: v }))}
+            credentials={credentials}
+            prefillLabel={form.ssid ? `${form.ssid} PSK` : ""}
+            prefillUsername={form.ssid}
+          />
         </div>
         <div>
           <label style={lbl}>
@@ -723,7 +717,19 @@ function NetForm({
               {refreshingSubnets ? "…" : "↻"}
             </button>
           </label>
-          <select style={inp} value={form.subnetId} onChange={e => setForm(f => ({ ...f, subnetId: e.target.value }))}>
+          <select style={inp} value={form.subnetId} onChange={e => {
+            const s = subnets.find(x => x.id === e.target.value)
+            // Linking the subnet fills the VLAN name from the subnet's documented
+            // VLAN (blank-only) so it isn't re-typed; numeric VLAN tags also seed VLAN ID.
+            setForm(f => {
+              const next = { ...f, subnetId: e.target.value }
+              if (s?.vlan) {
+                if (!f.vlanName) next.vlanName = s.vlan
+                if (!f.vlanId && /^\d+$/.test(s.vlan.trim())) next.vlanId = s.vlan.trim()
+              }
+              return next
+            })
+          }}>
             <option value="">— None —</option>
             {subnets.map(s => <option key={s.id} value={s.id}>{subnetLabel(s)}</option>)}
           </select>

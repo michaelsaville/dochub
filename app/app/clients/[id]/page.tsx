@@ -2839,17 +2839,19 @@ export default function ClientDetailPage() {
                       style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (global)</label>
-                    <select value={licenseForm.vendorId} onChange={e => setLicenseForm(f => ({ ...f, vendorId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                      <option value="">Select vendor...</option>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor</label>
+                    <select value={licenseForm.vendorId} onChange={e => setLicenseForm(f => ({ ...f, vendorId: e.target.value, vendor: e.target.value ? "" : f.vendor }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">— pick a vendor or type one below —</option>
                       {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (freetext)</label>
-                    <input value={licenseForm.vendor} onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))} placeholder="If not in list above"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                  </div>
+                  {!licenseForm.vendorId && (
+                    <div>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (not in list)</label>
+                      <input value={licenseForm.vendor} onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))} placeholder="Free-text fallback"
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  )}
                   <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>License key</label>
                     <input value={licenseForm.licenseKey} onChange={e => setLicenseForm(f => ({ ...f, licenseKey: e.target.value }))} placeholder="Will be encrypted"
@@ -2923,7 +2925,7 @@ export default function ClientDetailPage() {
                   <div key={lic.id} style={{ padding: "14px 16px", borderBottom: i < filteredLicenses.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                       {[
-                        { key: "name", label: "Name" }, { key: "vendor", label: "Vendor (freetext)" },
+                        { key: "name", label: "Name" },
                         { key: "seats", label: "Total seats" }, { key: "assignedSeats", label: "Assigned seats" },
                         { key: "cost", label: "Cost ($/mo)" }, { key: "purchaseDate", label: "Purchase date", type: "date" },
                         { key: "expiryDate", label: "Expiry", type: "date" }, { key: "renewalDate", label: "Renewal", type: "date" },
@@ -2935,12 +2937,19 @@ export default function ClientDetailPage() {
                         </div>
                       ))}
                       <div>
-                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (global)</label>
-                        <select value={licenseEditForm.vendorId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, vendorId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
-                          <option value="">Select vendor...</option>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor</label>
+                        <select value={licenseEditForm.vendorId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, vendorId: e.target.value, vendor: e.target.value ? "" : f.vendor }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">— pick a vendor or type one below —</option>
                           {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                         </select>
                       </div>
+                      {!licenseEditForm.vendorId && (
+                        <div>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (not in list)</label>
+                          <input value={licenseEditForm.vendor ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, vendor: e.target.value }))} placeholder="Free-text fallback"
+                            style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      )}
                       <div>
                         <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
                         <select value={licenseEditForm.personId ?? ""} onChange={e => setLicenseEditForm((f: any) => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
@@ -3101,7 +3110,6 @@ export default function ClientDetailPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
                   {[
                     { key: "name", label: "Name *", placeholder: "e.g. AutoCAD" },
-                    { key: "vendor", label: "Vendor", placeholder: "e.g. Autodesk" },
                     { key: "version", label: "Version", placeholder: "" },
                     { key: "supportUrl", label: "Support URL", placeholder: "https://" },
                     { key: "notes", label: "Notes", placeholder: "" },
@@ -3112,6 +3120,20 @@ export default function ClientDetailPage() {
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
                     </div>
                   ))}
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor</label>
+                    <select value={appForm.vendorId} onChange={e => setAppForm(f => ({ ...f, vendorId: e.target.value, vendor: e.target.value ? "" : f.vendor }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">— pick a vendor or type one below —</option>
+                      {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </div>
+                  {!appForm.vendorId && (
+                    <div>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (not in list)</label>
+                      <input value={appForm.vendor} onChange={e => setAppForm(f => ({ ...f, vendor: e.target.value }))} placeholder="e.g. Autodesk"
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  )}
                   <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
                     <select value={appForm.personId} onChange={e => setAppForm(f => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
@@ -3145,7 +3167,7 @@ export default function ClientDetailPage() {
                   <div key={app.id} style={{ padding: "14px 16px", borderBottom: i < filteredApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                       {[
-                        { key: "name", label: "Name" }, { key: "vendor", label: "Vendor" },
+                        { key: "name", label: "Name" },
                         { key: "version", label: "Version" }, { key: "supportUrl", label: "Support URL" },
                         { key: "notes", label: "Notes" },
                       ].map(({ key, label }) => (
@@ -3155,6 +3177,20 @@ export default function ClientDetailPage() {
                             style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                         </div>
                       ))}
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor</label>
+                        <select value={appEditForm.vendorId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, vendorId: e.target.value, vendor: e.target.value ? "" : f.vendor }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">— pick a vendor or type one below —</option>
+                          {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                        </select>
+                      </div>
+                      {!appEditForm.vendorId && (
+                        <div>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Vendor (not in list)</label>
+                          <input value={appEditForm.vendor ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, vendor: e.target.value }))} placeholder="Free-text fallback"
+                            style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      )}
                       <div>
                         <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Person</label>
                         <select value={appEditForm.personId ?? ""} onChange={e => setAppEditForm((f: any) => ({ ...f, personId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
@@ -3178,7 +3214,7 @@ export default function ClientDetailPage() {
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{app.version ?? "—"}</div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{app.person?.name ?? "—"}</div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, personId: app.person?.id ?? app.person?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                      <button onClick={() => { setEditingApp(app.id); setAppEditForm({ ...app, personId: app.person?.id ?? "", vendorId: app.vendorId ?? app.vendorRef?.id ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       <button onClick={() => deleteApp(app.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
                     </div>
                   </div>

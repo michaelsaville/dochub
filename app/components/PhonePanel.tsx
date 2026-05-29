@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import CredentialPicker from "@/components/CredentialPicker"
 
 const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }
 const lbl: React.CSSProperties = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
@@ -117,7 +118,7 @@ type PhoneSystem = {
 
 type Props = {
   systems: PhoneSystem[]
-  assets: { id: string; name: string; friendlyName: string | null; category: string }[]
+  assets: { id: string; name: string; friendlyName: string | null; category: string; managementUrl?: string | null; ipAddress?: string | null }[]
   people: { id: string; name: string; email: string | null }[]
   credentials: { id: string; label: string }[]
   vendors: { id: string; name: string; supportPhone: string | null }[]
@@ -471,17 +472,29 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
           </div>
           <div>
             <label style={lbl}>PBX Asset</label>
-            <select style={inp} value={systemForm.assetId} onChange={e => setSystemForm(f => ({ ...f, assetId: e.target.value }))}>
+            <select style={inp} value={systemForm.assetId} onChange={e => {
+              const a = assets.find(x => x.id === e.target.value)
+              // Linking the PBX asset fills mgmt URL + system name from it (blank-only).
+              setSystemForm(f => ({
+                ...f,
+                assetId: e.target.value,
+                managementUrl: f.managementUrl || (a ? (a.managementUrl || (a.ipAddress ? `https://${a.ipAddress}` : "")) : ""),
+                name: f.name || (a ? (a.friendlyName || a.name) : ""),
+              }))
+            }}>
               <option value="">— None —</option>
               {assets.map(a => <option key={a.id} value={a.id}>{assetLabel(a)}</option>)}
             </select>
           </div>
           <div>
-            <label style={lbl}>Admin Credential</label>
-            <select style={inp} value={systemForm.credentialId} onChange={e => setSystemForm(f => ({ ...f, credentialId: e.target.value }))}>
-              <option value="">— None —</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+            <CredentialPicker
+              clientId={clientId}
+              label="Admin Credential"
+              value={systemForm.credentialId}
+              onChange={v => setSystemForm(f => ({ ...f, credentialId: v }))}
+              credentials={credentials}
+              prefillLabel={systemForm.name ? `${systemForm.name} admin` : ""}
+            />
           </div>
         </div>
         <div>
@@ -546,18 +559,24 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
           <div>
-            <label style={lbl}>SIP Credential</label>
-            <select style={inp} value={extForm.credentialId} onChange={e => setExtForm(f => ({ ...f, credentialId: e.target.value }))}>
-              <option value="">— None —</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+            <CredentialPicker
+              clientId={clientId}
+              label="SIP Credential"
+              value={extForm.credentialId}
+              onChange={v => setExtForm(f => ({ ...f, credentialId: v }))}
+              credentials={credentials}
+              prefillLabel={extForm.extension ? `Ext ${extForm.extension} SIP` : ""}
+            />
           </div>
           <div>
-            <label style={lbl}>Voicemail PIN Credential</label>
-            <select style={inp} value={extForm.voicemailCredId} onChange={e => setExtForm(f => ({ ...f, voicemailCredId: e.target.value }))}>
-              <option value="">— None —</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+            <CredentialPicker
+              clientId={clientId}
+              label="Voicemail PIN Credential"
+              value={extForm.voicemailCredId}
+              onChange={v => setExtForm(f => ({ ...f, voicemailCredId: v }))}
+              credentials={credentials}
+              prefillLabel={extForm.extension ? `Ext ${extForm.extension} voicemail` : ""}
+            />
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { parseCidr } from "@/lib/cidr"
+import CredentialPicker from "@/components/CredentialPicker"
 
 type Loc = { id: string; name: string }
 type AssetLite = { id: string; name: string; friendlyName?: string | null; category: string }
-type VendorLite = { id: string; name: string; category?: string; supportPhone?: string | null; supportEmail?: string | null }
+type VendorLite = { id: string; name: string; category?: string; supportPhone?: string | null; supportEmail?: string | null; portalUrl?: string | null }
 type CredentialLite = { id: string; label: string }
 type SubnetLite = { id: string; cidr: string; gateway: string | null; dns1: string | null; dns2: string | null }
 
@@ -339,7 +340,20 @@ export default function CircuitsPanel({ clientId, locations, assets, subnets }: 
             </select>
           </div>
           <div><label style={label}>ISP Vendor</label>
-            <select value={form.vendorId} onChange={e => setF("vendorId", e.target.value)} style={input}>
+            <select value={form.vendorId} onChange={e => {
+              const v = vendors.find(x => x.id === e.target.value)
+              // Linking the ISP vendor pulls its support phone/email/portal (blank-only)
+              // so the same contact info isn't re-typed per circuit.
+              setForm(f => ({
+                ...f,
+                vendorId: e.target.value,
+                ...(v && {
+                  supportPhone: f.supportPhone || v.supportPhone || "",
+                  supportEmail: f.supportEmail || v.supportEmail || "",
+                  portalUrl: f.portalUrl || v.portalUrl || "",
+                }),
+              }))
+            }} style={input}>
               <option value="">— or type fallback below —</option>
               {isps.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
@@ -415,11 +429,16 @@ export default function CircuitsPanel({ clientId, locations, assets, subnets }: 
           <div><label style={label}>Support phone</label><input value={form.supportPhone} onChange={e => setF("supportPhone", e.target.value)} style={input} /></div>
           <div><label style={label}>Support email</label><input value={form.supportEmail} onChange={e => setF("supportEmail", e.target.value)} style={input} /></div>
           <div><label style={label}>Portal URL</label><input value={form.portalUrl} onChange={e => setF("portalUrl", e.target.value)} style={input} /></div>
-          <div><label style={label}>Portal credential</label>
-            <select value={form.credentialId} onChange={e => setF("credentialId", e.target.value)} style={input}>
-              <option value="">None</option>
-              {credentials.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+          <div>
+            <CredentialPicker
+              clientId={clientId}
+              label="Portal credential"
+              emptyLabel="None"
+              value={form.credentialId}
+              onChange={v => setF("credentialId", v)}
+              credentials={credentials}
+              prefillLabel={form.label ? `${form.label} portal` : ""}
+            />
           </div>
           <div><label style={label}>Install date</label><input type="date" value={form.installDate} onChange={e => setF("installDate", e.target.value)} style={input} /></div>
           <div><label style={label}>Contract start</label><input type="date" value={form.contractStart} onChange={e => setF("contractStart", e.target.value)} style={input} /></div>
