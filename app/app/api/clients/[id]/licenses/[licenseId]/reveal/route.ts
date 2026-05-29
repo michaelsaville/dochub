@@ -7,7 +7,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string; licenseId: string }> }
 ) {
-  const { error } = await requireAuth()
+  // License keys are ADMIN-only (consistent with the CSV export, which redacts
+  // them). TECH users get a 403.
+  const { error } = await requireAuth("ADMIN")
   if (error) return error
   try {
     const { licenseId } = await params

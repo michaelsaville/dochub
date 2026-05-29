@@ -46,7 +46,7 @@ export async function GET(
     // flagged allowTechReveal. ADMIN bypasses. CLIENT never reaches staff
     // credentials (blocked at proxy level, but belt-and-suspenders).
     const role = session?.user?.role
-    if (role !== "ADMIN" && !credential.allowTechReveal) {
+    if (role !== "ADMIN" && (role !== "TECH" || !credential.allowTechReveal)) {
       return NextResponse.json(
         { error: "Admin role required to reveal this credential" },
         { status: 403 },

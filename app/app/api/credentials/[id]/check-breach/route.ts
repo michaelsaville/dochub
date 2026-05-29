@@ -8,12 +8,19 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
     const credential = await prisma.credential.findUnique({ where: { id } })
     if (!credential) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    // Same gate as reveal: breach status is derived from the password, so a
+    // TECH shouldn't probe credentials they aren't allowed to reveal.
+    const role = session?.user?.role
+    if (role !== "ADMIN" && (role !== "TECH" || !credential.allowTechReveal)) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 })
+    }
 
     const password = decrypt(credential.encryptedPassword)
     const count = await checkPasswordBreach(password)

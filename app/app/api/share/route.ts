@@ -17,6 +17,15 @@ export async function POST(req: Request) {
   if (resourceType === "credential") {
     const cred = await prisma.credential.findUnique({ where: { id: resourceId } })
     if (!cred) return NextResponse.json({ error: "Credential not found" }, { status: 404 })
+    // RBAC: a share link consumes the credential via the public endpoint, so
+    // creating one must honour the same gate as a direct reveal — otherwise a
+    // TECH could mint a public link for a credential they can't reveal.
+    if (session?.user?.role !== "ADMIN" && !cred.allowTechReveal) {
+      return NextResponse.json(
+        { error: "Admin role required to share this credential" },
+        { status: 403 },
+      )
+    }
   } else {
     const doc = await prisma.clientDocument.findUnique({ where: { id: resourceId } })
     if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 })

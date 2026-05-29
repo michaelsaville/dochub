@@ -7,10 +7,11 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
 
   const { id } = await params
+  const isAdmin = session?.user?.role === "ADMIN"
   const url = new URL(req.url)
   const modules = url.searchParams.get("modules")?.split(",") ?? []
 
@@ -46,15 +47,24 @@ export async function GET(
       where: { clientId: id, isRetired: false },
       orderBy: { label: "asc" },
     })
-    data.credentials = creds.map(c => ({
-      ...c,
-      password: c.encryptedPassword ? decrypt(c.encryptedPassword) : null,
-      encryptedPassword: undefined,
-    }))
+    // RBAC: same gate as the reveal endpoint — ADMIN sees every password,
+    // TECH only those flagged allowTechReveal. Others are redacted, never
+    // decrypted, so the report can't be used to bypass allowTechReveal.
+    data.credentials = creds.map(c => {
+      const mayReveal = isAdmin || c.allowTechReveal
+      return {
+        ...c,
+        password: mayReveal && c.encryptedPassword ? decrypt(c.encryptedPassword) : null,
+        passwordRedacted: !mayReveal && !!c.encryptedPassword,
+        encryptedPassword: undefined,
+        encryptedTotp: undefined,
+        encryptedNotes: undefined,
+      }
+    })
   }
 
   if (modules.includes("licenses")) {
-    data.licenses = await prisma.license.findMany({
+    const lics = await prisma.license.findMany({
       where: { clientId: id, isActive: true },
       orderBy: { name: "asc" },
       include: {
@@ -62,6 +72,9 @@ export async function GET(
         person: { select: { name: true } },
       },
     })
+    // License keys are ADMIN-only (see the reveal route); never ship the
+    // encrypted blob in a report payload.
+    data.licenses = lics.map(l => ({ ...l, licenseKey: undefined }))
   }
 
   if (modules.includes("vendors")) {

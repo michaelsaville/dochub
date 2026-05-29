@@ -58,7 +58,8 @@ export async function GET(
 
   // Same RBAC gate as the session-auth endpoint: TECH-key holders only see
   // creds that are explicitly allowTechReveal. ADMIN bypasses.
-  if (staffUser?.role !== "ADMIN" && !credential.allowTechReveal) {
+  const role = staffUser?.role
+  if (role !== "ADMIN" && (role !== "TECH" || !credential.allowTechReveal)) {
     return NextResponse.json(
       { error: "Admin role required to reveal this credential" },
       { status: 403 },
