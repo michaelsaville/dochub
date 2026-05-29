@@ -10,6 +10,8 @@ export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   useEffect(() => {
+    // Already installed / running standalone — don't nag.
+    if (window.matchMedia?.("(display-mode: standalone)").matches) return
     // Check snooze
     const snoozed = localStorage.getItem(SNOOZE_KEY)
     if (snoozed && Date.now() < parseInt(snoozed)) return
@@ -64,7 +66,7 @@ export default function InstallPrompt() {
           Install DocHub
         </div>
         <div style={{ fontSize: "11px", color: "#94a3b8" }}>
-          Access documentation offline with the DocHub app
+          Add DocHub to your home screen for one-tap field access
         </div>
       </div>
       <button onClick={install} style={{
