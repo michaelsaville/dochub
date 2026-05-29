@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { writeActivity } from "@/lib/activity"
+import { isIpv4, ipInCidr } from "@/lib/cidr"
 
 export async function GET(
   req: Request,
@@ -104,6 +105,39 @@ export async function POST(
       title: `Asset added: ${name.trim()}`,
       body: [make?.trim(), model?.trim()].filter(Boolean).join(" ") || null,
     })
+
+    // "Enter once": spawn a primary interface from the IP/MAC just entered so
+    // the operator doesn't retype it in the Interfaces panel, and (best-effort)
+    // file the IP into the matching documented subnet (IPAM). Enrichment only —
+    // failures here must never fail the asset create.
+    const ip = ipAddress?.trim() || null
+    const mac = macAddress?.trim() || null
+    if (ip || mac) {
+      try {
+        await prisma.assetInterface.create({
+          data: { assetId: asset.id, name: "Primary", type: "ETHERNET", ipAddress: ip, macAddress: mac, isPrimary: true },
+        })
+      } catch { /* non-fatal */ }
+    }
+    if (ip && isIpv4(ip)) {
+      try {
+        const subnets = await prisma.subnet.findMany({ where: { clientId: id } })
+        const match = subnets.find(s => s.locationId === locationId && ipInCidr(ip, s.cidr))
+          ?? subnets.find(s => ipInCidr(ip, s.cidr))
+        if (match) {
+          const hostname = friendlyName?.trim() || name.trim()
+          const existing = await prisma.ipAssignment.findUnique({
+            where: { subnetId_ipAddress: { subnetId: match.id, ipAddress: ip } },
+          })
+          if (!existing) {
+            await prisma.ipAssignment.create({ data: { subnetId: match.id, ipAddress: ip, assetId: asset.id, hostname } })
+          } else if (!existing.assetId) {
+            // Adopt an unassigned IPAM row; never clobber an IP already documented to another asset.
+            await prisma.ipAssignment.update({ where: { id: existing.id }, data: { assetId: asset.id, hostname: existing.hostname ?? hostname } })
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
 
     return NextResponse.json(asset, { status: 201 })
   } catch (e) {

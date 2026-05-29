@@ -710,7 +710,15 @@ export default function AssetDetailPage() {
             <div style={card}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
                 <div style={cardTitle}>Network Interfaces</div>
-                <button onClick={() => setShowAddIface(v => !v)} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                <button onClick={() => setShowAddIface(v => {
+                  const opening = !v
+                  // Pre-fill from the asset's own IP/MAC when it has no interface
+                  // yet (legacy assets created before auto-spawn) — don't retype.
+                  if (opening && interfaces.length === 0 && asset) {
+                    setIfaceForm(f => ({ ...f, ipAddress: f.ipAddress || asset.ipAddress || "", macAddress: f.macAddress || asset.macAddress || "" }))
+                  }
+                  return opening
+                })} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
                   {showAddIface ? "Cancel" : "+ Add"}
                 </button>
               </div>

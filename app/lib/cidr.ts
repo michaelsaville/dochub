@@ -73,6 +73,16 @@ export function parseCidr(input: string): CidrInfo | null {
   }
 }
 
+// True when an IPv4 address falls inside a CIDR block. Used to auto-file an
+// asset's IP into the matching documented subnet (IPAM) without re-typing.
+export function ipInCidr(ip: string, cidr: string): boolean {
+  if (!isIpv4(ip)) return false
+  const info = parseCidr(cidr)
+  if (!info) return false
+  const maskInt = info.prefix === 0 ? 0 : (0xffffffff << (32 - info.prefix)) >>> 0
+  return (((ipToInt(ip) & maskInt) >>> 0) === ipToInt(info.networkIp))
+}
+
 // Lenient parse for legacy free-text wanIp values during backfill.
 // Returns { kind: 'ip' | 'cidr' | 'none', value, info? }.
 export function parseLegacyWanIp(raw: string | null | undefined): {

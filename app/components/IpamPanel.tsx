@@ -27,7 +27,7 @@ type Subnet = {
 type Props = {
   subnets: Subnet[]
   locations: { id: string; name: string }[]
-  assets: { id: string; name: string; category: string }[]
+  assets: { id: string; name: string; category: string; ipAddress?: string | null }[]
   people: { id: string; name: string }[]
   clientId: string
   onSubnetsChange: (subnets: Subnet[]) => void
@@ -349,7 +349,10 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                         </div>
                         <div>
                           <label style={label}>Asset</label>
-                          <select value={ipForm.assetId} onChange={e => setIpForm(f => ({ ...f, assetId: e.target.value, personId: "" }))} style={input}>
+                          <select value={ipForm.assetId} onChange={e => {
+                            const a = assets.find(x => x.id === e.target.value)
+                            setIpForm(f => ({ ...f, assetId: e.target.value, personId: "", ipAddress: f.ipAddress || a?.ipAddress || "", hostname: f.hostname || a?.name || "" }))
+                          }} style={input}>
                             <option value="">None</option>
                             {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                           </select>
