@@ -27,6 +27,27 @@ export async function POST(
         person: { select: { id: true, name: true } },
       },
     })
+
+    // Two-way link: if this IP is tied to an asset that has no primary interface
+    // IP yet, back-fill it (and the asset mirror) so documenting the IP here also
+    // populates the asset. Never overwrites existing values. Non-fatal.
+    if (assetId) {
+      try {
+        const [primary, assetRow] = await Promise.all([
+          prisma.assetInterface.findFirst({ where: { assetId, isPrimary: true } }),
+          prisma.asset.findUnique({ where: { id: assetId }, select: { ipAddress: true } }),
+        ])
+        if (!primary) {
+          await prisma.assetInterface.create({ data: { assetId, name: "Primary", type: "ETHERNET", ipAddress: ip.ipAddress, isPrimary: true } })
+        } else if (!primary.ipAddress) {
+          await prisma.assetInterface.update({ where: { id: primary.id }, data: { ipAddress: ip.ipAddress } })
+        }
+        if (assetRow && !assetRow.ipAddress) {
+          await prisma.asset.update({ where: { id: assetId }, data: { ipAddress: ip.ipAddress } })
+        }
+      } catch { /* non-fatal */ }
+    }
+
     return NextResponse.json(ip, { status: 201 })
   } catch (e: any) {
     if (e?.code === "P2002") {

@@ -369,9 +369,9 @@ export default function ClientDetailPage() {
   const [domainThreshold, setDomainThreshold] = useState(30)
   const [networkDevices, setNetworkDevices] = useState<any[]>([])
   const [loadingNetwork, setLoadingNetwork] = useState(false)
-  const [showAddDevice, setShowAddDevice] = useState(false)
-  const [deviceForm, setDeviceForm] = useState({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "", portCount: "" })
-  const [savingDevice, setSavingDevice] = useState(false)
+  // NetworkDevice is integration-sync / legacy only — network gear is documented
+  // as an Asset (category NETWORK_GEAR/WIRELESS). The standalone "add device"
+  // create path was retired 2026-05-29 to stop documenting the same box twice.
   const [editingDevice, setEditingDevice] = useState<string | null>(null)
   const [deviceEditForm, setDeviceEditForm] = useState<any>({})
   const [vlans, setVlans] = useState<any[]>([])
@@ -433,7 +433,7 @@ export default function ClientDetailPage() {
       case "People":      setShowAddPerson(true); break
       case "Assets":      setShowAddAsset(true); break
       case "Domains":     setShowAddWebsite(true); break
-      case "Network":     setShowAddDevice(true); break
+      case "Network":     setShowAddAsset(true); break  // network gear is documented as an Asset
     }
   }, [activeTab])
 
@@ -965,23 +965,6 @@ export default function ClientDetailPage() {
     } catch {}
   }
 
-  async function saveNetworkDevice() {
-    if (!deviceForm.name.trim()) return
-    setSavingDevice(true)
-    try {
-      const res = await fetch(`/api/clients/${id}/network`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...deviceForm, portCount: deviceForm.portCount ? Number(deviceForm.portCount) : null }),
-      })
-      if (res.ok) {
-        const d = await res.json()
-        setNetworkDevices(n => [...n, d])
-        setDeviceForm({ name: "", type: "OTHER", make: "", model: "", ipAddress: "", macAddress: "", serial: "", firmwareVersion: "", managementUrl: "", locationId: "", notes: "", portCount: "" })
-        setShowAddDevice(false)
-      }
-    } catch {}
-    finally { setSavingDevice(false) }
-  }
 
   async function updateNetworkDevice(deviceId: string) {
     try {
