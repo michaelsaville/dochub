@@ -101,10 +101,10 @@ Two items on DocHub's in-repo roadmap never got picked up.
 
 ## 🟢 P3 — Latent bugs
 
-- [ ] Unauth root redirect emits `callbackUrl=https://0.0.0.0:3000/` from
-      `NextRequest.url`. Cosmetic / not exploitable, but fix on the next
-      auth-code touch. See `project_dochub_auth_callback_bug.md` in Claude
-      memory.
+- [x] ~~Unauth root redirect emits `callbackUrl=https://0.0.0.0:3000/`~~ →
+      **FIXED 2026-05-29 (commit `d514dc2`).** `proxy.ts` now sets a relative
+      callbackUrl (`req.nextUrl.pathname + search`) instead of `req.url`.
+      Verified: `/clients` → `callbackUrl=%2Fclients`, `/` → `callbackUrl=%2F`.
 
 ---
 
