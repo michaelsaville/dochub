@@ -39,10 +39,14 @@ export async function proxy(req: NextRequest) {
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
 
-  // Unauthenticated — redirect to login
+  // Unauthenticated — redirect to login. Use a RELATIVE callbackUrl (path +
+  // query) rather than req.url: req.url reflects the container's internal
+  // 0.0.0.0:3000 bind address, so an absolute callbackUrl would point the user
+  // at an unreachable origin after login (and NextAuth would discard it,
+  // dropping them on the homepage instead of their intended page).
   if (!token) {
     const loginUrl = new URL("/login", req.url)
-    loginUrl.searchParams.set("callbackUrl", req.url)
+    loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search)
     return NextResponse.redirect(loginUrl)
   }
 
