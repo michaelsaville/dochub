@@ -25,6 +25,7 @@ import IdentityPanel from "@/components/IdentityPanel"
 import { useSession } from "next-auth/react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { ipInCidr } from "@/lib/cidr"
 
 type Person = {
   id: string
@@ -2112,7 +2113,7 @@ export default function ClientDetailPage() {
         {activeTab === "Assets" && (
           <div style={{ maxWidth: "960px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-              <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes() }} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+              <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes(); if (subnets.length === 0) fetchSubnets() }} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
                 New asset
               </button>
             </div>
@@ -2166,6 +2167,19 @@ export default function ClientDetailPage() {
                           ) : (
                             <input type={meta.type ?? "text"} value={assetForm[fk] ?? ""} onChange={e => setAssetForm((f: any) => ({ ...f, [fk]: e.target.value }))} placeholder={meta.placeholder ?? ""} style={inputStyle} />
                           )}
+                          {fk === "ipAddress" && assetForm.ipAddress?.trim() && (() => {
+                            const match = subnets.find((s: any) => s.cidr && ipInCidr(assetForm.ipAddress.trim(), s.cidr))
+                            return match ? (
+                              <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "4px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+                                Matches subnet <span style={{ fontFamily: "monospace", color: "var(--color-text-primary)" }}>{match.cidr}</span>{match.description ? ` · ${match.description}` : ""} — will be filed in IPAM
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                                No documented subnet matches this IP{subnets.length ? "" : " (none documented yet)"}.
+                              </div>
+                            )
+                          })()}
                         </div>
                       )
                     })
@@ -3494,7 +3508,7 @@ export default function ClientDetailPage() {
                 clientId={id as string}
                 locations={client.locations.map((l: any) => ({ id: l.id, name: l.name }))}
                 assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName ?? null, category: a.category }))}
-                subnets={subnets.map((s: any) => ({ id: s.id, cidr: s.cidr }))}
+                subnets={subnets.map((s: any) => ({ id: s.id, cidr: s.cidr, gateway: s.gateway ?? null, dns1: s.dns1 ?? null, dns2: s.dns2 ?? null }))}
               />
             )}
 

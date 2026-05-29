@@ -7,7 +7,7 @@ type Loc = { id: string; name: string }
 type AssetLite = { id: string; name: string; friendlyName?: string | null; category: string }
 type VendorLite = { id: string; name: string; category?: string; supportPhone?: string | null; supportEmail?: string | null }
 type CredentialLite = { id: string; label: string }
-type SubnetLite = { id: string; cidr: string }
+type SubnetLite = { id: string; cidr: string; gateway: string | null; dns1: string | null; dns2: string | null }
 
 type Circuit = {
   id: string
@@ -193,6 +193,21 @@ export default function CircuitsPanel({ clientId, locations, assets, subnets }: 
         usableEndIp: f.usableEndIp || parsed.usableEndIp || "",
       }))
     }
+  }
+
+  // Linking an IPAM subnet pulls its documented gateway/DNS into the circuit —
+  // fills blanks only, never clobbers values the tech already typed (relate, don't retype).
+  function onSubnetChange(subnetId: string) {
+    const s = subnets.find(x => x.id === subnetId)
+    setForm(f => ({
+      ...f,
+      subnetId,
+      ...(s && {
+        gatewayIp: f.gatewayIp || s.gateway || "",
+        dns1: f.dns1 || s.dns1 || "",
+        dns2: f.dns2 || s.dns2 || "",
+      }),
+    }))
   }
 
   async function save() {
@@ -388,7 +403,7 @@ export default function CircuitsPanel({ clientId, locations, assets, subnets }: 
             </select>
           </div>
           <div><label style={label}>Linked IPAM subnet</label>
-            <select value={form.subnetId} onChange={e => setF("subnetId", e.target.value)} style={input}>
+            <select value={form.subnetId} onChange={e => onSubnetChange(e.target.value)} style={input}>
               <option value="">None</option>
               {subnets.map(s => <option key={s.id} value={s.id}>{s.cidr}</option>)}
             </select>

@@ -45,8 +45,8 @@ type VpnGateway = {
 
 type Props = {
   gateways: VpnGateway[]
-  assets: { id: string; name: string; friendlyName: string | null; category: string }[]
-  networkDevices: { id: string; name: string; type: string }[]
+  assets: { id: string; name: string; friendlyName: string | null; category: string; ipAddress?: string | null }[]
+  networkDevices: { id: string; name: string; type: string; ipAddress?: string | null }[]
   people: { id: string; name: string; email: string | null }[]
   vendors: { id: string; name: string }[]
   staffUsers: { id: string; name: string; email: string | null }[]
@@ -394,8 +394,8 @@ function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, fi
   onSave: () => void
   onCancel: () => void
   saving: boolean
-  serverAssets: { id: string; name: string; friendlyName: string | null }[]
-  firewallDevices: { id: string; name: string }[]
+  serverAssets: { id: string; name: string; friendlyName: string | null; ipAddress?: string | null }[]
+  firewallDevices: { id: string; name: string; ipAddress?: string | null }[]
   credentials: { id: string; label: string }[]
   title: string
 }) {
@@ -444,7 +444,11 @@ function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, fi
         {firewallDevices.length > 0 && (
           <div>
             <label style={lbl}>Hosted on (firewall / router)</label>
-            <select value={form.networkDeviceId || ""} onChange={e => setForm(f => ({ ...f, networkDeviceId: e.target.value || null, assetId: e.target.value ? null : f.assetId }))} style={inp}>
+            <select value={form.networkDeviceId || ""} onChange={e => {
+              const id = e.target.value
+              const ip = firewallDevices.find(d => d.id === id)?.ipAddress
+              setForm(f => ({ ...f, networkDeviceId: id || null, assetId: id ? null : f.assetId, serverAddress: f.serverAddress || (id && ip) || f.serverAddress }))
+            }} style={inp}>
               <option value="">None</option>
               {firewallDevices.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
@@ -453,7 +457,11 @@ function GatewayForm({ form, setForm, onSave, onCancel, saving, serverAssets, fi
         {serverAssets.length > 0 && (
           <div>
             <label style={lbl}>Hosted on (server asset)</label>
-            <select value={form.assetId || ""} onChange={e => setForm(f => ({ ...f, assetId: e.target.value || null, networkDeviceId: e.target.value ? null : f.networkDeviceId }))} style={inp}>
+            <select value={form.assetId || ""} onChange={e => {
+              const id = e.target.value
+              const ip = serverAssets.find(a => a.id === id)?.ipAddress
+              setForm(f => ({ ...f, assetId: id || null, networkDeviceId: id ? null : f.networkDeviceId, serverAddress: f.serverAddress || (id && ip) || f.serverAddress }))
+            }} style={inp}>
               <option value="">None</option>
               {serverAssets.map(a => <option key={a.id} value={a.id}>{a.friendlyName || a.name}</option>)}
             </select>
