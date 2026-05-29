@@ -46,7 +46,7 @@ export async function POST(
       ipAddress, macAddress, managementUrl, splashtopUrl, driverUrl,
       rdpEnabled, rdpHost, rdpPort, vncEnabled, vncHost, vncPort,
       purchaseDate, warrantyExpiry, room,
-      personId, notes,
+      personId, notes, purchaseVendorId,
       firmwareVersion, portCount, os, ram, cpu, storageCapacity, customFields,
     } = body
 
@@ -83,6 +83,7 @@ export async function POST(
         warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null,
         room: room?.trim() || null,
         personId: personId || null,
+        purchaseVendorId: purchaseVendorId || null,
         notes: notes?.trim() || null,
         firmwareVersion: firmwareVersion?.trim() || null,
         portCount: portCount ? Number(portCount) : null,

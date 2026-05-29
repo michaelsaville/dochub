@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (error) return error
   try {
     const { id } = await params
-    const { name, email, password, permissions, isPortalOwner } = await req.json()
+    const { name, email, password, permissions, isPortalOwner, personId } = await req.json()
     if (!name?.trim() || !email?.trim()) {
       return NextResponse.json({ error: "Name and email required" }, { status: 400 })
     }
@@ -42,6 +42,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         passwordHash,
         permissions: permissions ?? DEFAULT_PERMISSIONS,
         isPortalOwner: !!isPortalOwner,
+        personId: personId || null,
       },
       select: {
         id: true, name: true, email: true, isActive: true,

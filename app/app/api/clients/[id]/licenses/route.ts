@@ -20,6 +20,7 @@ export async function GET(
       include: {
         person: { select: { id: true, name: true, email: true } },
         vendorRef: { select: { id: true, name: true } },
+        _count: { select: { seatAssignments: true } },
       },
     })
     return NextResponse.json(licenses)

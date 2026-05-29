@@ -31,11 +31,11 @@ const inp: React.CSSProperties = {
 }
 const lbl: React.CSSProperties = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
 
-export default function PortalUsersPanel({ clientId }: { clientId: string }) {
+export default function PortalUsersPanel({ clientId, people = [] }: { clientId: string; people?: { id: string; name: string; email: string | null }[] }) {
   const [users, setUsers] = useState<PortalUser[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
-  const [newForm, setNewForm] = useState({ name: "", email: "", password: "", permissions: { ...DEFAULT_PERMISSIONS } })
+  const [newForm, setNewForm] = useState({ name: "", email: "", password: "", personId: "", permissions: { ...DEFAULT_PERMISSIONS } })
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [resetId, setResetId] = useState<string | null>(null)
@@ -60,7 +60,7 @@ export default function PortalUsersPanel({ clientId }: { clientId: string }) {
       if (res.ok) {
         const user = await res.json()
         setUsers(u => [...u, user])
-        setNewForm({ name: "", email: "", password: "", permissions: { ...DEFAULT_PERMISSIONS } })
+        setNewForm({ name: "", email: "", password: "", personId: "", permissions: { ...DEFAULT_PERMISSIONS } })
         setShowNew(false)
       } else {
         const e = await res.json()
@@ -147,6 +147,20 @@ export default function PortalUsersPanel({ clientId }: { clientId: string }) {
         <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
           <div style={{ fontSize: "15px", fontWeight: 500, marginBottom: "16px" }}>New portal user</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+            {people.length > 0 && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={lbl}>Link to person (fills name + email)</label>
+                <select value={newForm.personId} onChange={e => {
+                  const p = people.find(x => x.id === e.target.value)
+                  // Link a portal user to the directory Person and prefill name/email
+                  // from it (blank-only) so the same human isn't re-typed.
+                  setNewForm(f => ({ ...f, personId: e.target.value, name: f.name || (p?.name ?? ""), email: f.email || (p?.email ?? "") }))
+                }} style={inp}>
+                  <option value="">— not linked —</option>
+                  {people.map(p => <option key={p.id} value={p.id}>{p.name}{p.email ? ` (${p.email})` : ""}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label style={lbl}>Name *</label>
               <input autoFocus value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} style={inp} placeholder="Jane Smith" />

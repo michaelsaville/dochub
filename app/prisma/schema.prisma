@@ -219,6 +219,8 @@ model Person {
   vpnAccess       VpnAccessor[]       @relation("PersonVpnAccess")
   phoneExtensions PhoneExtension[]    @relation("PersonExtension")
   appSeats        AppSeatAssignment[] @relation("AppSeatPerson")
+  licenseSeats    LicenseSeatAssignment[] @relation("LicenseSeatPerson")
+  portalUsers     PortalUser[]        @relation("PortalUserPerson")
 }
 
 
@@ -282,6 +284,7 @@ model Asset {
   vncHost            String?
   vncPort            Int?
   assetTypeId        String?
+  purchaseVendorId   String?
   dataSource         String                 @default("MANUAL")
   // Typed extended fields (surfaced based on AssetTypeTemplate.standardFields)
   firmwareVersion    String?
@@ -325,6 +328,8 @@ model Asset {
   attachments        ClientAttachment[]     @relation("AssetAttachments")
   circuitsAsModem    InternetCircuit[]      @relation("CircuitModemAsset")
   circuitsAsEdge     InternetCircuit[]      @relation("CircuitEdgeAsset")
+  purchaseVendor     Vendor?                @relation("AssetPurchaseVendor", fields: [purchaseVendorId], references: [id])
+  licenseSeats       LicenseSeatAssignment[] @relation("LicenseSeatAsset")
 }
 
 model SynologyConfig {
@@ -458,6 +463,7 @@ model Credential {
   adDomains           AdDomain[]       @relation("CredentialAdDomain")
   assetInterfaces     AssetInterface[]
   internetCircuits    InternetCircuit[] @relation("CredentialInternetCircuit")
+  websites            Website[]        @relation("CredentialWebsite")
 }
 
 model License {
@@ -487,6 +493,24 @@ model License {
   client         Client      @relation(fields: [clientId], references: [id])
   person         Person?     @relation("LicensePerson", fields: [personId], references: [id])
   vendorRef      Vendor?     @relation(fields: [vendorId], references: [id])
+  seatAssignments LicenseSeatAssignment[]
+}
+
+// Per-seat assignment for a License — who/what consumes a seat. Mirrors
+// AppSeatAssignment so assignedSeats can be DERIVED (count) instead of a
+// hand-typed integer that drifts. personId XOR assetId (a seat goes to a
+// person or a device); both nullable for a placeholder seat.
+model LicenseSeatAssignment {
+  id        String   @id @default(cuid())
+  licenseId String
+  personId  String?
+  assetId   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  person    Person?  @relation("LicenseSeatPerson", fields: [personId], references: [id])
+  asset     Asset?   @relation("LicenseSeatAsset", fields: [assetId], references: [id])
 }
 
 model Application {
@@ -638,6 +662,8 @@ model Vendor {
   potsLines     PotsLine[]      @relation("VendorPotsLines")
   attachments   ClientAttachment[] @relation("VendorAttachments")
   internetCircuits InternetCircuit[] @relation("VendorInternetCircuits")
+  websitesAsRegistrar Website[]   @relation("WebsiteRegistrar")
+  purchasedAssets Asset[]         @relation("AssetPurchaseVendor")
 }
 
 /// One row per integration cron — written on every run so Settings can
@@ -712,8 +738,12 @@ model Website {
   lastDownAt      DateTime?
   uptimeCheckedAt DateTime?
   assetId         String?
+  registrarVendorId String?
+  credentialId    String?
   asset           Asset?    @relation("WebsiteAsset", fields: [assetId], references: [id])
   client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  registrarVendor Vendor?   @relation("WebsiteRegistrar", fields: [registrarVendorId], references: [id])
+  credential      Credential? @relation("CredentialWebsite", fields: [credentialId], references: [id])
 }
 
 model AppSetting {
@@ -973,6 +1003,8 @@ model Vlan {
   client      Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   switchPorts SwitchPort[]
   interfaces  AssetInterface[]
+  subnets     Subnet[]         @relation("SubnetVlan")
+  wifiNetworksRef WifiNetwork[] @relation("WifiNetworkVlan")
 
   @@unique([clientId, vlanNumber])
 }
@@ -1069,6 +1101,7 @@ model Subnet {
   dns1          String?
   dns2          String?
   vlan          String?
+  vlanRefId     String?
   description   String?
   notes         String?
   createdAt     DateTime       @default(now())
@@ -1077,6 +1110,7 @@ model Subnet {
   wifiNetworks  WifiNetwork[]
   client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   location      Location?      @relation(fields: [locationId], references: [id])
+  vlanRef       Vlan?          @relation("SubnetVlan", fields: [vlanRefId], references: [id])
   internetCircuits InternetCircuit[] @relation("CircuitSubnet")
 }
 
@@ -1568,6 +1602,7 @@ model WifiNetwork {
   purpose         WifiPurpose    @default(CORPORATE)
   vlanId          Int? // VLAN tag (fallback if no subnet linked)
   vlanName        String? // e.g. "Corp", "Guest", "IoT"
+  vlanRefId       String? // canonical Vlan link (preferred over free vlanId/vlanName)
   isHidden        Boolean        @default(false)
   clientIsolation Boolean        @default(false)
   bandSteering    Boolean        @default(false)
@@ -1578,6 +1613,7 @@ model WifiNetwork {
   controller      WifiController @relation(fields: [controllerId], references: [id], onDelete: Cascade)
   credential      Credential?    @relation("CredentialWifiNetwork", fields: [credentialId], references: [id])
   subnet          Subnet?        @relation(fields: [subnetId], references: [id])
+  vlanRef         Vlan?          @relation("WifiNetworkVlan", fields: [vlanRefId], references: [id])
 }
 
 enum WifiControllerType {
@@ -1689,9 +1725,11 @@ model PortalUser {
   isPortalOwner Boolean             @default(false)
   permissions   Json                @default("{}")
   lastLoginAt   DateTime?
+  personId      String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  person        Person?             @relation("PortalUserPerson", fields: [personId], references: [id])
   sessions      PortalSession[]
   vaultSession  PortalVaultSession?
 }

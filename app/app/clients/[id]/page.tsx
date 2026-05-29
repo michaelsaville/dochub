@@ -26,6 +26,8 @@ import { useSession } from "next-auth/react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ipInCidr } from "@/lib/cidr"
+import LicenseSeats from "@/components/LicenseSeats"
+import CredentialPicker from "@/components/CredentialPicker"
 
 type Person = {
   id: string
@@ -311,7 +313,7 @@ export default function ClientDetailPage() {
   const [licenseEditForm, setLicenseEditForm] = useState<any>({})
   const [revealedLicenseKeys, setRevealedLicenseKeys] = useState<Record<string, string>>({})
   const [revealingKey, setRevealingKey] = useState<string | null>(null)
-  const [vendorsList, setVendorsList] = useState<{ id: string; name: string }[]>([])
+  const [vendorsList, setVendorsList] = useState<{ id: string; name: string; portalUrl?: string | null; accountNumber?: string | null }[]>([])
   const [subscriptions, setSubscriptions] = useState<any[]>([])
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
   const [assigningSubUser, setAssigningSubUser] = useState<string | null>(null)
@@ -350,7 +352,7 @@ export default function ClientDetailPage() {
   const [vendorSearch, setVendorSearch] = useState("")
   const [websiteSearch, setWebsiteSearch] = useState("")
   const [showAddAsset, setShowAddAsset] = useState(false)
-  const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", personId: "", notes: "", customFields: {} })
+  const [assetForm, setAssetForm] = useState<Record<string, any>>({ locationId: "", assetTypeId: "", name: "", friendlyName: "", make: "", model: "", serial: "", assetTag: "", ipAddress: "", macAddress: "", vlan: "", switchPort: "", managementUrl: "", splashtopUrl: "", driverUrl: "", rdpEnabled: false, rdpHost: "", rdpPort: "", vncEnabled: false, vncHost: "", vncPort: "", firmwareVersion: "", portCount: "", os: "", ram: "", cpu: "", storageCapacity: "", purchaseDate: "", warrantyExpiry: "", room: "", personId: "", purchaseVendorId: "", notes: "", customFields: {} })
   const [savingAsset, setSavingAsset] = useState(false)
   const [editingAsset, setEditingAsset] = useState<string | null>(null)
   const [assetEditForm, setAssetEditForm] = useState<any>({})
@@ -361,7 +363,7 @@ export default function ClientDetailPage() {
   const [websites, setWebsites] = useState<any[]>([])
   const [loadingWebsites, setLoadingWebsites] = useState(false)
   const [showAddWebsite, setShowAddWebsite] = useState(false)
-  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "", registrar: "", registrarUrl: "", accountNumber: "", autoRenew: false, notes: "" })
+  const [websiteForm, setWebsiteForm] = useState({ domain: "", label: "", registrar: "", registrarVendorId: "", registrarUrl: "", accountNumber: "", credentialId: "", autoRenew: false, notes: "" })
   const [editingWebsite, setEditingWebsite] = useState<string | null>(null)
   const [websiteEditForm, setWebsiteEditForm] = useState<any>({})
   const [savingWebsite, setSavingWebsite] = useState(false)
@@ -474,13 +476,13 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (activeTab === "Dashboard" && !dashboardData) fetchDashboard()
-    if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes() }
+    if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes(); if (vendorsList.length === 0) fetchVendorsList() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
-    if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList() }
+    if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList(); if (assets.length === 0) fetchAssets() }
     if (activeTab === "Subscriptions" && subscriptions.length === 0) fetchSubscriptions()
     if (activeTab === "Applications" && applications.length === 0) fetchApplications()
     if (activeTab === "Vendors" && clientVendors.length === 0) { fetchClientVendors(); if (vendorsList.length === 0) fetchVendorsList() }
-    if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold() }
+    if (activeTab === "Domains" && websites.length === 0) { fetchWebsites(); fetchDomainThreshold(); if (vendorsList.length === 0) fetchVendorsList(); if (credentials.length === 0) fetchCredentials() }
     if (activeTab === "Network" && networkDevices.length === 0) { fetchNetworkDevices(); if (vlans.length === 0) fetchVlans() }
     if (activeTab === "Remote Access") {
       if (vpnGateways.length === 0) fetchVpn()
@@ -884,7 +886,7 @@ export default function ClientDetailPage() {
     try {
       const res = await fetch("/api/vendors")
       const data = await res.json()
-      setVendorsList(data.map((v: any) => ({ id: v.id, name: v.name })))
+      setVendorsList(data.map((v: any) => ({ id: v.id, name: v.name, portalUrl: v.portalUrl ?? null, accountNumber: v.accountNumber ?? null })))
     } catch {}
   }
 
@@ -1467,7 +1469,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const site = await res.json()
         setWebsites(w => [...w, site])
-        setWebsiteForm({ domain: "", label: "", registrar: "", registrarUrl: "", accountNumber: "", autoRenew: false, notes: "" })
+        setWebsiteForm({ domain: "", label: "", registrar: "", registrarVendorId: "", registrarUrl: "", accountNumber: "", credentialId: "", autoRenew: false, notes: "" })
         setShowAddWebsite(false)
       }
     } catch {}
@@ -2203,6 +2205,13 @@ export default function ClientDetailPage() {
                       </div>
                     ))
                   })()}
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Purchase vendor</label>
+                    <select value={assetForm.purchaseVendorId} onChange={e => setAssetForm((f: any) => ({ ...f, purchaseVendorId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">— none —</option>
+                      {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveAsset} disabled={savingAsset} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
@@ -2986,7 +2995,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{lic.vendorRef?.name ?? lic.vendor ?? "—"}</div>
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                        {lic.seats ? `${lic.assignedSeats ?? 0}/${lic.seats}` : "—"}
+                        {lic.seats ? `${lic._count?.seatAssignments ?? lic.assignedSeats ?? 0}/${lic.seats}` : "—"}
                       </div>
                       <div style={{ fontSize: "13px", color: lic.expiryDate && new Date(lic.expiryDate) < new Date() ? "var(--color-text-danger)" : "var(--color-text-secondary)" }}>
                         {lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : "—"}
@@ -3003,6 +3012,13 @@ export default function ClientDetailPage() {
                         )}
                       </div>
                     </div>
+                    <LicenseSeats
+                      licenseId={lic.id}
+                      totalSeats={lic.seats ?? null}
+                      initialAssigned={lic._count?.seatAssignments ?? lic.assignedSeats ?? 0}
+                      people={client.people}
+                      assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName ?? null }))}
+                    />
                     {lic.licenseKey && (
                       <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "6px" }}>
                         <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>License key</span>
@@ -3379,9 +3395,30 @@ export default function ClientDetailPage() {
                   </div>
                   <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Registrar</label>
-                    <input value={websiteForm.registrar} onChange={e => setWebsiteForm(f => ({ ...f, registrar: e.target.value }))} placeholder="e.g. GoDaddy"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    <select value={websiteForm.registrarVendorId} onChange={e => {
+                      const v = vendorsList.find(x => x.id === e.target.value)
+                      // Linking the registrar vendor pulls its portal URL/account # (blank-only).
+                      setWebsiteForm(f => ({
+                        ...f,
+                        registrarVendorId: e.target.value,
+                        ...(e.target.value ? { registrar: "" } : {}),
+                        ...(v && {
+                          registrarUrl: f.registrarUrl || v.portalUrl || "",
+                          accountNumber: f.accountNumber || v.accountNumber || "",
+                        }),
+                      }))
+                    }} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                      <option value="">— pick a vendor or type one below —</option>
+                      {vendorsList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
                   </div>
+                  {!websiteForm.registrarVendorId && (
+                    <div>
+                      <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Registrar (not in list)</label>
+                      <input value={websiteForm.registrar} onChange={e => setWebsiteForm(f => ({ ...f, registrar: e.target.value }))} placeholder="e.g. GoDaddy"
+                        style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                    </div>
+                  )}
                   <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Registrar URL</label>
                     <input value={websiteForm.registrarUrl} onChange={e => setWebsiteForm(f => ({ ...f, registrarUrl: e.target.value }))} placeholder="https://..."
@@ -3391,6 +3428,16 @@ export default function ClientDetailPage() {
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Account number</label>
                     <input value={websiteForm.accountNumber} onChange={e => setWebsiteForm(f => ({ ...f, accountNumber: e.target.value }))}
                       style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div>
+                    <CredentialPicker
+                      clientId={id as string}
+                      label="Registrar login"
+                      value={websiteForm.credentialId}
+                      onChange={v => setWebsiteForm(f => ({ ...f, credentialId: v }))}
+                      credentials={credentials}
+                      prefillLabel={websiteForm.domain ? `${websiteForm.domain} registrar` : ""}
+                    />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", paddingTop: "20px" }}>
                     <input type="checkbox" id="autoRenew" checked={websiteForm.autoRenew} onChange={e => setWebsiteForm(f => ({ ...f, autoRenew: e.target.checked }))} />
@@ -3778,7 +3825,7 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === "Portal" && (
-          <PortalUsersPanel clientId={id as string} />
+          <PortalUsersPanel clientId={id as string} people={client.people} />
         )}
 
         {activeTab === "Portal Vault" && (
