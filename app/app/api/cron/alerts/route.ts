@@ -12,6 +12,22 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // ?test=1 — fire a one-line test through every configured channel so the
+  // operator can confirm delivery without waiting for something to expire.
+  if (new URL(req.url).searchParams.get("test") === "1") {
+    const push = await sendPush({
+      title: "DocHub test alert",
+      message: "Test notification — your DocHub alert channel is working.",
+      priority: "normal",
+      url: `${process.env.NEXTAUTH_URL || "https://dochub.pcc2k.com"}/expirations`,
+    })
+    const t = await prisma.appSetting.findUnique({ where: { key: "teams:webhook_url" } })
+    const teams = t?.value
+      ? await postExpirationDigestToTeams({ critical: [], warning: [] }, t.value)
+      : { skipped: true }
+    return NextResponse.json({ test: true, push, teams })
+  }
+
   const settings = await prisma.appSetting.findMany({
     where: {
       key: {
@@ -36,9 +52,9 @@ export async function GET(req: Request) {
   const inclCredentials = cfg["alerts:categories:credentials"] !== "false"
   const inclLicenses    = cfg["alerts:categories:licenses"]    !== "false"
 
-  if (!apiKey || !toEmail) {
-    return NextResponse.json({ skipped: true, reason: "Resend API key or alert email not configured" })
-  }
+  // Email is just one channel — a missing Resend config must NOT short-circuit
+  // Teams/push (it used to early-return and skip every channel).
+  const emailConfigured = Boolean(apiKey && toEmail)
 
   const now    = new Date()
   const inWarn = new Date(Date.now() + warnDays     * 86400000)
@@ -87,22 +103,25 @@ export async function GET(req: Request) {
   const critical = all.filter(i => i.expiresAt <= inCrit)
   const warning  = all.filter(i => i.expiresAt > inCrit)
 
-  const send = await sendMessage(
-    "expiration_digest",
-    { critical, warning, generatedAt: now },
-    {
-      toEmail,
-      metadata: {
-        total: all.length,
-        criticalCount: critical.length,
-        warningCount: warning.length,
-        runSource: "cron",
+  // Email — only when Resend is configured.
+  let emailResult: object = { skipped: true, reason: "Resend API key or alert email not configured" }
+  if (emailConfigured) {
+    const send = await sendMessage(
+      "expiration_digest",
+      { critical, warning, generatedAt: now },
+      {
+        toEmail,
+        metadata: {
+          total: all.length,
+          criticalCount: critical.length,
+          warningCount: warning.length,
+          runSource: "cron",
+        },
       },
-    },
-  )
-
-  if (send.status === "FAILED") {
-    return NextResponse.json({ sent: false, error: send.errorMessage }, { status: 500 })
+    )
+    emailResult = send.status === "FAILED"
+      ? { sent: false, error: send.errorMessage }
+      : { sent: true, messageId: send.id }
   }
 
   const teamsSetting = await prisma.appSetting.findUnique({ where: { key: "teams:webhook_url" } })
@@ -111,7 +130,8 @@ export async function GET(req: Request) {
     teamsResult = await postExpirationDigestToTeams({ critical, warning }, teamsSetting.value)
   }
 
-  // Push channels — same digest summary in 1-2 lines.
+  // Push channels — same digest summary in 1-2 lines. sendPush self-skips any
+  // channel that isn't configured.
   const pushResult = await sendPush({
     title: critical.length > 0
       ? `${critical.length} critical · ${warning.length} warning`
@@ -121,9 +141,11 @@ export async function GET(req: Request) {
     url: `${process.env.NEXTAUTH_URL || "https://dochub.pcc2k.com"}/expirations`,
   })
 
+  const pushSent = (pushResult.ntfy as any)?.ok === true || (pushResult.pushover as any)?.ok === true
+  const teamsSent = !(teamsResult as any)?.skipped
   return NextResponse.json({
-    sent: true,
-    messageId: send.id,
+    sent: (emailResult as any).sent === true || teamsSent || pushSent,
+    email: emailResult,
     total: all.length,
     critical: critical.length,
     warning: warning.length,
