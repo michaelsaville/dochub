@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { isIpv4, ipInCidr } from "@/lib/cidr"
 
 export async function POST(
   req: Request,
@@ -13,6 +14,13 @@ export async function POST(
     const body = await req.json()
     const { ipAddress, hostname, assetId, personId, notes } = body
     if (!ipAddress?.trim()) return NextResponse.json({ error: "IP address is required" }, { status: 400 })
+    const trimmedIp = ipAddress.trim()
+    if (!isIpv4(trimmedIp)) return NextResponse.json({ error: "Invalid IPv4 address" }, { status: 400 })
+    // Reject an IP that doesn't belong to this subnet — the core IPAM guarantee.
+    const subnet = await prisma.subnet.findUnique({ where: { id }, select: { cidr: true } })
+    if (subnet && !ipInCidr(trimmedIp, subnet.cidr)) {
+      return NextResponse.json({ error: `${trimmedIp} is not inside ${subnet.cidr}` }, { status: 400 })
+    }
     const ip = await prisma.ipAssignment.create({
       data: {
         subnetId: id,

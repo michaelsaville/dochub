@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
+import { logReveal } from "@/lib/reveal-log"
 import crypto from "crypto"
 
 /** Public endpoint — no auth required. */
@@ -42,6 +43,8 @@ export async function POST(
       select: { label: true, username: true, encryptedPassword: true, url: true, notes: true },
     })
     if (!cred) return NextResponse.json({ error: "Resource not found" }, { status: 404 })
+
+    await logReveal({ entityId: link.resourceId, actor: "public share link", source: "share" })
 
     return NextResponse.json({
       type: "credential",

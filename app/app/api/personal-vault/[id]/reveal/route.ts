@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { decrypt } from "@/lib/crypto"
+import { logReveal } from "@/lib/reveal-log"
 import crypto from "crypto"
 
 function base32Decode(s: string): Buffer {
@@ -68,6 +69,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   let secureNotes: string | null = null
   if (item.encryptedNotes) secureNotes = decrypt(item.encryptedNotes)
   else if (item.notes) secureNotes = item.notes
+
+  await logReveal({ entityType: "personalCredential", entityId: id, actor: (session!.user as any).name, source: "personal-vault" })
 
   return NextResponse.json({ password, totpCode, totpSecret, secureNotes })
 }

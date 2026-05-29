@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { parseCidr } from "@/lib/cidr"
 
 export async function PUT(
   req: Request,
@@ -12,10 +13,16 @@ export async function PUT(
     const { id } = await params
     const body = await req.json()
     const { cidr, locationId, gateway, dns1, dns2, vlan, description, notes } = body
+    let normalizedCidr: string | undefined = undefined
+    if (cidr !== undefined) {
+      const parsed = parseCidr(cidr?.trim() ?? "")
+      if (!parsed) return NextResponse.json({ error: "Invalid CIDR — expected e.g. 192.168.1.0/24" }, { status: 400 })
+      normalizedCidr = parsed.cidr
+    }
     const subnet = await prisma.subnet.update({
       where: { id },
       data: {
-        cidr: cidr?.trim(),
+        cidr: normalizedCidr,
         locationId: locationId ?? null,
         gateway: gateway?.trim() ?? null,
         dns1: dns1?.trim() ?? null,

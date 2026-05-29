@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { generateTotp } from "@/lib/portal-vault"
+import { logReveal } from "@/lib/reveal-log"
 import { buildVisibilityWhere, readSignedBody } from "../_helpers"
 
 export const dynamic = "force-dynamic"
@@ -41,6 +42,8 @@ export async function POST(req: Request) {
     // customer the TOTP secret would let them re-enroll the 2FA permanently.
     totpCode = generateTotp(decrypt(item.encryptedTotp))
   }
+
+  await logReveal({ entityType: "portalCredential", entityId: p.id, actor: `portal:${p.portalUserId}`, source: "portal" })
 
   return NextResponse.json({ ok: true, password, totpCode })
 }

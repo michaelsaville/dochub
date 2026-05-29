@@ -68,6 +68,9 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
         onSubnetsChange([...subnets, created])
         setSubnetForm({ cidr: "", locationId: "", gateway: "", dns1: "", dns2: "", vlan: "", description: "", notes: "" })
         setShowAddSubnet(false)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || "Failed to add subnet")
       }
     } finally { setSavingSubnet(false) }
   }

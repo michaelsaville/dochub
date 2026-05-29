@@ -559,7 +559,7 @@ export default function ClientDetailPage() {
           const updated: Record<string, { seed: string; code: string }> = {}
           await Promise.all(ids.map(async id => {
             try {
-              const r = await fetch(`/api/credentials/${id}/reveal`)
+              const r = await fetch(`/api/credentials/${id}/reveal?refresh=1`)
               if (r.ok) {
                 const d = await r.json()
                 updated[id] = { seed: d.totp ?? revealed[id].seed, code: d.totpCode ?? "------" }
@@ -2894,8 +2894,10 @@ export default function ClientDetailPage() {
                                   {new Date(h.changedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                 </span>
                                 <span style={{ fontSize: "11px", color: "var(--color-text-secondary)", flexShrink: 0, width: "100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.changedBy ?? "unknown"}</span>
-                                <span style={{ fontSize: "12px", color: "var(--color-text-primary)" }}>
-                                  {h.field === "password"
+                                <span style={{ fontSize: "12px", color: h.field === "reveal" ? "var(--color-text-secondary)" : "var(--color-text-primary)" }}>
+                                  {h.field === "reveal"
+                                    ? `👁 revealed${h.newValue ? ` (${h.newValue})` : ""}`
+                                    : h.field === "password"
                                     ? "password rotated"
                                     : `${h.field}: ${h.oldValue ?? "—"} → ${h.newValue ?? "—"}`}
                                 </span>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { requireAuth } from "@/lib/auth"
 import { checkPasswordBreach } from "@/lib/hibp"
+import { logReveal } from "@/lib/reveal-log"
 
 export async function GET(
   req: Request,
@@ -24,6 +25,8 @@ export async function GET(
 
     const password = decrypt(credential.encryptedPassword)
     const count = await checkPasswordBreach(password)
+
+    await logReveal({ entityId: id, actor: session?.user?.name, source: "breach-check" })
 
     return NextResponse.json({ count, compromised: count > 0 })
   } catch {

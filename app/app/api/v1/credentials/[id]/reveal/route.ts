@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { requireApiKey } from "@/lib/api-auth"
+import { logReveal } from "@/lib/reveal-log"
 import crypto from "crypto"
 
 function base32Decode(s: string): Buffer {
@@ -78,6 +79,8 @@ export async function GET(
       // seed valid but code gen failed — still return seed
     }
   }
+
+  await logReveal({ entityId: id, actor: `${staffUser?.name ?? "API key"} (API)`, source: "api-key" })
 
   return NextResponse.json({
     id: credential.id,

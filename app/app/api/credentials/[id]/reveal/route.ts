@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { requireAuth } from "@/lib/auth"
+import { logReveal } from "@/lib/reveal-log"
 import crypto from "crypto"
 
 // ─── TOTP (RFC 6238) ──────────────────────────────────────────────────────────
@@ -69,6 +70,12 @@ export async function GET(
     let secureNotes: string | null = null
     if (credential.encryptedNotes) {
       try { secureNotes = decrypt(credential.encryptedNotes) } catch {}
+    }
+
+    // Skip audit on the 30s TOTP auto-refresh (?refresh=1) — only the initial
+    // user-initiated reveal is logged, so the trail isn't flooded with ticks.
+    if (!new URL(req.url).searchParams.get("refresh")) {
+      await logReveal({ entityId: id, actor: session?.user?.name, source: "staff" })
     }
 
     return NextResponse.json({ password, totp, totpCode, secureNotes })
