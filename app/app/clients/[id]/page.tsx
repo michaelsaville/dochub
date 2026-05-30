@@ -27,6 +27,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ipInCidr } from "@/lib/cidr"
 import LicenseSeats from "@/components/LicenseSeats"
+import AppSeats from "@/components/AppSeats"
 import CredentialPicker from "@/components/CredentialPicker"
 
 type Person = {
@@ -346,7 +347,7 @@ export default function ClientDetailPage() {
   const [applications, setApplications] = useState<any[]>([])
   const [loadingApps, setLoadingApps] = useState(false)
   const [showAddApp, setShowAddApp] = useState(false)
-  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", personId: "", vendorId: "" })
+  const [appForm, setAppForm] = useState({ name: "", vendor: "", version: "", supportUrl: "", notes: "", personId: "", vendorId: "", totalSeats: "", isLob: false, accessType: "", rdpHost: "", rdpPort: "", rdpGateway: "", appUrl: "" })
   const [savingApp, setSavingApp] = useState(false)
   const [editingApp, setEditingApp] = useState<string | null>(null)
   const [appEditForm, setAppEditForm] = useState<any>({})
@@ -1251,7 +1252,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newApp = await res.json()
         setApplications(a => [...a, newApp])
-        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", personId: "", vendorId: "" })
+        setAppForm({ name: "", vendor: "", version: "", supportUrl: "", notes: "", personId: "", vendorId: "", totalSeats: "", isLob: false, accessType: "", rdpHost: "", rdpPort: "", rdpGateway: "", appUrl: "" })
         setShowAddApp(false)
       }
     } catch {}
@@ -3232,7 +3233,7 @@ export default function ClientDetailPage() {
                   ].map(({ key, label, placeholder }) => (
                     <div key={key} style={key === "notes" || key === "supportUrl" ? { gridColumn: "1 / -1" } : {}}>
                       <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>{label}</label>
-                      <input value={appForm[key as keyof typeof appForm]} onChange={e => setAppForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                      <input value={appForm[key as keyof typeof appForm] as string} onChange={e => setAppForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
                         style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
                     </div>
                   ))}
@@ -3257,6 +3258,39 @@ export default function ClientDetailPage() {
                       {client.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
+                  <div>
+                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Total seats</label>
+                    <input type="number" value={appForm.totalSeats} onChange={e => setAppForm(f => ({ ...f, totalSeats: e.target.value }))} placeholder="e.g. 25" style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: "8px", paddingTop: "4px" }}>
+                    <input type="checkbox" id="appIsLob" checked={appForm.isLob} onChange={e => setAppForm(f => ({ ...f, isLob: e.target.checked }))} />
+                    <label htmlFor="appIsLob" style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Line-of-business app (document how to reach it)</label>
+                  </div>
+                  {appForm.isLob && (
+                    <>
+                      <div>
+                        <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Access type</label>
+                        <select value={appForm.accessType} onChange={e => setAppForm(f => ({ ...f, accessType: e.target.value }))} style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }}>
+                          <option value="">— none —</option>
+                          <option value="rdp">RDP / Remote Desktop</option>
+                          <option value="url">Web URL</option>
+                        </select>
+                      </div>
+                      {appForm.accessType === "url" && (
+                        <div>
+                          <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>App URL</label>
+                          <input value={appForm.appUrl} onChange={e => setAppForm(f => ({ ...f, appUrl: e.target.value }))} placeholder="https://" style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
+                        </div>
+                      )}
+                      {appForm.accessType === "rdp" && (
+                        <>
+                          <div><label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>RDP host</label><input value={appForm.rdpHost} onChange={e => setAppForm(f => ({ ...f, rdpHost: e.target.value }))} placeholder="server / IP" style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} /></div>
+                          <div><label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>RDP port</label><input type="number" value={appForm.rdpPort} onChange={e => setAppForm(f => ({ ...f, rdpPort: e.target.value }))} placeholder="3389" style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} /></div>
+                          <div><label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>RD Gateway</label><input value={appForm.rdpGateway} onChange={e => setAppForm(f => ({ ...f, rdpGateway: e.target.value }))} placeholder="optional" style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} /></div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveApp} disabled={savingApp} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingApp ? "Saving..." : "Save"}</button>
@@ -3323,8 +3357,19 @@ export default function ClientDetailPage() {
                 ) : (
                   <div key={app.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 100px 140px 80px", padding: "12px 16px", borderBottom: i < filteredApplications.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{app.name}</div>
+                      <div style={{ fontSize: "14px", fontWeight: 500, display: "flex", alignItems: "center", gap: "6px" }}>
+                        {app.name}
+                        {app.isLob && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(139,92,246,0.15)", color: "#8b5cf6", fontWeight: 600 }}>LOB</span>}
+                      </div>
                       {app.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{app.notes}</div>}
+                      {app.isLob && (app.accessType === "url" ? app.appUrl : app.rdpHost) && (
+                        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px", fontFamily: "monospace" }}>
+                          {app.accessType === "url" ? <a href={app.appUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-accent)", textDecoration: "none" }}>{app.appUrl}</a> : `RDP ${app.rdpHost}${app.rdpPort ? `:${app.rdpPort}` : ""}`}
+                        </div>
+                      )}
+                      {(app.totalSeats != null || (app._count?.seatAssignments ?? 0) > 0) && (
+                        <AppSeats applicationId={app.id} totalSeats={app.totalSeats ?? null} initialAssigned={app._count?.seatAssignments ?? 0} people={client.people} />
+                      )}
                     </div>
                     <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                       {app.vendorRef?.name ?? app.vendor ?? "—"}

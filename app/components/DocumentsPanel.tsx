@@ -21,6 +21,9 @@ type Doc = {
   folderId: string | null
   isPinned: boolean
   portalVisible: boolean
+  needsReview: boolean
+  reviewNote: string | null
+  flaggedBy: string | null
   createdAt: string
   updatedAt: string
   attachments: Attachment[]
@@ -339,6 +342,21 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
     }
   }
 
+  // Flag / resolve a doc for review (feeds the global review queue).
+  async function toggleReview(doc: Doc) {
+    const flagging = !doc.needsReview
+    const reviewNote = flagging ? (prompt("Why does this doc need review? (optional)") ?? "") : ""
+    const res = await fetch(`/api/documents/${doc.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ needsReview: flagging, reviewNote }),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      onDocsChange(docs.map(d => d.id === doc.id ? updated : d))
+    }
+  }
+
   // Share/unshare a doc to the customer portal. Default deny — internal
   // runbooks stay private unless a tech explicitly opts them in.
   async function togglePortalVisible(doc: Doc) {
@@ -622,6 +640,9 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                           <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>{doc.title}</span>
+                          {doc.needsReview && (
+                            <span title={doc.reviewNote ?? "Needs review"} style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "4px", background: "rgba(245,158,11,0.16)", color: "#f59e0b", fontWeight: 600 }}>⚑ Needs review</span>
+                          )}
                           {docFolder && selectedFolderId === null && (
                             <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>📁 {docFolder.name}</span>
                           )}
@@ -639,6 +660,9 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                         </button>
                         <button onClick={() => togglePortalVisible(doc)} style={{ fontSize: "11px", color: doc.portalVisible ? "#22c55e" : "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }} title={doc.portalVisible ? "Visible to customer portal — click to make private" : "Private — click to share with customer portal"}>
                           {doc.portalVisible ? "👁 Portal" : "Share to portal"}
+                        </button>
+                        <button onClick={() => toggleReview(doc)} style={{ fontSize: "11px", color: doc.needsReview ? "#f59e0b" : "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }} title={doc.needsReview ? "Flagged for review — click to resolve" : "Flag for review"}>
+                          {doc.needsReview ? "✓ Resolve" : "⚑ Flag"}
                         </button>
                         <button onClick={() => { setEditingDoc(doc.id); setEditForm({ title: doc.title, content: doc.content ?? "", category: doc.category ?? "", isPinned: doc.isPinned, folderId: doc.folderId ?? null }); setExpandedDoc(doc.id) }}
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>

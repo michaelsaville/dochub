@@ -236,7 +236,9 @@ export async function POST(
       category,
       content: body.content ?? null,
       assetId: resolvedAssetId,
-      needsReview: false,
+      // AI-extracted — flag for a human to verify (gives the review queue a producer).
+      needsReview: true,
+      reviewNote: "Auto-created by AI intake — verify accuracy",
     },
   })
 
