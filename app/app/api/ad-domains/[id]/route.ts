@@ -20,19 +20,35 @@ export async function PUT(
 
     let resolvedCredentialId = credentialId !== undefined ? (credentialId || null) : existing.credentialId
 
-    // If a new password was provided, create a new credential
+    // If a new password was provided, REUSE the linked credential (rotate it)
+    // instead of minting a fresh one each time — the old code left an orphan
+    // Credential on every password change.
     if (credPassword?.trim()) {
       const label = credLabel?.trim() || `${name?.trim() || "Domain"} – Domain Admin`
-      const cred = await prisma.credential.create({
-        data: {
-          clientId: existing.clientId,
-          label,
-          username: credUsername?.trim() || null,
-          encryptedPassword: encrypt(credPassword.trim()),
-          url: null,
-        },
-      })
-      resolvedCredentialId = cred.id
+      const reuseId = credentialId !== undefined ? (credentialId || null) : existing.credentialId
+      if (reuseId) {
+        await prisma.credential.update({
+          where: { id: reuseId },
+          data: {
+            label,
+            ...(credUsername !== undefined && { username: credUsername?.trim() || null }),
+            encryptedPassword: encrypt(credPassword.trim()),
+            lastRotated: new Date(),
+          },
+        })
+        resolvedCredentialId = reuseId
+      } else {
+        const cred = await prisma.credential.create({
+          data: {
+            clientId: existing.clientId,
+            label,
+            username: credUsername?.trim() || null,
+            encryptedPassword: encrypt(credPassword.trim()),
+            url: null,
+          },
+        })
+        resolvedCredentialId = cred.id
+      }
     }
 
     const domain = await prisma.adDomain.update({

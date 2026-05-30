@@ -35,8 +35,13 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { staffUser, error } = await requireApiKey(req)
+  const { staffUser, apiKey, error } = await requireApiKey(req)
   if (error) return error
+
+  // A read-only scoped key may search/read metadata but never reveal secrets.
+  if (apiKey?.scope === "read") {
+    return NextResponse.json({ error: "This API key is read-only (no credential reveal)" }, { status: 403 })
+  }
 
   const { id } = await params
   const credential = await prisma.credential.findUnique({

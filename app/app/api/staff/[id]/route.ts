@@ -23,6 +23,8 @@ export async function PATCH(
       .map(s => s.trim())
       .filter(Boolean)
   }
+  if (body.isActive !== undefined) data.isActive = !!body.isActive
+  if (body.role === "ADMIN" || body.role === "TECH") data.role = body.role
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No editable fields supplied" }, { status: 400 })
   }
@@ -30,7 +32,7 @@ export async function PATCH(
   const updated = await prisma.staffUser.update({
     where: { id },
     data,
-    select: { id: true, name: true, email: true, role: true, ipAllowlist: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, ipAllowlist: true },
   })
   return NextResponse.json(updated)
 }

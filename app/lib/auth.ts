@@ -33,6 +33,29 @@ async function ipAllowlistEnforced(): Promise<boolean> {
 }
 
 /**
+ * The JWT freezes role at sign-in (up to 30 days), so a demote or a disable
+ * wouldn't take effect. Re-check the live StaffUser (cached 30s) so a deleted
+ * or deactivated account is rejected and the current role wins over the token.
+ * Fails OPEN on DB error — never lock everyone out over a transient outage.
+ */
+type LiveStaff = { role: UserRole; isActive: boolean }
+const _staffCache = new Map<string, { value: LiveStaff | null; error: boolean; expiresAt: number }>()
+async function getLiveStaff(id: string): Promise<{ value: LiveStaff | null; error: boolean }> {
+  const now = Date.now()
+  const c = _staffCache.get(id)
+  if (c && c.expiresAt > now) return { value: c.value, error: c.error }
+  try {
+    const u = await prisma.staffUser.findUnique({ where: { id }, select: { role: true, isActive: true } })
+    const value = u ? { role: u.role as UserRole, isActive: u.isActive } : null
+    _staffCache.set(id, { value, error: false, expiresAt: now + 30_000 })
+    return { value, error: false }
+  } catch {
+    _staffCache.set(id, { value: null, error: true, expiresAt: now + 5_000 })
+    return { value: null, error: true }
+  }
+}
+
+/**
  * Use in API route handlers to enforce authentication and optional minimum role.
  *
  * Usage:
@@ -49,6 +72,22 @@ export async function requireAuth(minRole?: UserRole) {
     return {
       session: null,
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    }
+  }
+
+  // Live re-check: reject deleted/deactivated accounts; current role wins over
+  // the (up to 30-day) stale JWT. Fail-open on DB error.
+  const uid = (session.user as { id?: string }).id
+  if (uid) {
+    const live = await getLiveStaff(uid)
+    if (!live.error) {
+      if (!live.value || !live.value.isActive) {
+        return {
+          session: null,
+          error: NextResponse.json({ error: "Account disabled" }, { status: 401 }),
+        }
+      }
+      session.user.role = live.value.role
     }
   }
 

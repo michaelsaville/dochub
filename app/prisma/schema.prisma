@@ -13,6 +13,7 @@ model StaffUser {
   email               String                @unique
   name                String?
   role                UserRole              @default(TECH)
+  isActive            Boolean               @default(true)
   microsoftId         String?               @unique
   passkeyChallenge    String? // ephemeral, cleared after each WebAuthn ceremony
   /// Per-user IP allowlist. Array of CIDR strings (e.g., ["100.64.0.0/10",
@@ -102,6 +103,8 @@ model ApiKey {
   name        String
   keyHash     String    @unique
   staffUserId String
+  expiresAt   DateTime? // null = never expires (legacy keys)
+  scope       String? // null = full; "read" = no credential reveal
   lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())
   staffUser   StaffUser @relation(fields: [staffUserId], references: [id])

@@ -36,6 +36,14 @@ export async function requireApiKey(req: Request) {
     }
   }
 
+  if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
+    return {
+      staffUser: null,
+      apiKey: null,
+      error: NextResponse.json({ error: "API key expired" }, { status: 401 }),
+    }
+  }
+
   // update lastUsedAt without blocking response
   prisma.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date() } }).catch(() => {})
 
