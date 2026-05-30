@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { encrypt } from "@/lib/crypto"
 import { maskItem, readSignedBody, VAULT_VISIBILITY, type VaultVisibility } from "../_helpers"
+import { getPortalAccess } from "@/lib/portal-access"
 
 export const dynamic = "force-dynamic"
 
@@ -38,8 +39,10 @@ export async function POST(req: Request) {
   if (!item) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
   }
-  const editable =
-    item.ownedByUserId === p.portalUserId || !!p.isPortalOwner
+  // Owner-of-row, or a client OWNER (derived from the portal link, not the body).
+  const access = await getPortalAccess(p.portalUserId, p.clientId)
+  const owner = access.mode === "granted" ? access.isOwner : !!p.isPortalOwner
+  const editable = item.ownedByUserId === p.portalUserId || owner
   if (!editable) {
     return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 })
   }

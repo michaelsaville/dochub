@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyPortalHmac } from "@/lib/bff-hmac"
+import { getPortalAccess, categoryAllowed } from "@/lib/portal-access"
 
 export const dynamic = "force-dynamic"
 
 interface AssetsPayload {
   clientId: string
+  portalUserId?: string
 }
 
 export async function POST(req: Request) {
@@ -30,6 +32,11 @@ export async function POST(req: Request) {
   if (!payload.clientId) {
     return NextResponse.json({ ok: false, error: "clientId required" }, { status: 400 })
   }
+
+  // Server-side authZ (non-breaking until the portal sends portalUserId).
+  const access = await getPortalAccess(payload.portalUserId, payload.clientId)
+  if (access.mode === "denied") return NextResponse.json({ ok: false, error: "Not authorized for this client" }, { status: 403 })
+  if (!categoryAllowed(access, "assets")) return NextResponse.json({ ok: true, assets: [] })
 
   const assets = await prisma.asset.findMany({
     where: {

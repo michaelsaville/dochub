@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { generateTotp } from "@/lib/portal-vault"
 import { logReveal } from "@/lib/reveal-log"
+import { getPortalAccess } from "@/lib/portal-access"
 import { buildVisibilityWhere, readSignedBody } from "../_helpers"
 
 export const dynamic = "force-dynamic"
@@ -26,10 +27,13 @@ export async function POST(req: Request) {
     )
   }
 
+  const access = await getPortalAccess(p.portalUserId, p.clientId)
+  const owner = access.mode === "granted" ? access.isOwner : !!p.isPortalOwner
+
   const where = buildVisibilityWhere({
     clientId: p.clientId,
     portalUserId: p.portalUserId,
-    isPortalOwner: !!p.isPortalOwner,
+    isPortalOwner: owner,
   })
 
   const item = await prisma.portalCredential.findFirst({ where: { ...where, id: p.id } })

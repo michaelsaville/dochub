@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { buildVisibilityWhere, maskItem, readSignedBody } from "../_helpers"
+import { getPortalAccess } from "@/lib/portal-access"
 
 export const dynamic = "force-dynamic"
 
@@ -21,8 +22,13 @@ export async function POST(req: Request) {
     )
   }
 
+  // Derive owner from the super-portal client-link instead of trusting the body.
+  // Conservative: only override when a link exists (avoids breaking unlinked users).
+  const access = await getPortalAccess(portalUserId, clientId)
+  const owner = access.mode === "granted" ? access.isOwner : !!isPortalOwner
+
   const items = await prisma.portalCredential.findMany({
-    where: buildVisibilityWhere({ clientId, portalUserId, isPortalOwner: !!isPortalOwner }),
+    where: buildVisibilityWhere({ clientId, portalUserId, isPortalOwner: owner }),
     orderBy: { label: "asc" },
     select: {
       id: true,
