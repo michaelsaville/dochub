@@ -151,6 +151,22 @@ export async function POST(req: Request) {
       await tx.phoneSystem.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
       await tx.cameraSystem.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
       await tx.wifiController.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      // Previously-orphaned relations — the source was only marked inactive, so
+      // these silently vanished from the target despite "Moving all records".
+      await tx.portalCredential.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.portalUser.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.ptpLink.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.internetCircuit.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.backupConfig.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.documentFolder.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.intakeSuggestion.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.runbookRun.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      await tx.vendorContract.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      // NetworkDiagram is 1:1 (clientId @unique) — only move when target has none.
+      const targetDiagram = await tx.networkDiagram.findUnique({ where: { clientId: targetId } })
+      if (!targetDiagram) {
+        await tx.networkDiagram.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } })
+      }
 
       // 3. Vendor many-to-many: insert missing rows then delete source rows
       // Insert vendor links that don't already exist on target

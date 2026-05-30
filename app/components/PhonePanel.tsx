@@ -613,7 +613,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
       {showAddSystem && (
         <div style={card}>
           <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px" }}>New Phone System</div>
-          <SystemForm onSubmit={saveSystem} onCancel={() => { setShowAddSystem(false); setError("") }} />
+          {SystemForm({ onSubmit: saveSystem, onCancel: () => { setShowAddSystem(false); setError("") } })}
         </div>
       )}
 
@@ -652,7 +652,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
           {/* Edit system form */}
           {editingSystemId === system.id && (
             <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "0.5px solid var(--color-border-secondary)" }}>
-              <SystemForm onSubmit={() => updateSystem(system.id)} onCancel={() => { setEditingSystemId(null); setError("") }} />
+              {SystemForm({ onSubmit: () => updateSystem(system.id), onCancel: () => { setEditingSystemId(null); setError("") } })}
             </div>
           )}
 
@@ -674,7 +674,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
               {system.extensions.map(ext => (
                 <div key={ext.id}>
                   {editingExtId === ext.id ? (
-                    <ExtForm onSubmit={() => updateExtension(ext.id, system.id)} onCancel={() => { setEditingExtId(null); setError("") }} />
+                    ExtForm({ onSubmit: () => updateExtension(ext.id, system.id), onCancel: () => { setEditingExtId(null); setError("") } })
                   ) : (
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", gap: "10px" }}>
                       <div style={{ flex: 1 }}>
@@ -705,7 +705,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
 
               {/* Add extension form */}
               {addingExtFor === system.id && (
-                <ExtForm onSubmit={() => addExtension(system.id)} onCancel={() => { setAddingExtFor(null); setError("") }} />
+                ExtForm({ onSubmit: () => addExtension(system.id), onCancel: () => { setAddingExtFor(null); setError("") } })
               )}
 
               {/* SIP Trunks section */}
@@ -722,7 +722,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
                 {system.sipTrunks?.map(trunk => (
                   <div key={trunk.id} style={{ marginBottom: "8px" }}>
                     {editingTrunkId === trunk.id ? (
-                      <TrunkForm onSubmit={() => updateTrunk(trunk.id, system.id)} onCancel={() => { setEditingTrunkId(null); setError("") }} />
+                      TrunkForm({ onSubmit: () => updateTrunk(trunk.id, system.id), onCancel: () => { setEditingTrunkId(null); setError("") } })
                     ) : (
                       <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)" }}>
                         {/* Trunk header row */}
@@ -807,7 +807,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
                   </div>
                 ))}
                 {addingTrunkFor === system.id && (
-                  <TrunkForm onSubmit={() => addTrunk(system.id)} onCancel={() => { setAddingTrunkFor(null); setError("") }} />
+                  TrunkForm({ onSubmit: () => addTrunk(system.id), onCancel: () => { setAddingTrunkFor(null); setError("") } })
                 )}
               </div>
 
@@ -825,7 +825,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
                 {system.potsLines?.map(line => (
                   <div key={line.id} style={{ marginBottom: "8px" }}>
                     {editingPotsId === line.id ? (
-                      <PotsForm onSubmit={() => updatePotsLine(line.id, system.id)} onCancel={() => { setEditingPotsId(null); setError("") }} />
+                      PotsForm({ onSubmit: () => updatePotsLine(line.id, system.id), onCancel: () => { setEditingPotsId(null); setError("") } })
                     ) : (
                       <div style={{ borderRadius: "7px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)" }}>
                         {/* Line header row */}
@@ -919,7 +919,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
                   </div>
                 ))}
                 {addingPotsFor === system.id && (
-                  <PotsForm onSubmit={() => addPotsLine(system.id)} onCancel={() => { setAddingPotsFor(null); setError("") }} />
+                  PotsForm({ onSubmit: () => addPotsLine(system.id), onCancel: () => { setAddingPotsFor(null); setError("") } })
                 )}
               </div>
 

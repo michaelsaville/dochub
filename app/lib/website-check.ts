@@ -79,14 +79,18 @@ export async function checkWebsite(clientId: string, websiteId: string) {
     sslCheck(website.domain),
   ])
 
+  // Coalesce with prior values — a transient RDAP/TLS/DNS failure returns
+  // null/empty, and we must NOT blank out yesterday's good data (that would
+  // also drop the domain out of /expirations + alerts).
+  const hasDns = dnsRecords && typeof dnsRecords === "object" && Object.keys(dnsRecords).length > 0
   const updated = await prisma.website.update({
     where: { id: websiteId },
     data: {
-      expiresAt,
+      expiresAt: expiresAt ?? website.expiresAt,
       registrar: registrar ?? website.registrar,
-      dnsRecords,
-      sslExpiresAt,
-      sslIssuer,
+      dnsRecords: hasDns ? dnsRecords : (website.dnsRecords ?? undefined),
+      sslExpiresAt: sslExpiresAt ?? website.sslExpiresAt,
+      sslIssuer: sslIssuer ?? website.sslIssuer,
       lastChecked: new Date(),
     },
   })

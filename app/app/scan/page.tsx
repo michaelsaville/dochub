@@ -17,6 +17,22 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null)
   const [manual, setManual] = useState("")
   const [decoded, setDecoded] = useState<string | null>(null)
+  const [noMatch, setNoMatch] = useState<string | null>(null)
+
+  // Resolve a scanned serial / barcode via the asset-aware global search and
+  // jump to the asset (or client) — /clients?q= ignored the query.
+  async function goSearch(value: string) {
+    setNoMatch(null)
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(value)}`)
+      if (res.ok) {
+        const d = await res.json()
+        if (d.assets?.[0]) { router.push(`/assets/${d.assets[0].id}`); return }
+        if (d.clients?.[0]) { router.push(`/clients/${d.clients[0].id}`); return }
+      }
+    } catch { /* fall through to no-match */ }
+    setNoMatch(value)
+  }
 
   useEffect(() => {
     const hasDetector = typeof window !== "undefined" && "BarcodeDetector" in window
@@ -59,7 +75,8 @@ export default function ScanPage() {
       try {
         const u = new URL(value)
         if (/\/(assets|clients)\//.test(u.pathname)) { router.push(u.pathname + u.search); return }
-      } catch { /* not a URL — treat as a serial/barcode below */ }
+      } catch { /* not a URL — treat as a serial/barcode → search */ }
+      goSearch(value)
     }
 
     start()
@@ -87,9 +104,10 @@ export default function ScanPage() {
             Scanned: <span style={{ fontFamily: "monospace" }}>{decoded}</span>
             {!/\/(assets|clients)\//.test(decoded) && (
               <div style={{ marginTop: "6px" }}>
-                <button onClick={() => router.push(`/clients?q=${encodeURIComponent(decoded)}`)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Search for this</button>
+                <button onClick={() => goSearch(decoded)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Search for this</button>
               </div>
             )}
+            {noMatch && <div style={{ marginTop: "6px", color: "var(--color-text-muted)" }}>No asset or client found for <span style={{ fontFamily: "monospace" }}>{noMatch}</span>.</div>}
           </div>
         )}
 
@@ -97,10 +115,11 @@ export default function ScanPage() {
           <div style={{ marginTop: "12px" }}>
             {error && <p style={{ fontSize: "13px", color: "#f59e0b", marginBottom: "10px" }}>{error}</p>}
             {supported === false && <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>Live scanning isn&apos;t supported on this browser. Type the serial / asset tag to search.</p>}
-            <form onSubmit={e => { e.preventDefault(); if (manual.trim()) router.push(`/clients?q=${encodeURIComponent(manual.trim())}`) }} style={{ display: "flex", gap: "8px" }}>
+            <form onSubmit={e => { e.preventDefault(); if (manual.trim()) goSearch(manual.trim()) }} style={{ display: "flex", gap: "8px" }}>
               <input value={manual} onChange={e => setManual(e.target.value)} placeholder="Serial or asset tag" style={{ flex: 1, padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
               <button type="submit" style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Search</button>
             </form>
+            {noMatch && <p style={{ fontSize: "13px", color: "var(--color-text-muted)", marginTop: "8px" }}>No asset or client found for <span style={{ fontFamily: "monospace" }}>{noMatch}</span>.</p>}
           </div>
         )}
       </div>

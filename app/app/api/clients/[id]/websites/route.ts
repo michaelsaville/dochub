@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkWebsite } from "@/lib/website-check"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth()
@@ -36,5 +37,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       notes: body.notes?.trim() || null,
     },
   })
-  return NextResponse.json(website)
+
+  // Resolve registrar/expiry/SSL/DNS immediately so a new domain isn't blank
+  // for ~24h until the daily cron. Best-effort — return the bare row on failure.
+  let enriched: typeof website = website
+  try {
+    const checked = await checkWebsite(id, website.id)
+    if (checked) enriched = checked
+  } catch { /* keep the bare row */ }
+
+  return NextResponse.json(enriched)
 }
