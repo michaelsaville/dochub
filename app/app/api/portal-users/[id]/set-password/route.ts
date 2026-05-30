@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth"
 import { hashPassword } from "@/lib/portal-auth"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth()
+  const { error } = await requireAuth("ADMIN")
   if (error) return error
   try {
     const { id } = await params

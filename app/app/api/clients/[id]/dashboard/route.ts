@@ -37,8 +37,10 @@ export async function GET(
       ...c,
       encryptedPassword: undefined,
       encryptedTotp: undefined,
+      encryptedNotes: undefined,
       hasPassword: !!c.encryptedPassword,
       hasTotp: !!c.encryptedTotp,
+      hasNotes: !!c.encryptedNotes,
     }))
 
     return NextResponse.json({ favoritedAssets: rawAssets, favoritedCredentials: favCreds })

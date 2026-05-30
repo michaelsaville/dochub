@@ -1,4 +1,5 @@
 import "server-only"
+import { randomInt } from "crypto"
 
 /**
  * Minimal Microsoft Graph client for app-only (client credentials) flows.
@@ -113,16 +114,16 @@ export function generateStrongPassword(length = 20): string {
   const digit = "23456789"                    // omit 0, 1
   const symbol = "!#$%*+-=?@^_~"
   const all = upper + lower + digit + symbol
-  const pick = (chars: string) =>
-    chars[Math.floor(Math.random() * chars.length)]
+  // CSPRNG — these are real Entra account passwords, never Math.random.
+  const pick = (chars: string) => chars[randomInt(chars.length)]
 
   // Guarantee one of each class.
   const required = [pick(upper), pick(lower), pick(digit), pick(symbol)]
   const rest = Array.from({ length: Math.max(8, length) - required.length }, () => pick(all))
-  // Fisher-Yates shuffle
+  // Fisher-Yates shuffle with a CSPRNG.
   const arr = [...required, ...rest]
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = randomInt(i + 1)
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
   }
   return arr.join("")

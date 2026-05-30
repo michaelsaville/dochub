@@ -25,21 +25,29 @@ export async function POST(
     }
     const [salt, hash] = link.passphrase.split(":")
     const attempt = crypto.scryptSync(supplied, salt, 64).toString("hex")
-    if (attempt !== hash) {
+    const aBuf = Buffer.from(attempt, "hex")
+    const hBuf = Buffer.from(hash, "hex")
+    if (aBuf.length !== hBuf.length || !crypto.timingSafeEqual(aBuf, hBuf)) {
       return NextResponse.json({ error: "Incorrect passphrase", needsPassphrase: true }, { status: 403 })
     }
   }
 
-  // Increment view count
-  await prisma.secureShareLink.update({
-    where: { id },
+  // Atomically consume a view — guards the maxViews/expiry TOCTOU so two
+  // concurrent requests to a maxViews=1 link can't both succeed.
+  const consumed = await prisma.secureShareLink.updateMany({
+    where: { id, viewCount: { lt: link.maxViews }, expiresAt: { gt: new Date() } },
     data: { viewCount: { increment: 1 } },
   })
+  if (consumed.count === 0) {
+    return NextResponse.json({ error: "Link expired or not found" }, { status: 404 })
+  }
 
   // Fetch the resource
   if (link.resourceType === "credential") {
-    const cred = await prisma.credential.findUnique({
-      where: { id: link.resourceId },
+    const cred = await prisma.credential.findFirst({
+      // Never serve a retired credential — a link minted before retirement
+      // must stop leaking after it.
+      where: { id: link.resourceId, isRetired: false },
       select: { label: true, username: true, encryptedPassword: true, url: true, notes: true },
     })
     if (!cred) return NextResponse.json({ error: "Resource not found" }, { status: 404 })

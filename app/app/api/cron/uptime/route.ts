@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { createAlarm } from "@/lib/alarms"
+import { requireCronSecret } from "@/lib/cron-auth"
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization")
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = requireCronSecret(req)
+  if (denied) return denied
 
   const websites = await prisma.website.findMany({
     where: { uptimeEnabled: true },

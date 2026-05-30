@@ -2,12 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { dsmLogin, dsmLogout, dsmGetBackupJobs } from "@/lib/synology"
+import { requireCronSecret } from "@/lib/cron-auth"
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization")
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = requireCronSecret(req)
+  if (denied) return denied
 
   const configs = await prisma.synologyConfig.findMany({
     include: { asset: { select: { id: true, name: true, ipAddress: true, location: { select: { clientId: true, client: { select: { name: true } } } } } } },

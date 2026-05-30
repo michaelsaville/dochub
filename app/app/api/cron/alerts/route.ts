@@ -4,13 +4,12 @@ import { postExpirationDigestToTeams } from "@/lib/teams"
 import { sendPush } from "@/lib/push"
 import { sendMessage } from "@/lib/messaging/send"
 import type { ExpirationDigestItem } from "@/lib/messaging/templates"
+import { requireCronSecret } from "@/lib/cron-auth"
 
 // Called nightly by cron: GET /api/cron/alerts  (Bearer CRON_SECRET)
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization")
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = requireCronSecret(req)
+  if (denied) return denied
 
   // ?test=1 — fire a one-line test through every configured channel so the
   // operator can confirm delivery without waiting for something to expire.

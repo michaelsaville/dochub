@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { recordSyncStatus, type SyncStatus } from "@/lib/sync-status"
+import { requireCronSecret } from "@/lib/cron-auth"
 
 /**
  * Map an integration JSON result to a sync status row. Each sub-cron
@@ -28,10 +29,8 @@ function classifyResult(result: any): { status: SyncStatus; message: string | nu
 }
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization")
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = requireCronSecret(req)
+  if (denied) return denied
 
   const results: Record<string, any> = {}
 

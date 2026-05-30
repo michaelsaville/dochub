@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
       expectedChallenge: user.passkeyChallenge,
       expectedOrigin: getOrigin(),
       expectedRPID: RP_ID,
-      requireUserVerification: false,
+      // Require a biometric/PIN gesture — a passkey on an unlocked/borrowed
+      // device shouldn't silently satisfy the vault/auth check.
+      requireUserVerification: true,
       authenticator: {
         credentialID: Buffer.from(passkey.credentialId).toString("base64url"),
         credentialPublicKey: new Uint8Array(passkey.publicKey),
