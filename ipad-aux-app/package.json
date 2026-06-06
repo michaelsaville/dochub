@@ -1,0 +1,19 @@
+{
+  "name": "dochub-aux-ipad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Thin Capacitor iPad shell that loads the live DocHub app for the aux-display second-screen feature.",
+  "scripts": {
+    "prepare:www": "mkdir -p www && printf '<!doctype html><meta http-equiv=\"refresh\" content=\"0; url=https://dochub.pcc2k.com\">' > www/index.html",
+    "add:ios": "npm run prepare:www && npx cap add ios",
+    "sync": "npx cap sync ios",
+    "open": "npx cap open ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0"
+  }
+}

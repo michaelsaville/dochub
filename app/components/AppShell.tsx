@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar"
 import SearchModal from "@/components/SearchModal"
 import QuickAddFab from "@/components/QuickAddFab"
 import MobileBottomBar from "@/components/MobileBottomBar"
+import AuxDisplayReceiver from "@/components/AuxDisplayReceiver"
 
 function BellIcon() {
   return (
@@ -258,6 +259,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {searchOpen && <SearchModal onClose={closeSearch} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
       <QuickAddFab />
+      <AuxDisplayReceiver />
     </div>
   )
 }
