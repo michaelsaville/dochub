@@ -41,9 +41,23 @@ In Xcode:
 - Run on a connected iPad, or Archive → distribute via Ad Hoc / TestFlight /
   your MDM.
 
-To keep the screen awake / lock to this one app, use iPadOS **Guided Access**
-(Settings → Accessibility → Guided Access) or an MDM kiosk profile — no code
-change needed.
+## Guided Access — lock the iPad to DocHub (no code change)
+
+For a wall-mounted / counter display you usually want the iPad pinned to DocHub
+with the screen always on. This is iPadOS Guided Access — the same steps are
+shown to the tech in-app at **dochub.pcc2k.com/aux-display**.
+
+1. **Settings → Accessibility → Guided Access** → turn it on.
+2. **Passcode Settings** → set a passcode so it can't be exited without you
+   (Face ID / Touch ID optional).
+3. Open the DocHub home-screen app (or the native build), then **triple-click**
+   the side/top button → in the bottom-left **Options**: keep **Touch** on, turn
+   **Sleep/Wake** off, set **Time Limit** to none → **Start**.
+4. To exit later: triple-click the button, enter the passcode → **End**.
+
+Also set **Settings → Display & Brightness → Auto-Lock → Never** while on power
+so it stays awake between tickets. For a fleet, an MDM kiosk profile applies all
+of this centrally and can also push the native build.
 
 ## Pointing at staging
 

@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useAuxEnabled } from "@/lib/aux-display-client"
 
 /**
  * iPad "aux display" receiver.
@@ -17,39 +18,21 @@ import { useCallback, useEffect, useRef, useState } from "react"
  * invisible on a normal desktop session.
  */
 
-const LS_KEY = "dochub:auxDisplay"
-
 type Status = "off" | "connecting" | "armed" | "error"
 
 export default function AuxDisplayReceiver() {
   const { status: authStatus } = useSession()
   const router = useRouter()
 
-  const [enabled, setEnabled] = useState(false)
+  // Shared armed flag — kept in sync with the /aux-display control page.
+  const [enabled, setEnabled] = useAuxEnabled()
   const [status, setStatus] = useState<Status>("off")
   const [lastTarget, setLastTarget] = useState<string | null>(null)
   const esRef = useRef<EventSource | null>(null)
 
-  // Restore the saved preference once on mount.
-  useEffect(() => {
-    try {
-      setEnabled(localStorage.getItem(LS_KEY) === "1")
-    } catch {
-      /* private mode / no storage */
-    }
-  }, [])
-
   const toggle = useCallback(() => {
-    setEnabled((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(LS_KEY, next ? "1" : "0")
-      } catch {
-        /* ignore */
-      }
-      return next
-    })
-  }, [])
+    setEnabled(!enabled)
+  }, [enabled, setEnabled])
 
   // Open / close the SSE connection in step with `enabled` + auth.
   useEffect(() => {
