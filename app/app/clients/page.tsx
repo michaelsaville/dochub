@@ -3,6 +3,7 @@
 import AppShell from "@/components/AppShell"
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import CastButton from "@/components/CastButton"
 
 type Client = {
   id: string
@@ -251,8 +252,11 @@ function ClientsPageInner() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
-                <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>
-                  {client.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {client.name}
+                  </span>
+                  <CastButton url={`/clients/${client.id}`} label={client.name} size={22} />
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   {client.type === "BUSINESS" ? "Business" : "Residential"}

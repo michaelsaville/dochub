@@ -118,13 +118,15 @@ export function otherRole(role: AuxRole): AuxRole {
 }
 
 /**
- * Push this browser's current view (path + query) to the OTHER screen in the
- * user's room. Returns the number of devices it reached, or null on failure.
+ * Push a specific relative URL to the OTHER screen in the user's room.
+ * Returns the number of devices it reached, or null on failure.
  */
-export async function castCurrentView(fromRole: AuxRole): Promise<number | null> {
+export async function castUrl(
+  url: string,
+  label: string | null,
+  fromRole: AuxRole,
+): Promise<number | null> {
   try {
-    const url = window.location.pathname + window.location.search
-    const label = (document.title || "").replace(/\s*[|·–-]\s*DocHub.*$/i, "").trim() || null
     const res = await fetch("/api/aux-display/control", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -137,4 +139,13 @@ export async function castCurrentView(fromRole: AuxRole): Promise<number | null>
   } catch {
     return null
   }
+}
+
+/**
+ * Push this browser's current view (path + query) to the OTHER screen.
+ */
+export function castCurrentView(fromRole: AuxRole): Promise<number | null> {
+  const url = window.location.pathname + window.location.search
+  const label = (document.title || "").replace(/\s*[|·–-]\s*DocHub.*$/i, "").trim() || null
+  return castUrl(url, label, fromRole)
 }

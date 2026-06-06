@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import AppShell from "@/components/AppShell"
 import AttachmentsPanel from "@/components/AttachmentsPanel"
+import CastButton from "@/components/CastButton"
 import { thSiteUrl } from "@/lib/cross-app-urls"
 
 type ThSite = {
@@ -295,6 +296,7 @@ function RelationCard({ title, count, rows }: { title: string; count: number; ro
               <a href={r.href} style={linkStyle}>{r.label}</a>
               {r.sublabel && <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 1 }}>{r.sublabel}</div>}
             </div>
+            <CastButton url={r.href} label={r.label} size={22} />
           </div>
         ))
       )}
