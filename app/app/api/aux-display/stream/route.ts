@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/auth"
-import { subscribe, type AuxEvent } from "@/lib/aux-display-hub"
+import { subscribe, type AuxEvent, type AuxRole } from "@/lib/aux-display-hub"
 
 // SSE must stream from the Node runtime and never be statically cached.
 export const runtime = "nodejs"
@@ -23,6 +23,11 @@ export async function GET(req: Request) {
     return new Response("No email on session", { status: 400 })
   }
 
+  // Which screen is this connection? Defaults to "ipad" (the aux screen) so
+  // existing iPad clients that don't pass ?role keep working unchanged.
+  const roleParam = new URL(req.url).searchParams.get("role")
+  const role: AuxRole = roleParam === "desktop" ? "desktop" : "ipad"
+
   const encoder = new TextEncoder()
   let heartbeat: ReturnType<typeof setInterval> | null = null
   let unsubscribe: (() => void) | null = null
@@ -35,7 +40,7 @@ export async function GET(req: Request) {
 
       // Greet so the client flips its status to "connected" immediately.
       send({ type: "connected", ts: Date.now() })
-      unsubscribe = subscribe(email, send)
+      unsubscribe = subscribe(email, role, send)
 
       heartbeat = setInterval(() => {
         try {

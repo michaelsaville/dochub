@@ -3,19 +3,21 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useAuxEnabled } from "@/lib/aux-display-client"
+import { useAuxEnabled, useAuxRole, otherRole, castCurrentView } from "@/lib/aux-display-client"
 
 /**
- * iPad "aux display" receiver.
+ * Aux-display receiver — works for both screen roles.
  *
- * Opt-in (persisted in localStorage). When ON, the iPad holds an SSE
- * connection to /api/aux-display/stream keyed by the signed-in user's email.
- * When that user opens a ticket in TicketHub, this flips the iPad to the
- * matching client's DocHub page automatically. The pill (bottom-left) is the
- * whole control surface — tap to arm/disarm; it shows live status.
+ * Opt-in (persisted in localStorage). When armed, this browser holds an SSE
+ * connection to /api/aux-display/stream?role=<role> keyed by the signed-in
+ * user's email, and navigates on events targeted at its role:
+ *   - role "ipad"    follows ticket-opens from TicketHub (the second screen)
+ *   - role "desktop" follows casts pushed from the iPad (the main screen)
  *
- * Mounted globally in AppShell; renders nothing visible until armed, so it's
- * invisible on a normal desktop session.
+ * The bottom-left pill is the control surface: tap to arm/disarm. When armed,
+ * a second button casts THIS browser's current view to the other screen.
+ *
+ * Mounted globally in AppShell; renders nothing visible until armed.
  */
 
 type Status = "off" | "connecting" | "armed" | "error"
@@ -24,17 +26,35 @@ export default function AuxDisplayReceiver() {
   const { status: authStatus } = useSession()
   const router = useRouter()
 
-  // Shared armed flag — kept in sync with the /aux-display control page.
+  // Shared flags — kept in sync with the /aux-display control page.
   const [enabled, setEnabled] = useAuxEnabled()
+  const [role] = useAuxRole()
   const [status, setStatus] = useState<Status>("off")
   const [lastTarget, setLastTarget] = useState<string | null>(null)
+  const [castMsg, setCastMsg] = useState<string | null>(null)
   const esRef = useRef<EventSource | null>(null)
+  const castTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const toggle = useCallback(() => {
     setEnabled(!enabled)
   }, [enabled, setEnabled])
 
-  // Open / close the SSE connection in step with `enabled` + auth.
+  const flashCast = useCallback((msg: string) => {
+    setCastMsg(msg)
+    if (castTimer.current) clearTimeout(castTimer.current)
+    castTimer.current = setTimeout(() => setCastMsg(null), 2600)
+  }, [])
+
+  const cast = useCallback(async () => {
+    const target = otherRole(role)
+    const targetName = target === "desktop" ? "desktop" : "iPad"
+    const delivered = await castCurrentView(role)
+    if (delivered === null) flashCast("Couldn’t send")
+    else if (delivered === 0) flashCast(`No ${targetName} connected`)
+    else flashCast(`Sent to ${targetName} ✓`)
+  }, [role, flashCast])
+
+  // Open / close the SSE connection in step with `enabled`, auth, and role.
   useEffect(() => {
     if (!enabled || authStatus !== "authenticated") {
       esRef.current?.close()
@@ -44,7 +64,7 @@ export default function AuxDisplayReceiver() {
     }
 
     setStatus("connecting")
-    const es = new EventSource("/api/aux-display/stream")
+    const es = new EventSource(`/api/aux-display/stream?role=${role}`)
     esRef.current = es
 
     es.onopen = () => setStatus("armed")
@@ -58,6 +78,7 @@ export default function AuxDisplayReceiver() {
         url?: string | null
         label?: string | null
         clientName?: string | null
+        source?: string | null
       }
       try {
         data = JSON.parse(e.data)
@@ -69,7 +90,8 @@ export default function AuxDisplayReceiver() {
         return
       }
       if (data.type === "navigate" && data.url) {
-        setLastTarget(data.label || data.clientName || "client")
+        const via = data.source === "cast" ? "Cast" : "Following"
+        setLastTarget(`${via} → ${data.label || data.clientName || "view"}`)
         router.push(data.url)
         return
       }
@@ -82,7 +104,7 @@ export default function AuxDisplayReceiver() {
       es.close()
       if (esRef.current === es) esRef.current = null
     }
-  }, [enabled, authStatus, router])
+  }, [enabled, authStatus, role, router])
 
   const palette: Record<Status, { bg: string; dot: string; text: string }> = {
     off: { bg: "rgba(100,116,139,0.12)", dot: "#64748b", text: "var(--muted)" },
@@ -92,23 +114,21 @@ export default function AuxDisplayReceiver() {
   }
   const p = palette[status]
 
+  const roleIcon = role === "desktop" ? "🖥️" : "📲"
+  const roleWord = role === "desktop" ? "Main screen" : "Aux Display"
   const labelText =
     status === "armed"
-      ? lastTarget
-        ? `Following → ${lastTarget}`
-        : "Aux Display • waiting"
+      ? castMsg ?? lastTarget ?? `${roleWord} • waiting`
       : status === "connecting"
-        ? "Aux Display • connecting…"
-        : "Aux Display • off"
+        ? `${roleWord} • connecting…`
+        : `${roleWord} • off`
+
+  const showCast = enabled && authStatus === "authenticated"
+  const castTo = otherRole(role) === "desktop" ? "desktop" : "iPad"
+  const castIcon = otherRole(role) === "desktop" ? "🖥️" : "📲"
 
   return (
-    <button
-      onClick={toggle}
-      title={
-        enabled
-          ? "Aux Display is ON — opening a ticket in TicketHub flips this screen to that client. Tap to turn off."
-          : "Turn this iPad into a context-aware second screen for TicketHub. Tap to arm."
-      }
+    <div
       style={{
         position: "fixed",
         left: "14px",
@@ -117,31 +137,72 @@ export default function AuxDisplayReceiver() {
         display: "flex",
         alignItems: "center",
         gap: "8px",
-        padding: "8px 12px",
-        borderRadius: "999px",
-        border: "0.5px solid var(--color-border-tertiary)",
-        background: p.bg,
-        color: p.text,
-        fontSize: "12px",
-        fontWeight: 600,
-        cursor: "pointer",
-        backdropFilter: "blur(8px)",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
-        opacity: enabled ? 1 : 0.55,
-        transition: "opacity 0.15s, background 0.15s, color 0.15s",
       }}
     >
-      <span
+      <button
+        onClick={toggle}
+        title={
+          enabled
+            ? `${roleWord} is ON. Tap to turn off.`
+            : "Arm this screen for the TicketHub aux-display link. Tap to arm."
+        }
         style={{
-          width: "8px",
-          height: "8px",
-          borderRadius: "50%",
-          background: p.dot,
-          boxShadow: status === "armed" ? `0 0 6px ${p.dot}` : "none",
-          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: "8px 12px",
+          borderRadius: "999px",
+          border: "0.5px solid var(--color-border-tertiary)",
+          background: p.bg,
+          color: p.text,
+          fontSize: "12px",
+          fontWeight: 600,
+          cursor: "pointer",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
+          opacity: enabled ? 1 : 0.55,
+          transition: "opacity 0.15s, background 0.15s, color 0.15s",
         }}
-      />
-      <span>📲 {labelText}</span>
-    </button>
+      >
+        <span
+          style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            background: p.dot,
+            boxShadow: status === "armed" ? `0 0 6px ${p.dot}` : "none",
+            flexShrink: 0,
+          }}
+        />
+        <span>
+          {roleIcon} {labelText}
+        </span>
+      </button>
+
+      {showCast && (
+        <button
+          onClick={cast}
+          title={`Show this page on the ${castTo}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "8px 12px",
+            borderRadius: "999px",
+            border: "0.5px solid var(--color-border-tertiary)",
+            background: "var(--color-background-secondary)",
+            color: "var(--color-text-secondary)",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer",
+            backdropFilter: "blur(8px)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
+          }}
+        >
+          <span>{castIcon}</span>
+          <span>Send to {castTo}</span>
+        </button>
+      )}
+    </div>
   )
 }

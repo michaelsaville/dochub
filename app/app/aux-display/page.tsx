@@ -2,13 +2,15 @@
 
 import AppShell from "@/components/AppShell"
 import { useSession } from "next-auth/react"
-import { useAuxEnabled } from "@/lib/aux-display-client"
+import { useAuxEnabled, useAuxRole } from "@/lib/aux-display-client"
 
 export default function AuxDisplayPage() {
   const { data: session, status: authStatus } = useSession()
   const [enabled, setEnabled] = useAuxEnabled()
+  const [role, setRole] = useAuxRole()
 
   const email = session?.user?.email ?? null
+  const isIpad = role === "ipad"
 
   return (
     <AppShell>
@@ -19,6 +21,27 @@ export default function AuxDisplayPage() {
           you open a ticket in TicketHub, this screen automatically jumps to that
           customer&apos;s DocHub page — no searching.
         </p>
+
+        {/* Device role */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>This device is the…</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <RolePick
+              active={isIpad}
+              icon="📲"
+              title="Aux screen"
+              sub="Follows your tickets"
+              onClick={() => setRole("ipad")}
+            />
+            <RolePick
+              active={!isIpad}
+              icon="🖥️"
+              title="Main screen"
+              sub="Receives casts from the aux screen"
+              onClick={() => setRole("desktop")}
+            />
+          </div>
+        </div>
 
         {/* Arm / disarm card */}
         <div
@@ -51,8 +74,10 @@ export default function AuxDisplayPage() {
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 6 }}>
               {enabled
-                ? "Following your tickets. Open one in TicketHub to see it flip."
-                : "Arm this iPad to start following your tickets."}
+                ? isIpad
+                  ? "Following your tickets. Open one in TicketHub to see it flip."
+                  : "Listening for casts. Tap “Send to main screen” on the aux device."
+                : `Arm this ${isIpad ? "aux screen" : "main screen"} to connect.`}
             </div>
           </div>
 
@@ -113,6 +138,17 @@ export default function AuxDisplayPage() {
           </ol>
         </Section>
 
+        {/* Cast back */}
+        <Section title="Send a view to the other screen">
+          <p style={para}>
+            When armed, a <strong>Send to {isIpad ? "main screen" : "aux screen"}</strong>{" "}
+            button sits next to the 📲 pill (bottom-left). Navigate to any client,
+            asset, or document here, then tap it to make the {isIpad ? "desktop" : "iPad"}{" "}
+            jump to the same page. For this to work the other screen must also be open
+            on DocHub and armed (as the {isIpad ? "main screen" : "aux screen"}).
+          </p>
+        </Section>
+
         {/* Guided Access */}
         <Section title="Lock it to one app (Guided Access)">
           <p style={{ ...para, marginBottom: 10 }}>
@@ -148,6 +184,45 @@ export default function AuxDisplayPage() {
         </Section>
       </div>
     </AppShell>
+  )
+}
+
+function RolePick({
+  active,
+  icon,
+  title,
+  sub,
+  onClick,
+}: {
+  active: boolean
+  icon: string
+  title: string
+  sub: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        textAlign: "left",
+        padding: "12px 14px",
+        borderRadius: 12,
+        cursor: "pointer",
+        border: active
+          ? "1px solid #3b82f6"
+          : "0.5px solid var(--color-border-tertiary)",
+        background: active ? "rgba(59,130,246,0.10)" : "var(--color-background-secondary)",
+        color: "var(--color-text-secondary)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 14 }}>
+        <span style={{ fontSize: 16 }}>{icon}</span>
+        {title}
+        {active && <span style={{ marginLeft: "auto", color: "#3b82f6", fontSize: 12 }}>✓</span>}
+      </div>
+      <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>{sub}</div>
+    </button>
   )
 }
 

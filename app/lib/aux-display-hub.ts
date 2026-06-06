@@ -3,25 +3,36 @@ import "server-only"
 /**
  * In-memory pub/sub spine for the iPad "aux display" feature.
  *
- * A tech's iPad opens an SSE connection (see app/api/aux-display/stream) and
- * subscribes to a "room" keyed by their **email** — the one identity both
- * DocHub and TicketHub agree on (each app's local userId differs; the Azure
- * SSO email is the shared key). When TicketHub emits a "ticket opened" context
- * event (see app/api/aux-display/emit), we publish to that room and every one
- * of the user's connected iPads flips to the client's DocHub page.
+ * A device opens an SSE connection (see app/api/aux-display/stream) and
+ * subscribes to a "room" keyed by their **email** — the one identity DocHub
+ * and TicketHub agree on (each app's local userId differs; the Azure SSO
+ * email is the shared key).
+ *
+ * Within a room, every connection has a **role**:
+ *   - "ipad"    — the aux/second screen. Receives ticket-open context from
+ *                 TicketHub and follows along.
+ *   - "desktop" — the tech's main screen (a DocHub tab). Receives "casts"
+ *                 pushed from the iPad.
+ *
+ * Events carry a `target` role and are only delivered to connections with
+ * that role. This is what lets the link be bidirectional without crossed
+ * wires: a ticket-open targets "ipad", an iPad cast targets "desktop", and
+ * neither device reacts to its own side's events.
  *
  * Scope/limits:
  *  - State lives in this process. DocHub runs as a single container, so a
  *    Map is sufficient. If DocHub is ever horizontally scaled, this must move
- *    to Postgres LISTEN/NOTIFY or Redis pub/sub — emit and stream would then
- *    land on different replicas and miss each other.
+ *    to Postgres LISTEN/NOTIFY or Redis pub/sub.
  *  - Stored on globalThis so Next.js dev HMR / route-module reloads don't
  *    fork the subscriber map.
  */
 
+export type AuxRole = "ipad" | "desktop"
+
 export type AuxEvent =
   | {
       type: "navigate"
+      target: AuxRole
       url: string
       label: string | null
       clientName: string | null
@@ -31,6 +42,7 @@ export type AuxEvent =
     }
   | {
       type: "notfound"
+      target: AuxRole
       url: null
       label: null
       clientName: string | null
@@ -40,7 +52,7 @@ export type AuxEvent =
     }
   | { type: "connected"; ts: number }
 
-type Subscriber = (event: AuxEvent) => void
+type Subscriber = { role: AuxRole; fn: (event: AuxEvent) => void }
 
 type HubState = {
   rooms: Map<string, Set<Subscriber>>
@@ -55,36 +67,45 @@ function roomKey(email: string): string {
 }
 
 /**
- * Register a subscriber for a user's room. Returns an unsubscribe function
- * that removes it (and prunes the room when it empties).
+ * Register a subscriber for a user's room under a given role. Returns an
+ * unsubscribe function that removes it (and prunes the room when it empties).
  */
-export function subscribe(email: string, fn: Subscriber): () => void {
+export function subscribe(
+  email: string,
+  role: AuxRole,
+  fn: (event: AuxEvent) => void,
+): () => void {
   const key = roomKey(email)
   let set = hub.rooms.get(key)
   if (!set) {
     set = new Set()
     hub.rooms.set(key, set)
   }
-  set.add(fn)
+  const sub: Subscriber = { role, fn }
+  set.add(sub)
   return () => {
     const s = hub.rooms.get(key)
     if (!s) return
-    s.delete(fn)
+    s.delete(sub)
     if (s.size === 0) hub.rooms.delete(key)
   }
 }
 
 /**
- * Deliver an event to every connection in a user's room.
- * Returns the number of connections it reached (0 = no iPad paired/awake).
+ * Deliver an event to every connection in a user's room whose role matches
+ * the event's target. Returns how many connections it reached (0 = no
+ * matching device paired/awake). `connected` events are sent directly by the
+ * stream, never published, so they have no target.
  */
 export function publish(email: string, event: AuxEvent): number {
   const set = hub.rooms.get(roomKey(email))
   if (!set || set.size === 0) return 0
+  const target = "target" in event ? event.target : null
   let delivered = 0
-  for (const fn of set) {
+  for (const sub of set) {
+    if (target && sub.role !== target) continue
     try {
-      fn(event)
+      sub.fn(event)
       delivered++
     } catch {
       // A dead controller throws on enqueue; the stream's own cancel/abort
@@ -94,7 +115,12 @@ export function publish(email: string, event: AuxEvent): number {
   return delivered
 }
 
-/** How many live connections a user currently has (for status/debug). */
-export function connectionCount(email: string): number {
-  return hub.rooms.get(roomKey(email))?.size ?? 0
+/** How many live connections a user has, optionally filtered by role. */
+export function connectionCount(email: string, role?: AuxRole): number {
+  const set = hub.rooms.get(roomKey(email))
+  if (!set) return 0
+  if (!role) return set.size
+  let n = 0
+  for (const sub of set) if (sub.role === role) n++
+  return n
 }

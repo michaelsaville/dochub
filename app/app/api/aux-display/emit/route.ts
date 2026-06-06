@@ -80,9 +80,10 @@ export async function POST(req: Request) {
     }
   }
 
+  // Ticket-open context always drives the aux (iPad) screen.
   const event: AuxEvent = url
-    ? { type: "navigate", url, label, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
-    : { type: "notfound", url: null, label: null, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
+    ? { type: "navigate", target: "ipad", url, label, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
+    : { type: "notfound", target: "ipad", url: null, label: null, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
 
   const delivered = publish(email, event)
 
