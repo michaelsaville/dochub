@@ -5,6 +5,7 @@ import CastButton from "@/components/CastButton"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
 import DocumentsPanel from "@/components/DocumentsPanel"
+import ClientFilesPanel from "@/components/ClientFilesPanel"
 import PortalUsersPanel from "@/components/PortalUsersPanel"
 import PortalVaultPanel from "@/components/PortalVaultPanel"
 import FileSharesPanel from "@/components/FileSharesPanel"
@@ -121,7 +122,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
+const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "Files", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -3955,6 +3956,12 @@ export default function ClientDetailPage() {
             ) : (
               <DocumentsPanel docs={clientDocs} clientId={id as string} onDocsChange={setClientDocs} />
             )}
+          </div>
+        )}
+
+        {activeTab === "Files" && (
+          <div>
+            <ClientFilesPanel clientId={id as string} />
           </div>
         )}
 

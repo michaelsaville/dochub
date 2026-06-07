@@ -836,9 +836,22 @@ model ClientAttachment {
   vendorContractId String?
   originalName     String
   storageName      String           @unique
-  mimeType         String
+  mimeType         String // client-supplied; NEVER trust for inline serving — use detectedMime
+  detectedMime     String? // magic-byte verified content type (file-type sniff at upload)
   size             Int
   notes            String?
+  previewable      Boolean          @default(false) // server decided this is safe to render inline
+  portalVisible    Boolean          @default(false) // shared to the customer portal (default deny)
+  searchableText   String? // extracted text (pdf-parse / vision OCR) for content search
+  width            Int? // image pixel dimensions, when known
+  height           Int?
+  scanStatus       String?          @default("pending") // pending | clean | infected | skipped | error
+  scanDetail       String? // ClamAV signature name when infected
+  expiresAt        DateTime? // optional auto-expiry (mainly for portal shares)
+  maxDownloads     Int? // optional cap on download/preview count
+  downloadCount    Int              @default(0)
+  version          Int              @default(1)
+  supersededById   String?          @unique // set when a newer upload replaced this file
   createdAt        DateTime         @default(now())
   client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   document         ClientDocument?  @relation(fields: [documentId], references: [id])
@@ -846,11 +859,29 @@ model ClientAttachment {
   vendor           Vendor?          @relation("VendorAttachments", fields: [vendorId], references: [id], onDelete: Cascade)
   location         Location?        @relation("LocationAttachments", fields: [locationId], references: [id], onDelete: Cascade)
   vendorContract   VendorContract?  @relation("VendorContractAttachments", fields: [vendorContractId], references: [id], onDelete: Cascade)
+  supersededBy     ClientAttachment? @relation("AttachmentVersion", fields: [supersededById], references: [id])
+  supersedes       ClientAttachment? @relation("AttachmentVersion")
+  accessLogs       AttachmentAccessLog[]
 
   @@index([assetId])
   @@index([vendorId])
   @@index([locationId])
   @@index([vendorContractId])
+  @@index([clientId])
+}
+
+/// Audit trail for sensitive file access — every inline preview or download
+/// is logged here so we can answer "who looked at this client's files".
+model AttachmentAccessLog {
+  id           String           @id @default(cuid())
+  attachmentId String
+  action       String // preview | download
+  userName     String?
+  ip           String?
+  createdAt    DateTime         @default(now())
+  attachment   ClientAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+
+  @@index([attachmentId, createdAt])
 }
 
 model RunbookCategory {

@@ -1,12 +1,17 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import AttachmentPreview, { FileThumb, canPreview, type PreviewFile } from "@/components/AttachmentPreview"
 
 type Attachment = {
   id: string
   originalName: string
   mimeType: string
+  detectedMime?: string | null
   size: number
+  previewable?: boolean
+  width?: number | null
+  height?: number | null
   notes: string | null
   createdAt: string
 }
@@ -43,7 +48,9 @@ export default function AttachmentsPanel({ entityType, entityId, compact }: Prop
   const [items, setItems] = useState<Attachment[]>([])
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [previewing, setPreviewing] = useState<PreviewFile | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const previewable = items.filter(canPreview)
 
   useEffect(() => {
     fetch(`/api/attachments?entityType=${entityType}&entityId=${entityId}`)
@@ -136,16 +143,41 @@ export default function AttachmentsPanel({ entityType, entityId, compact }: Prop
                 padding: "8px 0", borderBottom: "0.5px solid var(--color-border-tertiary)",
               }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>{mimeIcon(a.mimeType)}</span>
-              <a
-                href={`/api/attachments/${a.id}`}
-                style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-              >
-                {a.originalName}
-              </a>
+              <FileThumb file={a as PreviewFile} size={28} />
+              {canPreview(a) ? (
+                <button
+                  onClick={() => setPreviewing(a as PreviewFile)}
+                  style={{ flex: 1, textAlign: "left", fontSize: 13, color: "var(--color-text-primary)", background: "none", border: "none", padding: 0, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  title="Preview"
+                >
+                  {a.originalName}
+                </button>
+              ) : (
+                <a
+                  href={`/api/attachments/${a.id}`}
+                  style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {a.originalName}
+                </a>
+              )}
               <span style={{ fontSize: 11, color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
                 {formatBytes(a.size)}
               </span>
+              {canPreview(a) && (
+                <button
+                  onClick={() => setPreviewing(a as PreviewFile)}
+                  style={{ fontSize: 11, color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer" }}
+                >
+                  Preview
+                </button>
+              )}
+              <a
+                href={`/api/attachments/${a.id}`}
+                download={a.originalName}
+                style={{ fontSize: 11, color: "var(--color-text-secondary)", textDecoration: "none" }}
+              >
+                Download
+              </a>
               <button
                 onClick={() => remove(a.id)}
                 style={{
@@ -159,6 +191,13 @@ export default function AttachmentsPanel({ entityType, entityId, compact }: Prop
           ))}
         </div>
       )}
+
+      <AttachmentPreview
+        file={previewing}
+        files={previewable}
+        onClose={() => setPreviewing(null)}
+        onNavigate={setPreviewing}
+      />
     </div>
   )
 }

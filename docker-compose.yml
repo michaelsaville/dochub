@@ -9,6 +9,7 @@ services:
       - uploads:/uploads
     depends_on:
       - db
+      - clamav
 
   db:
     image: postgres:16-alpine
@@ -16,6 +17,16 @@ services:
     env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  # Antivirus for uploaded files. The app streams each upload to clamd over
+  # TCP (INSTREAM) on clamav:3310 before accepting it — see lib/files/clamav.ts.
+  # Signature DB persists in clamav_data; first boot downloads it (a few min,
+  # during which scans fail-open as "skipped" unless CLAMAV_REQUIRED=true).
+  clamav:
+    image: clamav/clamav:latest
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
 
   # Watchtower removed 2026-05-29 — it was a non-functional zombie on this host
   # (containerd image store + DOCKER_API_VERSION pin; the poll loop never ran,
@@ -27,3 +38,4 @@ services:
 volumes:
   postgres_data:
   uploads:
+  clamav_data:

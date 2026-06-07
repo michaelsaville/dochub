@@ -3,12 +3,17 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { marked } from "marked"
 import ShareExternallyButton from "@/components/ShareExternallyButton"
+import AttachmentPreview, { FileThumb, canPreview, type PreviewFile } from "@/components/AttachmentPreview"
 
 type Attachment = {
   id: string
   originalName: string
   mimeType: string
+  detectedMime?: string | null
   size: number
+  previewable?: boolean
+  width?: number | null
+  height?: number | null
   notes: string | null
   createdAt: string
 }
@@ -256,6 +261,10 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
 
   const [uploadingTo, setUploadingTo] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [previewing, setPreviewing] = useState<PreviewFile | null>(null)
+  // Track the freshest docs list for sequential multi-file uploads.
+  const docsRef = useRef(docs)
+  useEffect(() => { docsRef.current = docs }, [docs])
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
 
@@ -372,18 +381,28 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
   }
 
   async function uploadFile(docId: string, file: File) {
+    const fd = new FormData()
+    fd.append("file", file)
+    const res = await fetch(`/api/documents/${docId}/attachments`, { method: "POST", body: fd })
+    if (res.ok) {
+      const att = await res.json()
+      // Append against the freshest doc list so multiple uploads don't clobber.
+      onDocsChange(docsRef.current.map(d => d.id === docId ? { ...d, attachments: [...d.attachments, att] } : d))
+    } else {
+      const err = await res.json().catch(() => ({}))
+      alert(err.error || "Upload failed")
+    }
+  }
+
+  // Upload one or many files (multi-select / multi-drop), sequentially so the
+  // optimistic list updates stay consistent.
+  async function uploadFiles(docId: string, files: FileList | File[]) {
+    const list = Array.from(files)
+    if (list.length === 0) return
     setUploading(true)
+    setUploadingTo(docId)
     try {
-      const fd = new FormData()
-      fd.append("file", file)
-      const res = await fetch(`/api/documents/${docId}/attachments`, { method: "POST", body: fd })
-      if (res.ok) {
-        const att = await res.json()
-        onDocsChange(docs.map(d => d.id === docId ? { ...d, attachments: [...d.attachments, att] } : d))
-      } else {
-        const err = await res.json()
-        alert(err.error || "Upload failed")
-      }
+      for (const f of list) await uploadFile(docId, f)
     } finally { setUploading(false); setUploadingTo(null) }
   }
 
@@ -789,15 +808,27 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "10px" }}>
                               {doc.attachments.map(att => (
                                 <div key={att.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", background: "var(--color-background-secondary)", borderRadius: "7px", border: "0.5px solid var(--color-border-tertiary)" }}>
-                                  <span style={{ fontSize: "16px" }}>{fileIcon(att.mimeType)}</span>
+                                  <FileThumb file={att as PreviewFile} size={32} />
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <a href={`/api/attachments/${att.id}`} download={att.originalName} style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)", textDecoration: "none" }}
-                                      onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
-                                      onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>
-                                      {att.originalName}
-                                    </a>
+                                    {canPreview(att) ? (
+                                      <button onClick={() => setPreviewing(att as PreviewFile)}
+                                        style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                                        title="Preview">
+                                        {att.originalName}
+                                      </button>
+                                    ) : (
+                                      <a href={`/api/attachments/${att.id}`} download={att.originalName} style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)", textDecoration: "none" }}
+                                        onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                                        onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>
+                                        {att.originalName}
+                                      </a>
+                                    )}
                                     <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{formatBytes(att.size)} · {new Date(att.createdAt).toLocaleDateString()}</div>
                                   </div>
+                                  {canPreview(att) && (
+                                    <button onClick={() => setPreviewing(att as PreviewFile)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}>Preview</button>
+                                  )}
+                                  <a href={`/api/attachments/${att.id}`} download={att.originalName} style={{ fontSize: "12px", color: "var(--color-text-secondary)", textDecoration: "none", flexShrink: 0 }}>Download</a>
                                   <button onClick={() => deleteAttachment(doc.id, att.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}>Remove</button>
                                 </div>
                               ))}
@@ -810,10 +841,10 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
                             onClick={() => { setUploadingTo(doc.id); fileRef.current?.click() }}
                             onDragOver={e => { e.preventDefault(); setDragOver(doc.id) }}
                             onDragLeave={() => setDragOver(null)}
-                            onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files[0]; if (f) uploadFile(doc.id, f) }}
+                            onDrop={e => { e.preventDefault(); setDragOver(null); if (e.dataTransfer.files.length) uploadFiles(doc.id, e.dataTransfer.files) }}
                           >
                             <span style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                              {uploading && uploadingTo === doc.id ? "Uploading..." : "Drop a file here or click to attach (max 25MB)"}
+                              {uploading && uploadingTo === doc.id ? "Uploading..." : "Drop files here or click to attach (max 100MB each)"}
                             </span>
                           </div>
                         </div>
@@ -831,12 +862,17 @@ export default function DocumentsPanel({ docs, clientId, onDocsChange }: Props) 
       <input
         ref={fileRef}
         type="file"
+        multiple
         style={{ display: "none" }}
         onChange={e => {
-          const f = e.target.files?.[0]
-          if (f && uploadingTo) uploadFile(uploadingTo, f)
+          if (e.target.files?.length && uploadingTo) uploadFiles(uploadingTo, e.target.files)
           e.target.value = ""
         }}
+      />
+
+      <AttachmentPreview
+        file={previewing}
+        onClose={() => setPreviewing(null)}
       />
     </div>
   )

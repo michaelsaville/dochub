@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
-import { writeFile, mkdir } from "fs/promises"
-import { existsSync } from "fs"
-import path from "path"
-import crypto from "crypto"
-
-const UPLOAD_DIR = "/uploads"
-const MAX_SIZE = 25 * 1024 * 1024
+import { storeUploadedFile, isStoreError } from "@/lib/files/store"
 
 type EntityType = "asset" | "vendor" | "location" | "vendorContract" | "client"
 
@@ -19,12 +13,21 @@ const ENTITY_TO_FK: Record<EntityType, string> = {
   client: "clientId",
 }
 
+// Fields surfaced to the UI so it can decide preview affordances without a
+// second fetch. mimeType stays for display; detectedMime drives previewing.
+const LIST_SELECT = {
+  id: true, originalName: true, mimeType: true, detectedMime: true,
+  size: true, notes: true, createdAt: true, previewable: true,
+  width: true, height: true, scanStatus: true, version: true,
+  portalVisible: true, downloadCount: true,
+} as const
+
 /**
  * GET /api/attachments?entityType=asset&entityId=xxx
  *
- * List attachments for any entity. The route below (POST) handles
- * uploads scoped to the same shape; document-scoped uploads continue
- * through /api/documents/[id]/attachments for backwards compat.
+ * List CURRENT (non-superseded) attachments for any entity. The route below
+ * (POST) handles uploads scoped to the same shape; document-scoped uploads
+ * continue through /api/documents/[id]/attachments for backwards compat.
  */
 export async function GET(req: Request) {
   const { error } = await requireAuth()
@@ -37,12 +40,9 @@ export async function GET(req: Request) {
   }
   const fk = ENTITY_TO_FK[entityType]
   const rows = await prisma.clientAttachment.findMany({
-    where: { [fk]: entityId } as any,
+    where: { [fk]: entityId, supersededBy: null } as any,
     orderBy: { createdAt: "desc" },
-    select: {
-      id: true, originalName: true, mimeType: true, size: true,
-      notes: true, createdAt: true,
-    },
+    select: LIST_SELECT,
   })
   return NextResponse.json(rows)
 }
@@ -54,9 +54,9 @@ export async function GET(req: Request) {
  *   entityId    — id of that entity
  *   notes       — optional caption
  *
- * Resolves clientId from the parent entity (single source of truth for
- * the security boundary) and stores the file under /uploads with a
- * UUID-based name. Original name + mime + size are preserved on the row.
+ * Resolves clientId from the parent entity (single source of truth for the
+ * security boundary) and hands off to the shared store pipeline (size limit,
+ * antivirus scan, magic-byte MIME, dimensions, async text extraction).
  */
 export async function POST(req: Request) {
   const { error } = await requireAuth()
@@ -69,7 +69,6 @@ export async function POST(req: Request) {
     const notes = ((formData.get("notes") as string) ?? "").trim() || null
 
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    if (file.size > MAX_SIZE) return NextResponse.json({ error: "File exceeds 25MB limit" }, { status: 400 })
     if (!entityType || !entityId || !(entityType in ENTITY_TO_FK)) {
       return NextResponse.json({ error: "entityType + entityId required" }, { status: 400 })
     }
@@ -111,26 +110,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not resolve client for entity" }, { status: 400 })
     }
 
-    if (!existsSync(UPLOAD_DIR)) await mkdir(UPLOAD_DIR, { recursive: true })
-    const ext = path.extname(file.name) || ""
-    const storageName = `${crypto.randomUUID()}${ext}`
-    const filePath = path.join(UPLOAD_DIR, storageName)
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(filePath, buffer)
-
     const fk = ENTITY_TO_FK[entityType]
-    const data: any = {
-      clientId,
-      originalName: file.name,
-      storageName,
-      mimeType: file.type || "application/octet-stream",
-      size: file.size,
-      notes,
-    }
-    if (entityType !== "client") data[fk] = entityId
+    const link: any = { clientId }
+    if (entityType !== "client") link[fk] = entityId
 
-    const attachment = await prisma.clientAttachment.create({ data })
-    return NextResponse.json(attachment, { status: 201 })
+    const result = await storeUploadedFile(file, link, notes)
+    if (isStoreError(result)) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+    return NextResponse.json(result.attachment, { status: 201 })
   } catch (e: any) {
     console.error("[attachments] upload failed", e)
     return NextResponse.json({ error: "Upload failed" }, { status: 500 })

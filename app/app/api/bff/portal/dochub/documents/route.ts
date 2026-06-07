@@ -39,5 +39,25 @@ export async function POST(req: Request) {
     orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
   })
 
-  return NextResponse.json({ ok: true, documents })
+  // Files explicitly shared to the portal: standalone client files marked
+  // portalVisible, OR attachments hanging off a portal-visible document.
+  // Same default-deny posture as documents. The bytes are fetched via the
+  // signed /bff/portal/dochub/files/[id] route.
+  const files = await prisma.clientAttachment.findMany({
+    where: {
+      clientId: payload.clientId,
+      supersededBy: null,
+      OR: [
+        { portalVisible: true },
+        { document: { portalVisible: true } },
+      ],
+    },
+    select: {
+      id: true, originalName: true, mimeType: true, detectedMime: true,
+      size: true, previewable: true, documentId: true, createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  return NextResponse.json({ ok: true, documents, files })
 }
