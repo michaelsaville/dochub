@@ -63,6 +63,14 @@ export async function PUT(
       },
       include,
     })
+    // Keep a note's attachments in the same folder as the note so library
+    // folder counts stay correct (they still render nested under the note).
+    if (folderId !== undefined) {
+      await prisma.clientAttachment.updateMany({
+        where: { documentId: id },
+        data: { folderId: folderId ?? null },
+      })
+    }
     return NextResponse.json(doc)
   } catch (e) {
     return NextResponse.json({ error: "Failed" }, { status: 500 })

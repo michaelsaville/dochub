@@ -783,6 +783,7 @@ model DocumentFolder {
   parent    DocumentFolder?  @relation("FolderChildren", fields: [parentId], references: [id])
   children  DocumentFolder[] @relation("FolderChildren")
   documents ClientDocument[]
+  attachments ClientAttachment[]
 }
 
 model ClientDocument {
@@ -829,6 +830,7 @@ model DocumentVersion {
 model ClientAttachment {
   id               String           @id @default(cuid())
   clientId         String
+  folderId         String? // standalone files live in the shared DocumentFolder tree
   documentId       String?
   assetId          String?
   vendorId         String?
@@ -854,6 +856,7 @@ model ClientAttachment {
   supersededById   String?          @unique // set when a newer upload replaced this file
   createdAt        DateTime         @default(now())
   client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folder           DocumentFolder?  @relation(fields: [folderId], references: [id])
   document         ClientDocument?  @relation(fields: [documentId], references: [id])
   asset            Asset?           @relation("AssetAttachments", fields: [assetId], references: [id], onDelete: Cascade)
   vendor           Vendor?          @relation("VendorAttachments", fields: [vendorId], references: [id], onDelete: Cascade)
@@ -868,6 +871,7 @@ model ClientAttachment {
   @@index([locationId])
   @@index([vendorContractId])
   @@index([clientId])
+  @@index([folderId])
 }
 
 /// Audit trail for sensitive file access — every inline preview or download

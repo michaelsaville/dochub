@@ -19,13 +19,24 @@ export async function POST(req: Request) {
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { action, ids, name } = await req.json()
+    const body = await req.json()
+    const { action, ids, name } = body
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ids required" }, { status: 400 })
     }
 
     const atts = await prisma.clientAttachment.findMany({ where: { id: { in: ids } } })
     if (atts.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    if (action === "move") {
+      // Move loose library files into another folder (null = root). Documents
+      // are moved by the caller via PATCH /api/documents/[id].
+      await prisma.clientAttachment.updateMany({
+        where: { id: { in: atts.map((a) => a.id) } },
+        data: { folderId: body.targetFolderId ?? null },
+      })
+      return NextResponse.json({ success: true, moved: atts.length })
+    }
 
     if (action === "delete") {
       for (const a of atts) {

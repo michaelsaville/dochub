@@ -154,6 +154,7 @@ export async function PATCH(
     if (typeof body.originalName === "string" && body.originalName.trim()) data.originalName = body.originalName.trim()
     if (body.notes !== undefined) data.notes = (body.notes?.trim() || null)
     if (typeof body.portalVisible === "boolean") data.portalVisible = body.portalVisible
+    if (body.folderId !== undefined) data.folderId = body.folderId || null // move between library folders
     if (body.expiresAt !== undefined) data.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null
     if (body.maxDownloads !== undefined) data.maxDownloads = body.maxDownloads === null ? null : Number(body.maxDownloads)
     const att = await prisma.clientAttachment.update({ where: { id }, data })

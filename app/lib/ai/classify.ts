@@ -70,6 +70,17 @@ const ProposedNewAssetSchema = z.object({
   ipAddress: z.string().nullable().describe("IPv4/IPv6 address if visible, else null."),
   macAddress: z.string().nullable().describe("MAC address if visible, else null."),
   room: z.string().nullable().describe("Physical room/placement if mentioned, else null."),
+  // Extra fields commonly present in device config exports / spec sheets.
+  hostname: z.string().nullable().describe("Device hostname/system name if shown (e.g. 'HPLJ-4730-WHSE'), else null."),
+  assetTag: z.string().nullable().describe("Inventory/asset tag if printed or listed, else null."),
+  managementUrl: z.string().nullable().describe("Web admin/management URL if derivable (e.g. 'http://192.168.1.50'), else null."),
+  firmwareVersion: z.string().nullable().describe("Firmware/OS version string if shown, else null."),
+  portCount: z.number().int().nullable().describe("Number of ports for switches/network gear if stated, else null."),
+  os: z.string().nullable().describe("Operating system if shown (e.g. 'Windows 11 Pro'), else null."),
+  ram: z.string().nullable().describe("RAM spec if shown (e.g. '16 GB'), else null."),
+  cpu: z.string().nullable().describe("CPU spec if shown, else null."),
+  storageCapacity: z.string().nullable().describe("Storage spec if shown (e.g. '512 GB SSD'), else null."),
+  notes: z.string().nullable().describe("Short config notes worth keeping (auth mode, duplex, VLANs, etc.), else null."),
   reasoning: z
     .string()
     .describe(
@@ -487,6 +498,7 @@ PROPOSED_NEW_ASSET — optional.
   - Set this ONLY when the file clearly identifies a device that is NOT in the inventory (serial not present, hostname unknown, visible label like 'Dahua XVR5108 ... S/N ABC123' and no asset has that serial).
   - Do NOT propose a new asset just because confidence on matches is low — only when the evidence is strong that it's a different device.
   - Be conservative: null is the correct answer for most files.
+  - When the file IS a device config export, spec sheet, or admin-page screenshot (e.g. a printer/switch/firewall/server config), populate every applicable field from what's visible: make, model, serial, ipAddress, macAddress, hostname, assetTag, managementUrl (derive from the device IP, e.g. http://<ip>, only if reasonable), firmwareVersion, portCount, os, ram, cpu, storageCapacity, and a short notes line for salient config (auth mode, duplex, VLANs, installed options). Leave any field null when not evidenced — never guess a serial/IP/MAC.
 
 CAMERA_ACTION — optional. Only set when the file is a camera view or contains camera metadata and there is a clear target CameraSystem in <camera_systems>.
   - setPhoto: when the file is a reference/field-of-view image for an existing camera — ground it in matching <camera> name/location/resolution.

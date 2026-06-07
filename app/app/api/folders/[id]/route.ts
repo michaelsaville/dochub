@@ -40,6 +40,11 @@ export async function DELETE(
       where: { folderId: id },
       data: { folderId: folder.parentId ?? null },
     })
+    // Loose library files in this folder reparent too, so they aren't orphaned.
+    await prisma.clientAttachment.updateMany({
+      where: { folderId: id },
+      data: { folderId: folder.parentId ?? null },
+    })
     await prisma.documentFolder.updateMany({
       where: { parentId: id },
       data: { parentId: folder.parentId ?? null },

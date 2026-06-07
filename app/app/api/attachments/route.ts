@@ -19,11 +19,15 @@ const LIST_SELECT = {
   id: true, originalName: true, mimeType: true, detectedMime: true,
   size: true, notes: true, createdAt: true, previewable: true,
   width: true, height: true, scanStatus: true, version: true,
-  portalVisible: true, downloadCount: true,
+  portalVisible: true, downloadCount: true, folderId: true,
 } as const
 
 /**
  * GET /api/attachments?entityType=asset&entityId=xxx
+ *   &standalone=1   — (client only) only loose files (no parent doc/asset/etc),
+ *                     i.e. the files that live in the merged document library.
+ *   &folderId=xxx   — (client only, with standalone) scope to one folder;
+ *                     omit for ALL standalone files across folders.
  *
  * List CURRENT (non-superseded) attachments for any entity. The route below
  * (POST) handles uploads scoped to the same shape; document-scoped uploads
@@ -39,8 +43,26 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "entityType + entityId required" }, { status: 400 })
   }
   const fk = ENTITY_TO_FK[entityType]
+  const where: any = { [fk]: entityId, supersededBy: null }
+
+  // The merged library shows LOOSE files. A file is a top-level library row iff
+  // it is NOT nested under a document AND it is either deliberately filed in a
+  // folder OR not attached to any other entity. This (a) never double-lists a
+  // note's attachment, (b) keeps a foldered file even after it gains an assetId
+  // (the build-asset outcome — it shows a 🔗 chip), (c) leaves entity-only files
+  // on their own tabs.
+  if (entityType === "client" && url.searchParams.get("standalone")) {
+    where.documentId = null
+    where.OR = [
+      { folderId: { not: null } },
+      { assetId: null, vendorId: null, locationId: null, vendorContractId: null },
+    ]
+    const folderId = url.searchParams.get("folderId")
+    if (folderId) where.folderId = folderId
+  }
+
   const rows = await prisma.clientAttachment.findMany({
-    where: { [fk]: entityId, supersededBy: null } as any,
+    where,
     orderBy: { createdAt: "desc" },
     select: LIST_SELECT,
   })
@@ -67,6 +89,7 @@ export async function POST(req: Request) {
     const entityType = formData.get("entityType") as EntityType | null
     const entityId = formData.get("entityId") as string | null
     const notes = ((formData.get("notes") as string) ?? "").trim() || null
+    const folderId = ((formData.get("folderId") as string) ?? "").trim() || null
 
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 })
     if (!entityType || !entityId || !(entityType in ENTITY_TO_FK)) {
@@ -113,6 +136,8 @@ export async function POST(req: Request) {
     const fk = ENTITY_TO_FK[entityType]
     const link: any = { clientId }
     if (entityType !== "client") link[fk] = entityId
+    // Folders only apply to loose client-library files.
+    if (entityType === "client" && folderId) link.folderId = folderId
 
     const result = await storeUploadedFile(file, link, notes)
     if (isStoreError(result)) {

@@ -36,6 +36,16 @@ interface NewAssetInput {
   ipAddress?: string | null
   macAddress?: string | null
   room?: string | null
+  // Config/spec-sheet fields the enriched classifier can now extract.
+  assetTag?: string | null
+  managementUrl?: string | null
+  firmwareVersion?: string | null
+  portCount?: number | null
+  os?: string | null
+  ram?: string | null
+  cpu?: string | null
+  storageCapacity?: string | null
+  notes?: string | null
 }
 
 type CameraAction =
@@ -216,6 +226,15 @@ export async function POST(
         ipAddress: newAsset.ipAddress?.trim() || null,
         macAddress: newAsset.macAddress?.trim() || null,
         room: newAsset.room?.trim() || null,
+        assetTag: newAsset.assetTag?.trim() || null,
+        managementUrl: newAsset.managementUrl?.trim() || null,
+        firmwareVersion: newAsset.firmwareVersion?.trim() || null,
+        portCount: typeof newAsset.portCount === "number" ? newAsset.portCount : null,
+        os: newAsset.os?.trim() || null,
+        ram: newAsset.ram?.trim() || null,
+        cpu: newAsset.cpu?.trim() || null,
+        storageCapacity: newAsset.storageCapacity?.trim() || null,
+        notes: newAsset.notes?.trim() || null,
         dataSource: "AI_INTAKE",
       },
       select: { id: true, name: true },

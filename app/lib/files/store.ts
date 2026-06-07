@@ -32,6 +32,7 @@ export async function storeUploadedFile(
   file: File,
   link: {
     clientId: string
+    folderId?: string | null
     documentId?: string | null
     assetId?: string | null
     vendorId?: string | null
@@ -62,6 +63,7 @@ export async function storeUploadedFile(
   const attachment = await prisma.clientAttachment.create({
     data: {
       clientId: link.clientId,
+      folderId: link.folderId ?? null,
       documentId: link.documentId ?? null,
       assetId: link.assetId ?? null,
       vendorId: link.vendorId ?? null,
