@@ -80,10 +80,10 @@ export async function POST(req: Request) {
     }
   }
 
-  // Ticket-open context always drives the aux (iPad) screen.
+  // Ticket-open context always drives the aux (iPad) screen, in DocHub.
   const event: AuxEvent = url
-    ? { type: "navigate", target: "ipad", url, label, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
-    : { type: "notfound", target: "ipad", url: null, label: null, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
+    ? { type: "navigate", target: "ipad", app: "dochub", url, label, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
+    : { type: "notfound", target: "ipad", app: "dochub", url: null, label: null, clientName: body.clientName ?? null, ticketNumber, source, ts: Date.now() }
 
   const delivered = publish(email, event)
 

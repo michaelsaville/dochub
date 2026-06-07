@@ -18,11 +18,14 @@ import { useAuxEnabled, useAuxRole, otherRole, castUrl } from "@/lib/aux-display
 export default function CastButton({
   url,
   label = null,
+  clientId = null,
   size = 26,
   stopPropagation = true,
 }: {
   url: string
   label?: string | null
+  /** DocHub client id — when set, the cast also opens that customer in a TicketHub desktop tab. */
+  clientId?: string | null
   /** Square px size of the button. */
   size?: number
   /** Prevent the click from bubbling to a row-level link/handler (default true). */
@@ -42,13 +45,13 @@ export default function CastButton({
         e.preventDefault()
         e.stopPropagation()
       }
-      const delivered = await castUrl(url, label, role)
+      const delivered = await castUrl(url, label, role, clientId)
       const next = delivered === null ? "err" : delivered === 0 ? "none" : "ok"
       setFlash(next)
       if (timer.current) clearTimeout(timer.current)
       timer.current = setTimeout(() => setFlash(null), 1800)
     },
-    [url, label, role, stopPropagation],
+    [url, label, role, clientId, stopPropagation],
   )
 
   if (!enabled) return null

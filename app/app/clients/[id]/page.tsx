@@ -1928,7 +1928,7 @@ export default function ClientDetailPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{loc.name}</div>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <CastButton url={`/locations/${loc.id}`} label={loc.name} size={22} />
+                        <CastButton url={`/locations/${loc.id}`} label={loc.name} clientId={String(id)} size={22} />
                         <a href={`/locations/${loc.id}`} style={{ fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>Open →</a>
                         <button onClick={() => { setEditingLocation(loc.id); setLocationForm({ name: loc.name, address: loc.address ?? "", city: loc.city ?? "", state: loc.state ?? "", zip: (loc as any).zip ?? "", ispName: (loc as any).ispName ?? "", wanIp: (loc as any).wanIp ?? "", notes: (loc as any).notes ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                       </div>
@@ -2509,7 +2509,7 @@ export default function ClientDetailPage() {
                               {asset.friendlyName || asset.name}
                             </span>
                             {boundSourceTag(asset.dataSource, asset.syncroAssetId)}
-                            <CastButton url={`/assets/${asset.id}`} label={asset.friendlyName || asset.name} size={20} />
+                            <CastButton url={`/assets/${asset.id}`} label={asset.friendlyName || asset.name} clientId={String(id)} size={20} />
                           </div>
                           {asset.friendlyName && asset.friendlyName !== asset.name && (
                             <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{asset.name}</div>

@@ -222,6 +222,7 @@ export default function LocationDetailPage() {
         {/* Relation cards (read-only counts that link out) */}
         <RelationCard
           title="Assets"
+          clientId={loc.client.id}
           count={loc.assets.length}
           rows={loc.assets.map(a => ({
             id: a.id,
@@ -233,6 +234,7 @@ export default function LocationDetailPage() {
 
         <RelationCard
           title="Network Devices"
+          clientId={loc.client.id}
           count={loc.networkDevices.length}
           rows={loc.networkDevices.map(d => ({
             id: d.id,
@@ -244,6 +246,7 @@ export default function LocationDetailPage() {
 
         <RelationCard
           title="Internet Circuits"
+          clientId={loc.client.id}
           count={loc.internetCircuits.length}
           rows={loc.internetCircuits.map(c => ({
             id: c.id,
@@ -255,6 +258,7 @@ export default function LocationDetailPage() {
 
         <RelationCard
           title="Subnets (IPAM)"
+          clientId={loc.client.id}
           count={loc.subnets.length}
           rows={loc.subnets.map(s => ({
             id: s.id,
@@ -266,6 +270,7 @@ export default function LocationDetailPage() {
 
         <RelationCard
           title="Racks"
+          clientId={loc.client.id}
           count={loc.racks.length}
           rows={loc.racks.map(r => ({
             id: r.id,
@@ -280,7 +285,7 @@ export default function LocationDetailPage() {
   )
 }
 
-function RelationCard({ title, count, rows }: { title: string; count: number; rows: { id: string; label: string; sublabel?: string; href: string }[] }) {
+function RelationCard({ title, count, rows, clientId }: { title: string; count: number; rows: { id: string; label: string; sublabel?: string; href: string }[]; clientId?: string }) {
   return (
     <div style={card}>
       <div style={cardTitle}>
@@ -296,7 +301,7 @@ function RelationCard({ title, count, rows }: { title: string; count: number; ro
               <a href={r.href} style={linkStyle}>{r.label}</a>
               {r.sublabel && <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 1 }}>{r.sublabel}</div>}
             </div>
-            <CastButton url={r.href} label={r.label} size={22} />
+            <CastButton url={r.href} label={r.label} clientId={clientId} size={22} />
           </div>
         ))
       )}

@@ -125,12 +125,13 @@ export async function castUrl(
   url: string,
   label: string | null,
   fromRole: AuxRole,
+  clientId?: string | null,
 ): Promise<number | null> {
   try {
     const res = await fetch("/api/aux-display/control", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, label, fromRole }),
+      body: JSON.stringify({ url, label, fromRole, clientId: clientId ?? null }),
       cache: "no-store",
     })
     if (!res.ok) return null

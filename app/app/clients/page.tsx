@@ -256,7 +256,7 @@ function ClientsPageInner() {
                   <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {client.name}
                   </span>
-                  <CastButton url={`/clients/${client.id}`} label={client.name} size={22} />
+                  <CastButton url={`/clients/${client.id}`} label={client.name} clientId={client.id} size={22} />
                 </div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   {client.type === "BUSINESS" ? "Business" : "Residential"}
