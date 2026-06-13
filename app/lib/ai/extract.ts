@@ -15,17 +15,12 @@ function truncate(s: string, max = MAX_TEXT_CHARS): string {
 
 async function extractPdf(buffer: Buffer): Promise<ExtractedContent> {
   try {
-    const { PDFParse } = await import("pdf-parse")
-    const parser = new PDFParse({ data: buffer })
-    const result = await parser.getText()
-    const clean = (result.text ?? "").replace(/\n{3,}/g, "\n\n").trim()
-    const pages = (result as { numpages?: number; pages?: unknown[] }).numpages
-      ?? (result as { pages?: unknown[] }).pages?.length
-      ?? 0
+    const { pdfText } = await import("../files/poppler")
+    const clean = (await pdfText(buffer)).replace(/\n{3,}/g, "\n\n").trim()
     return {
       kind: "text",
       text: truncate(clean),
-      summary: `PDF, ${pages} page(s), ${clean.length} chars extracted`,
+      summary: `PDF, ${clean.length} chars extracted`,
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

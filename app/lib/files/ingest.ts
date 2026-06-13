@@ -70,10 +70,9 @@ export async function imageDimensions(
 }
 
 async function extractPdf(buffer: Buffer): Promise<string> {
-  const { PDFParse } = await import("pdf-parse")
-  const parser = new PDFParse({ data: buffer })
-  const result = await parser.getText()
-  return (result.text ?? "").replace(/\n{3,}/g, "\n\n").trim()
+  const { pdfText } = await import("./poppler")
+  const text = await pdfText(buffer)
+  return text.replace(/\n{3,}/g, "\n\n").trim()
 }
 
 async function extractDocx(buffer: Buffer): Promise<string> {

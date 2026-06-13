@@ -70,27 +70,6 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // pdf-parse (+ its pdfjs-dist and native @napi-rs/canvas deps) are reached
-  // only via dynamic import() — for PDF text OCR (lib/files/ingest) and PDF
-  // page-1 thumbnail rendering. The standalone file-tracer drops them, so they
-  // were ABSENT from the deployed container and the PDF-OCR path silently
-  // no-op'd. Externalizing them — the same mechanism that ships sharp — forces
-  // them into the standalone bundle.
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
-  // serverExternalPackages keeps these out of the webpack bundle, but the
-  // tracer copies only the files it can statically see — it misses pdfjs's
-  // dynamically-loaded worker (legacy/build/pdf.worker.mjs) and the native
-  // @napi-rs/canvas binary. Force-copy the full trees so both PDF OCR and PDF
-  // thumbnail rendering work in standalone. (One route key is enough — the
-  // standalone node_modules is shared across all routes; alpine installs only
-  // the musl canvas binary, so no gnu bloat ships.)
-  outputFileTracingIncludes: {
-    "/api/attachments/**": [
-      "./node_modules/pdf-parse/**",
-      "./node_modules/pdfjs-dist/**",
-      "./node_modules/@napi-rs/**",
-    ],
-  },
 };
 
 module.exports = withPWA(nextConfig);
