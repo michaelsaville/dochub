@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const assetClient = clientId ? { location: { clientId } } : {}
     const directClient = clientId ? { clientId } : {}
 
-    const [client, assets, activeAlarms, licensesExpiring, alarms, licenses, sslCerts, domains, warranties] =
+    const [client, assets, activeAlarms, licensesExpiring, alarms, licenses, sslCerts, domains, warranties, contracts] =
       await Promise.all([
         clientId
           ? prisma.client.findUnique({ where: { id: clientId }, select: { name: true } })
@@ -84,6 +84,14 @@ export async function GET(req: Request) {
             location: { select: { client: { select: { name: true } } } },
           },
         }),
+        // Vendor contract / lease renewals. Label + client + date only — no
+        // cost or documentUrl (kiosk is a shoulder-surfable wallboard).
+        prisma.vendorContract.findMany({
+          where: { endDate: { gte: now, lte: windowEnd }, ...directClient },
+          orderBy: { endDate: "asc" },
+          take: 25,
+          select: { id: true, name: true, endDate: true, vendor: { select: { name: true } }, client: { select: { name: true } } },
+        }),
       ])
 
     if (clientId && !client) {
@@ -106,6 +114,10 @@ export async function GET(req: Request) {
       ...warranties.map(a => ({
         id: `war-${a.id}`, category: "Warranty", label: a.friendlyName || a.name,
         clientName: a.location?.client?.name ?? "—", expiresAt: a.warrantyExpiry!.toISOString(),
+      })),
+      ...contracts.map(v => ({
+        id: `con-${v.id}`, category: "Contract", label: v.name,
+        clientName: v.client?.name ?? v.vendor.name, expiresAt: v.endDate!.toISOString(),
       })),
     ].sort((x, y) => x.expiresAt.localeCompare(y.expiresAt))
 

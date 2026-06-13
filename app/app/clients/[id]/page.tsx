@@ -167,6 +167,7 @@ const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual", SYNCRO: "Syncro", UNIFI: "Unifi",
   ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
   MERAKI: "Meraki", HPINSTANTON: "HP Instant On", SONICWALL: "SonicWall",
+  SCOUT: "Scout",
 }
 
 // Metadata for all standard asset fields
@@ -200,7 +201,7 @@ const ASSET_FIELD_META: Record<string, { label: string; placeholder?: string; ty
 
 const SOURCE_DEFAULTS: Record<string, string> = {
   SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
-  MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a",
+  MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
 }
 
 const SOURCE_DOMAINS: Record<string, string> = {
@@ -2343,6 +2344,20 @@ export default function ClientDetailPage() {
                     <option key={key} value={key}>{assets.find(a => getTypeKey(a) === key)?.assetType?.name ?? key}</option>
                   ))}
                 </select>
+                {sourceOptions.includes("SCOUT") && (
+                  <button
+                    type="button"
+                    onClick={() => setAssetSourceFilter(prev => prev === "SCOUT" ? "ALL" : "SCOUT")}
+                    title="Show only assets imported from PCC Scout — quick review of auto-discovered rows"
+                    style={{
+                      padding: "6px 12px", fontSize: "13px", borderRadius: "7px", cursor: "pointer",
+                      border: `0.5px solid ${assetSourceFilter === "SCOUT" ? SOURCE_DEFAULTS.SCOUT : "var(--color-border-secondary)"}`,
+                      background: assetSourceFilter === "SCOUT" ? `${SOURCE_DEFAULTS.SCOUT}22` : "var(--color-background-primary)",
+                      color: assetSourceFilter === "SCOUT" ? SOURCE_DEFAULTS.SCOUT : "var(--color-text-secondary)",
+                      fontWeight: assetSourceFilter === "SCOUT" ? 600 : 400,
+                    }}
+                  >Source: Scout</button>
+                )}
                 {sourceOptions.length > 1 && (
                   <select
                     value={assetSourceFilter}
@@ -2352,7 +2367,7 @@ export default function ClientDetailPage() {
                   >
                     <option value="ALL">All sources</option>
                     {sourceOptions.map(src => (
-                      <option key={src} value={src}>{src}</option>
+                      <option key={src} value={src}>{SOURCE_LABELS[src] ?? src}</option>
                     ))}
                   </select>
                 )}

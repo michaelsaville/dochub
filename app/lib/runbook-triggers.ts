@@ -96,6 +96,26 @@ async function spawnRun(args: {
   eventTitle: string
   eventBody: string
 }): Promise<void> {
+  // Idempotency: don't spawn a second copy of the same lifecycle runbook for a
+  // client while one is still open. The per-client config card saves-on-select
+  // and an isActive toggle can PATCH more than once, which would otherwise
+  // create duplicate runs.
+  const existing = await prisma.runbookRun.findFirst({
+    where: { runbookId: args.runbookId, clientId: args.clientId, status: "IN_PROGRESS" },
+    select: { id: true },
+  })
+  if (existing) return
+
+  // Seed the run with one (uncompleted) RunbookStepCompletion per template
+  // step — exactly like the manual start path (api/runbooks/[id]/runs). Without
+  // these the run has zero step rows, so the history page computes total=0,
+  // completed=0 => a false-green "done" the instant it is auto-created.
+  const runbook = await prisma.runbook.findUnique({
+    where: { id: args.runbookId },
+    select: { steps: { select: { id: true }, orderBy: { order: "asc" } } },
+  })
+  if (!runbook) return
+
   const run = await prisma.runbookRun.create({
     data: {
       runbookId: args.runbookId,
@@ -103,6 +123,7 @@ async function spawnRun(args: {
       status: "IN_PROGRESS",
       startedBy: args.triggeredByName ?? "Lifecycle automation",
       notes: args.triggerLabel,
+      steps: { create: runbook.steps.map((s) => ({ stepId: s.id })) },
     },
   })
   await prisma.activityEvent.create({

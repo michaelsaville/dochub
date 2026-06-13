@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   const clientId = payload.clientId
 
-  const [licenses, websites, assets, circuits] = await Promise.all([
+  const [licenses, websites, assets, circuits, contracts] = await Promise.all([
     prisma.license.findMany({
       where: { clientId, isActive: true, expiryDate: { not: null } },
       select: { name: true, vendor: true, expiryDate: true, vendorRef: { select: { name: true } } },
@@ -47,6 +47,12 @@ export async function POST(req: Request) {
       where: { clientId, contractEnd: { not: null } },
       select: { label: true, contractEnd: true, vendor: { select: { name: true } } },
     }),
+    // Only client-SCOPED contracts (clientId match) — vendor-wide contracts
+    // (null client) must never leak to a customer's portal.
+    prisma.vendorContract.findMany({
+      where: { clientId, endDate: { not: null } },
+      select: { name: true, contractType: true, endDate: true, vendor: { select: { name: true } } },
+    }),
   ])
 
   const items: Item[] = []
@@ -57,6 +63,7 @@ export async function POST(req: Request) {
   }
   for (const a of assets) items.push({ category: "warranty", label: a.friendlyName ?? a.name, expiresAt: a.warrantyExpiry!.toISOString(), linkType: "assets" })
   for (const c of circuits) items.push({ category: "circuit", label: c.label, sublabel: c.vendor?.name ?? undefined, expiresAt: c.contractEnd!.toISOString(), linkType: "network" })
+  for (const v of contracts) items.push({ category: "contract", label: v.name, sublabel: [v.vendor.name, v.contractType].filter(Boolean).join(" · ") || undefined, expiresAt: v.endDate!.toISOString(), linkType: "documents" })
 
   // Optional window filter (e.g. days=90 → only what expires within 90 days).
   let filtered = items

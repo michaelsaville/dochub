@@ -114,12 +114,13 @@ export function formatBytes(n: number): string {
 
 // -----------------------------------------------------------------------------
 // FileThumb — small icon/thumbnail tile reused in file lists.
-// Raster images get the server webp thumbnail with an emoji fallback on error;
-// everything else just renders the emoji.
+// Raster images AND PDFs (page-1 render) get the server webp thumbnail with an
+// emoji fallback on error; everything else just renders the emoji.
 // -----------------------------------------------------------------------------
 export function FileThumb({ file, size = 40 }: { file: PreviewFile; size?: number }): JSX.Element {
   const [errored, setErrored] = useState(false)
-  const isRaster = previewKindOf(file) === "image"
+  const kind = previewKindOf(file)
+  const hasThumb = kind === "image" || kind === "pdf"
 
   const box: React.CSSProperties = {
     width: size,
@@ -136,7 +137,7 @@ export function FileThumb({ file, size = 40 }: { file: PreviewFile; size?: numbe
     lineHeight: 1,
   }
 
-  if (isRaster && !errored) {
+  if (hasThumb && !errored) {
     return (
       <div style={box}>
         <img

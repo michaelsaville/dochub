@@ -30,7 +30,9 @@ export async function GET(
     if (!att) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
     const mime = (att.detectedMime || att.mimeType || "").toLowerCase()
-    if (!mime.startsWith("image/") || mime === "image/svg+xml") {
+    const isImage = mime.startsWith("image/") && mime !== "image/svg+xml"
+    const isPdf = mime === "application/pdf"
+    if (!isImage && !isPdf) {
       return NextResponse.json({ error: "No thumbnail" }, { status: 404 })
     }
 
@@ -52,8 +54,22 @@ export async function GET(
       return NextResponse.json({ error: "File missing on disk" }, { status: 404 })
     }
 
+    // For a PDF, rasterize page 1 to PNG first (pdf-parse already ships
+    // pdfjs-dist + @napi-rs/canvas — the same dep used for OCR text extraction),
+    // then feed it through the same sharp → WebP pipeline as images. A bad /
+    // encrypted / zero-page PDF yields no bytes → 404 → the grid falls back to
+    // the typed icon.
+    let source: Buffer
+    if (isPdf) {
+      const png = await renderPdfFirstPage(await readFile(src))
+      if (!png) return NextResponse.json({ error: "No thumbnail" }, { status: 404 })
+      source = png
+    } else {
+      source = await readFile(src)
+    }
+
     const sharp = (await import("sharp")).default
-    const out = await sharp(await readFile(src))
+    const out = await sharp(source)
       .rotate() // honor EXIF orientation
       .resize(THUMB_PX, THUMB_PX, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 72 })
@@ -65,5 +81,28 @@ export async function GET(
     return new Response(new Uint8Array(out), { headers })
   } catch (e) {
     return NextResponse.json({ error: "Thumbnail failed" }, { status: 500 })
+  }
+}
+
+/**
+ * Render page 1 of a PDF to PNG bytes via pdf-parse's getScreenshot (pdfjs-dist
+ * + @napi-rs/canvas, already bundled for the OCR path). Returns null on any
+ * failure (encrypted / corrupt / empty) so the caller can 404 cleanly.
+ */
+async function renderPdfFirstPage(data: Buffer): Promise<Buffer | null> {
+  const { PDFParse } = await import("pdf-parse")
+  const parser = new PDFParse({ data })
+  try {
+    const shot = await parser.getScreenshot({
+      partial: [1], // page 1 only
+      imageBuffer: true, // populate page.data with PNG bytes
+      desiredWidth: 640, // downscaled to THUMB_PX by sharp; keeps render cheap
+    })
+    const bytes = shot.pages?.[0]?.data
+    return bytes && bytes.length ? Buffer.from(bytes) : null
+  } catch {
+    return null
+  } finally {
+    await parser.destroy().catch(() => {})
   }
 }
