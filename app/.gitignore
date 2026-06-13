@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Stale PWA build artifacts (next-pwa is not wired; regenerated if ever re-enabled)
+public/sw.js
+public/workbox-*.js

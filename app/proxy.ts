@@ -20,6 +20,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // Unattended kiosk wallboard — deliberately never SSO. The /kiosk page is a
+  // data-free shell; the /api/kiosk feed validates KIOSK_TOKEN (constant-time,
+  // fails closed) before returning any aggregate, non-sensitive data. Without
+  // this exemption the gate bounces the iPad to the SSO login, defeating it.
+  if (pathname === "/kiosk" || pathname.startsWith("/api/kiosk/")) {
+    return NextResponse.next()
+  }
+
   // Allow cron, sync, webhook, public share, BFF, and AI proxy
   // endpoints — authenticated via bearer token, HMAC, or public access
   if (
