@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import AppShell from "@/components/AppShell"
 import { useSession } from "next-auth/react"
 import { useAuxEnabled, useAuxRole } from "@/lib/aux-display-client"
@@ -11,6 +12,43 @@ export default function AuxDisplayPage() {
 
   const email = session?.user?.email ?? null
   const isIpad = role === "ipad"
+
+  // Kiosk wallboard launcher. The KIOSK_TOKEN is a server secret, so fetch the
+  // tokened path from the SSO-gated /api/aux-display/kiosk-url (NOT /api/kiosk/*,
+  // which is public) and build the absolute URL from the browser origin.
+  const [kioskUrl, setKioskUrl] = useState<string | null>(null)
+  const [kioskState, setKioskState] =
+    useState<"loading" | "ready" | "unconfigured" | "error">("loading")
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/aux-display/kiosk-url")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { configured?: boolean; path?: string }) => {
+        if (cancelled) return
+        if (d.configured && d.path) {
+          setKioskUrl(window.location.origin + d.path)
+          setKioskState("ready")
+        } else {
+          setKioskState("unconfigured")
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setKioskState("error")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const copyKiosk = () => {
+    if (!kioskUrl) return
+    navigator.clipboard.writeText(kioskUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
 
   return (
     <AppShell>
@@ -147,6 +185,74 @@ export default function AuxDisplayPage() {
             jump to the same page. For this to work the other screen must also be open
             on DocHub and armed (as the {isIpad ? "main screen" : "aux screen"}).
           </p>
+        </Section>
+
+        {/* Kiosk wallboard */}
+        <Section title="Open the kiosk wallboard">
+          <p style={{ ...para, marginBottom: 12 }}>
+            A read-only, full-screen <strong>wallboard</strong> — live counts,
+            active alarms, and upcoming expirations. It needs <em>no login</em>{" "}
+            (ideal for a wall-mounted iPad), so the link carries a secret token —
+            keep it private and don&apos;t post it publicly.
+          </p>
+          {kioskState === "ready" && kioskUrl && (
+            <>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <a
+                  href={kioskUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "#3b82f6",
+                    textDecoration: "none",
+                  }}
+                >
+                  📺 Open wallboard
+                </a>
+                <button
+                  onClick={copyKiosk}
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: 10,
+                    border: "0.5px solid var(--color-border-secondary)",
+                    background: "transparent",
+                    color: "var(--color-text-secondary)",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  {copied ? "✓ Copied" : "Copy link"}
+                </button>
+              </div>
+              <p style={{ ...para, marginTop: 12, color: "var(--muted)" }}>
+                Bookmark it on the iPad (Share → Add to Home Screen) for a one-tap
+                board, then lock it down with Guided Access below. Append{" "}
+                <code style={code}>&amp;clientId=&lt;id&gt;</code> to scope the
+                board to a single client.
+              </p>
+            </>
+          )}
+          {kioskState === "unconfigured" && (
+            <p style={{ ...para, color: "var(--muted)" }}>
+              Kiosk not configured — set <code style={code}>KIOSK_TOKEN</code> in
+              the server <code style={code}>.env</code> and redeploy.
+            </p>
+          )}
+          {kioskState === "loading" && (
+            <p style={{ ...para, color: "var(--muted)" }}>Loading…</p>
+          )}
+          {kioskState === "error" && (
+            <p style={{ ...para, color: "var(--muted)" }}>
+              Couldn&apos;t load the kiosk link.
+            </p>
+          )}
         </Section>
 
         {/* Guided Access */}
