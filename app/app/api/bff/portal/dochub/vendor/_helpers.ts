@@ -60,7 +60,7 @@ export async function resolveGrant(vendorId: string, clientId: string) {
  */
 export async function sharedIds(
   grantId: string,
-  itemType: "CREDENTIAL" | "DOCUMENT" | "ATTACHMENT",
+  itemType: "CREDENTIAL" | "DOCUMENT" | "ATTACHMENT" | "PORTAL_CREDENTIAL",
 ): Promise<string[]> {
   const rows = await prisma.vendorShare.findMany({
     where: { grantId, itemType },

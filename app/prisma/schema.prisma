@@ -698,19 +698,29 @@ enum VendorShareType {
   CREDENTIAL
   DOCUMENT
   ATTACHMENT
+  /// A customer-portal vault credential (PortalCredential) the CLIENT chose
+  /// to share with their vendor (phase 2, client-self-managed). Distinct from
+  /// CREDENTIAL, which is an MSP-held internal Credential shared by staff and
+  /// is never visible to / manageable by the client.
+  PORTAL_CREDENTIAL
 }
 
 /// One explicitly shared item inside a VendorClientGrant. The presence of
 /// a row is the entire authorization — the vendor BFF only ever returns
 /// items that have a matching VendorShare. itemId points at a Credential,
-/// ClientDocument, or ClientAttachment depending on itemType.
+/// ClientDocument, ClientAttachment, or PortalCredential depending on itemType.
 model VendorShare {
   id               String            @id @default(cuid())
   grantId          String
   itemType         VendorShareType
   itemId           String
   note             String?
+  /// Staff email when an MSP admin created the share (v1 path).
   createdByStaffId String?
+  /// portal.portal_users.id when a CLIENT portal user self-managed the share
+  /// (phase 2). Exactly one of createdByStaffId / createdByPortalUserId is set;
+  /// the client surface only ever lists/mutates rows of manageable item types.
+  createdByPortalUserId String?
   createdAt        DateTime          @default(now())
   grant            VendorClientGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
 

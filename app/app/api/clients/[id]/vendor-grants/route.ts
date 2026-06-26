@@ -19,6 +19,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     include: {
       vendor: { select: { id: true, name: true } },
       shares: {
+        // The staff panel manages staff-domain item types only. Client-
+        // self-managed vault-credential shares (PORTAL_CREDENTIAL) are the
+        // client's to manage in the portal; staff see those reveals in the
+        // audit log instead.
+        where: { itemType: { not: "PORTAL_CREDENTIAL" } },
         select: { id: true, itemType: true, itemId: true, note: true, createdAt: true },
         orderBy: { createdAt: "asc" },
       },

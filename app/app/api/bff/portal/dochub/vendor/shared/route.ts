@@ -29,13 +29,14 @@ export async function POST(req: Request) {
   const grant = await resolveGrant(vendorId, clientId)
   if (!grant) return NextResponse.json({ ok: false, error: "No active grant" }, { status: 403 })
 
-  const [credIds, docIds, fileIds] = await Promise.all([
+  const [credIds, docIds, fileIds, vaultCredIds] = await Promise.all([
     sharedIds(grant.id, "CREDENTIAL"),
     sharedIds(grant.id, "DOCUMENT"),
     sharedIds(grant.id, "ATTACHMENT"),
+    sharedIds(grant.id, "PORTAL_CREDENTIAL"),
   ])
 
-  const [creds, docs, files] = await Promise.all([
+  const [creds, docs, files, vaultCreds] = await Promise.all([
     credIds.length
       ? prisma.credential.findMany({
           // clientId scope is belt-and-suspenders: a share should never point
@@ -62,19 +63,41 @@ export async function POST(req: Request) {
           },
         })
       : [],
+    // Phase 2: vault credentials a CLIENT user shared with this vendor.
+    vaultCredIds.length
+      ? prisma.portalCredential.findMany({
+          where: { id: { in: vaultCredIds }, clientId },
+          select: {
+            id: true, label: true, username: true, url: true, encryptedTotp: true,
+          },
+        })
+      : [],
   ])
 
   return NextResponse.json({
     ok: true,
     grant: { label: grant.label },
-    credentials: creds.map((c) => ({
-      id: c.id,
-      label: c.label,
-      username: c.username,
-      url: c.url,
-      hasPassword: !!c.encryptedPassword,
-      hasTotp: !!c.encryptedTotp,
-    })),
+    credentials: [
+      ...creds.map((c) => ({
+        id: c.id,
+        kind: "managed" as const,
+        label: c.label,
+        username: c.username,
+        url: c.url,
+        hasPassword: !!c.encryptedPassword,
+        hasTotp: !!c.encryptedTotp,
+      })),
+      ...vaultCreds.map((c) => ({
+        id: c.id,
+        kind: "vault" as const,
+        label: c.label,
+        username: c.username,
+        url: c.url,
+        // PortalCredential.encryptedPassword is non-null in the schema.
+        hasPassword: true,
+        hasTotp: !!c.encryptedTotp,
+      })),
+    ],
     documents: docs.map((d) => ({
       id: d.id,
       title: d.title,
