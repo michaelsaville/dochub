@@ -49,6 +49,7 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
   const [clients, setClients] = useState<{ id: string; name: string }[]>([])
 
   const [saving, setSaving] = useState(false)
+  const [drafting, setDrafting] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -121,6 +122,24 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
 
   // ── Save ────────────────────────────────────────────────────────────────────
 
+  async function draftWithAI() {
+    if (!title.trim()) return alert("Add a title first — the AI drafts from it.")
+    if ((content.trim() || steps.length > 0) && !confirm("Replace the current content and checklist with an AI draft?")) return
+    setDrafting(true)
+    try {
+      const res = await fetch("/api/runbooks/draft", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, prompt: summary }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error || "AI draft failed"); return }
+      if (data.summary && !summary.trim()) setSummary(data.summary)
+      if (typeof data.content === "string") setContent(data.content)
+      if (Array.isArray(data.steps)) setSteps(data.steps.map((s: any) => ({ title: s.title ?? "", notes: s.notes ?? "" })))
+      setContentTab("preview")
+    } finally { setDrafting(false) }
+  }
+
   async function save() {
     if (!title.trim()) return alert("Title is required")
     setSaving(true)
@@ -146,6 +165,14 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
       <div style={{ marginBottom: "20px" }}>
         <label style={lbl}>Title *</label>
         <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. New workstation setup" style={{ ...inp, fontSize: "18px", fontWeight: 500 }} />
+      </div>
+
+      {/* Draft with AI */}
+      <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+        <button onClick={draftWithAI} disabled={drafting} style={{ fontSize: "13px", padding: "8px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: drafting ? "not-allowed" : "pointer", color: "var(--color-text-secondary)", opacity: drafting ? 0.7 : 1 }}>
+          {drafting ? "Drafting..." : "Draft with AI"}
+        </button>
+        <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Generates the summary, markdown content and checklist steps from the title.</span>
       </div>
 
       {/* Summary */}

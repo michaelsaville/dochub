@@ -3,7 +3,7 @@
 import AppShell from "@/components/AppShell"
 import { useState, useEffect } from "react"
 
-type AlertCategory = "ssl" | "domain" | "warranty" | "credential" | "license" | "operational"
+type AlertCategory = "ssl" | "domain" | "warranty" | "credential" | "license" | "contract" | "vpncert" | "circuit" | "operational"
 type AlertUrgency = "expired" | "critical" | "warning" | "upcoming" | "info"
 
 type UnifiedAlert = {
@@ -32,6 +32,9 @@ const CATEGORIES: { key: AlertCategory | "all"; label: string }[] = [
   { key: "warranty", label: "Warranty" },
   { key: "credential", label: "Credential" },
   { key: "license", label: "License" },
+  { key: "contract", label: "Contract" },
+  { key: "vpncert", label: "VPN cert" },
+  { key: "circuit", label: "Circuit" },
   { key: "operational", label: "Operational" },
 ]
 
@@ -44,7 +47,7 @@ const urgencyConfig: Record<AlertUrgency, { label: string; bg: string; color: st
 }
 
 const categoryIcons: Record<AlertCategory, string> = {
-  ssl: "🔒", domain: "🌐", warranty: "🛡", credential: "🔑", license: "📜", operational: "⚠",
+  ssl: "🔒", domain: "🌐", warranty: "🛡", credential: "🔑", license: "📜", contract: "📝", vpncert: "🔐", circuit: "🧵", operational: "⚠",
 }
 
 function daysUntil(dateStr: string): string {

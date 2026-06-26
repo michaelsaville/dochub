@@ -29,7 +29,7 @@
     },
     {
       "name": "Passwords",
-      "url": "/vault",
+      "url": "/settings?section=my-vault",
       "description": "Personal vault"
     }
   ]

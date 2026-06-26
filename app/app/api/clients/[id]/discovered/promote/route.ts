@@ -56,7 +56,7 @@ export async function POST(
     SELECT id, hostname, "friendlyName", os, "osVersion", role, "ipAddress",
            "assetTag", "warrantyExpiresAt", "purchasedAt"
     FROM fleethub.fl_devices
-    WHERE id = ${body.deviceId} AND "clientName" = ${client.name}
+    WHERE id = ${body.deviceId} AND LOWER(TRIM("clientName")) = LOWER(TRIM(${client.name}))
     LIMIT 1
   `
   const dev = rows[0]

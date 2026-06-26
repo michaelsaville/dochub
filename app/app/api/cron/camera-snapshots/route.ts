@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
-import { writeFile, mkdir } from "fs/promises"
+import { writeFile, mkdir, unlink } from "fs/promises"
 import { existsSync } from "fs"
 import https from "https"
 import http from "http"
@@ -97,10 +97,16 @@ export async function GET(req: Request) {
         if (snapRes.status !== 200) { failed++; continue }
         const storageName = `cam-photo-${crypto.randomUUID()}.jpg`
         await writeFile(path.join(UPLOAD_DIR, storageName), snapRes.buffer)
+        const previousPhoto = cam.photoStorageName
         await prisma.camera.update({
           where: { id: cam.id },
           data: { photoStorageName: storageName, photoRefreshedAt: new Date() },
         })
+        // Delete the prior snapshot so /uploads doesn't accrue one orphan JPEG
+        // per camera per run (mirrors the manual photo route). (B34)
+        if (previousPhoto && previousPhoto !== storageName) {
+          await unlink(path.join(UPLOAD_DIR, previousPhoto)).catch(() => {})
+        }
         synced++
       } catch {
         failed++

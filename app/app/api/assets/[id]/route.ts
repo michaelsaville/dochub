@@ -20,7 +20,7 @@ export async function GET(
         assetType: {
           select: { id: true, name: true, template: true },
         },
-        person: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true, jobTitle: true, phone: true, m365Upn: true } },
         credentials: {
           where: { isRetired: false },
           select: { id: true, label: true, username: true, url: true, encryptedPassword: true },
@@ -180,7 +180,7 @@ export async function PATCH(
       },
       include: {
         assetType: { select: { id: true, name: true, template: true } },
-        person: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true, jobTitle: true, phone: true, m365Upn: true } },
       },
     })
 

@@ -6,6 +6,7 @@ import { QRCodeCanvas } from "qrcode.react"
 import { useParams, useRouter } from "next/navigation"
 import AttachmentsPanel from "@/components/AttachmentsPanel"
 import RelationLinker from "@/components/RelationLinker"
+import { statusColor } from "@/lib/asset-status"
 
 type Credential = {
   id: string
@@ -120,10 +121,6 @@ const categoryLabel: Record<string, string> = {
   NETWORK_GEAR: "Network Gear", WIRELESS: "Wireless", PRINTER: "Printer",
   TABLET: "Tablet", PHONE_SYSTEM: "Phone System", PHONE_ENDPOINT: "Phone Endpoint",
   WEBSITE: "Website", VPN: "VPN", OTHER: "Other",
-}
-
-const statusColor: Record<string, string> = {
-  ACTIVE: "#22c55e", RETIRING: "#f59e0b", SUNSET: "#94a3b8",
 }
 
 const card: React.CSSProperties = {

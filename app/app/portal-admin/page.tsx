@@ -105,18 +105,10 @@ export default function PortalAdminPage() {
   async function revokeSessions(userId: string) {
     setRevokingId(userId)
     try {
-      // Deactivate then reactivate to kill sessions while keeping account active
-      await fetch(`/api/portal-users/${userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: false }),
-      })
-      await fetch(`/api/portal-users/${userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: true }),
-      })
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, sessions: [] } : u))
+      // Purge only the user's sessions — no disable/re-enable dance that could
+      // strand the account disabled if the second call failed. (B31)
+      const res = await fetch(`/api/portal-users/${userId}/sessions`, { method: "DELETE" })
+      if (res.ok) setUsers(prev => prev.map(u => u.id === userId ? { ...u, sessions: [] } : u))
     } finally {
       setRevokingId(null)
     }

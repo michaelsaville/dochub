@@ -46,7 +46,7 @@ export async function GET(
       SELECT id, hostname, "friendlyName", os, "osVersion", role, "ipAddress",
              "assetTag", "warrantyExpiresAt", "purchasedAt", "isOnline", "lastSeenAt"
       FROM fleethub.fl_devices
-      WHERE "clientName" = ${client.name} AND "isActive" = true
+      WHERE LOWER(TRIM("clientName")) = LOWER(TRIM(${client.name})) AND "isActive" = true
       ORDER BY "isOnline" DESC, hostname ASC
     `
   } catch {

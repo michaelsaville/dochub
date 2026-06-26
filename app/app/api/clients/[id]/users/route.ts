@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { maybeTriggerOnboardingRunbook } from "@/lib/runbook-triggers"
 
 export async function GET(
   _req: NextRequest,
@@ -27,7 +28,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   const { id: clientId } = await params
 
@@ -64,6 +65,10 @@ export async function POST(
       notes: notes?.trim() || null,
     },
   })
+
+  // Newly-added active person → fire the client's onboarding runbook if one is
+  // configured (was previously only wired into the dead /contacts route). (B17)
+  if (user.isActive) void maybeTriggerOnboardingRunbook(user.id, session?.user?.name ?? null)
 
   // Cross-sync: create matching TH_Contact in TicketHub
   try {

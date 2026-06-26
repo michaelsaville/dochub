@@ -3,12 +3,16 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { maybeTriggerNewClientRunbook } from "@/lib/runbook-triggers"
 
-export async function GET() {
+export async function GET(req: Request) {
   const { error } = await requireAuth()
   if (error) return error
   try {
+    // Archived/merged clients (isActive=false) are hidden from the list, search
+    // and pickers by default; pass ?includeArchived=true to surface them. (MERGED)
+    const includeArchived = new URL(req.url).searchParams.get("includeArchived") === "true"
     const [clients, assetCounts] = await Promise.all([
       prisma.client.findMany({
+        where: includeArchived ? {} : { isActive: true },
         orderBy: { name: "asc" },
         include: {
           _count: {

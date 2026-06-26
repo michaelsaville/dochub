@@ -28,6 +28,7 @@ import { useSession } from "next-auth/react"
 import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ipInCidr } from "@/lib/cidr"
+import { statusColor } from "@/lib/asset-status"
 import LicenseSeats from "@/components/LicenseSeats"
 import AppSeats from "@/components/AppSeats"
 import CredentialPicker from "@/components/CredentialPicker"
@@ -138,18 +139,6 @@ const categoryLabel: Record<string, string> = {
   WEBSITE: "Website",
   VPN: "VPN",
   OTHER: "Other",
-}
-
-const statusColor: Record<string, string> = {
-  ACTIVE: "#22c55e",
-  RETIRING: "#f59e0b",
-  SUNSET: "#94a3b8",
-  RETIRED: "#6b7280",
-  IN_REPAIR: "#3b82f6",
-  IN_STORAGE: "#8b5cf6",
-  STOLEN: "#ef4444",
-  LOST: "#f97316",
-  DISPOSED: "#374151",
 }
 
 const statusLabel: Record<string, string> = {
