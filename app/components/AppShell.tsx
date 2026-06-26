@@ -28,12 +28,13 @@ function HamburgerIcon() {
   )
 }
 
-const QUICK_LINKS = [
+const QUICK_LINKS: { label: string; href: string; icon: string; adminOnly?: boolean }[] = [
   { label: "Reporting", href: "/reports", icon: "📊" },
   { label: "Global SOPs", href: "/runbooks", icon: "📋" },
   { label: "Review Queue", href: "/docs/review", icon: "🚩" },
   { label: "Client Portal", href: "/portal", icon: "🌐" },
   { label: "Portal Admin", href: "/portal-admin", icon: "🔧" },
+  { label: "Audit Log", href: "/admin/audit", icon: "🪵", adminOnly: true },
   { label: "My Vault", href: "/settings?section=my-vault", icon: "🔐" },
   { label: "Aux Display", href: "/aux-display", icon: "📲" },
 ]
@@ -226,7 +227,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
                 overflow: "hidden",
               }}>
-                {QUICK_LINKS.map((link, i) => (
+                {QUICK_LINKS.filter(
+                  (link) => !link.adminOnly || (session?.user as { role?: string })?.role === "ADMIN"
+                ).map((link, i, links) => (
                   <a
                     key={link.href}
                     href={link.href}
@@ -238,7 +241,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       fontSize: "13px",
                       color: "var(--color-text-secondary)",
                       textDecoration: "none",
-                      borderBottom: i < QUICK_LINKS.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
+                      borderBottom: i < links.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                       transition: "background 0.1s",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--color-background-hover, rgba(255,255,255,0.05))")}
