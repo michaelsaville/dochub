@@ -7,6 +7,7 @@ import RackDiagram from "@/components/RackDiagram"
 import MergedDocumentsPanel from "@/components/MergedDocumentsPanel"
 import PortalUsersPanel from "@/components/PortalUsersPanel"
 import PortalVaultPanel from "@/components/PortalVaultPanel"
+import VendorPortalPanel from "@/components/VendorPortalPanel"
 import FileSharesPanel from "@/components/FileSharesPanel"
 import VpnPanel from "@/components/VpnPanel"
 import PhonePanel from "@/components/PhonePanel"
@@ -121,7 +122,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Audit Trail"]
+const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Vendor Portal", "Audit Trail"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -4008,6 +4009,10 @@ export default function ClientDetailPage() {
 
         {activeTab === "Portal Vault" && (
           <PortalVaultPanel clientId={id as string} />
+        )}
+
+        {activeTab === "Vendor Portal" && (
+          <VendorPortalPanel clientId={id as string} />
         )}
 
         {activeTab === "Audit Trail" && (

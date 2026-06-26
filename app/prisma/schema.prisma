@@ -138,6 +138,7 @@ model Client {
   websites          Website[]
   vendors           Vendor[]           @relation("ClientVendors")
   vendorContracts   VendorContract[]   @relation("ClientContracts")
+  vendorGrants      VendorClientGrant[]
 
   /// Optional Runbook templates fired automatically on lifecycle events.
   /// Onboarding runs when a Person.isActive flips to true; offboarding
@@ -667,6 +668,54 @@ model Vendor {
   internetCircuits InternetCircuit[] @relation("VendorInternetCircuits")
   websitesAsRegistrar Website[]   @relation("WebsiteRegistrar")
   purchasedAssets Asset[]         @relation("AssetPurchaseVendor")
+  portalGrants  VendorClientGrant[]
+}
+
+/// A vendor-portal access grant: one client's vendor (e.g. "American
+/// Choice" serving "Braddock Medical") may sign in to the vendor portal
+/// and see ONLY the specific credentials/documents shared with them here.
+/// Default-deny — nothing is visible until a VendorShare row is added.
+/// Managed by internal staff (v1). One grant per (client, vendor) pair.
+model VendorClientGrant {
+  id               String        @id @default(cuid())
+  clientId         String
+  vendorId         String
+  /// Human label for the access package, e.g. "VPN + RDP access".
+  label            String?
+  isActive         Boolean       @default(true)
+  createdByStaffId String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  client           Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendor           Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  shares           VendorShare[]
+
+  @@unique([clientId, vendorId])
+  @@index([vendorId])
+}
+
+enum VendorShareType {
+  CREDENTIAL
+  DOCUMENT
+  ATTACHMENT
+}
+
+/// One explicitly shared item inside a VendorClientGrant. The presence of
+/// a row is the entire authorization — the vendor BFF only ever returns
+/// items that have a matching VendorShare. itemId points at a Credential,
+/// ClientDocument, or ClientAttachment depending on itemType.
+model VendorShare {
+  id               String            @id @default(cuid())
+  grantId          String
+  itemType         VendorShareType
+  itemId           String
+  note             String?
+  createdByStaffId String?
+  createdAt        DateTime          @default(now())
+  grant            VendorClientGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@unique([grantId, itemType, itemId])
+  @@index([grantId])
 }
 
 /// One row per integration cron — written on every run so Settings can
