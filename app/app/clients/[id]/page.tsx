@@ -25,7 +25,7 @@ import ExportCsvMenu from "@/components/ExportCsvMenu"
 import LifecycleRunbooksCard from "@/components/LifecycleRunbooksCard"
 import IdentityPanel from "@/components/IdentityPanel"
 import { useSession } from "next-auth/react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ipInCidr } from "@/lib/cidr"
 import LicenseSeats from "@/components/LicenseSeats"
@@ -469,6 +469,21 @@ export default function ClientDetailPage() {
       case "Network":     setShowAddAsset(true); break  // network gear is documented as an Asset
     }
   }, [activeTab])
+
+  // Honor the ?edit=<assetId> deep-link (the asset detail page's Edit button):
+  // force the Assets tab and open that asset's edit form once it has loaded.
+  // Runs once, after assets are fetched, so it survives the tab switch + load.
+  const appliedAssetEditParam = useRef(false)
+  useEffect(() => {
+    if (typeof window === "undefined" || appliedAssetEditParam.current) return
+    const editId = new URLSearchParams(window.location.search).get("edit")
+    if (!editId) return
+    if (activeTab !== "Assets") { setActiveTab("Assets"); return }
+    const asset = assets.find(a => a.id === editId)
+    if (!asset) return            // assets still loading — re-runs when `assets` populates
+    appliedAssetEditParam.current = true
+    openAssetEdit(asset)
+  }, [assets, activeTab])
 
   // "/" on a client page opens the client-scoped search modal. Respects
   // input focus so typing "/" in a text field doesn't hijack it.
@@ -1380,6 +1395,15 @@ export default function ClientDetailPage() {
       const res = await fetch("/api/admin/seed-asset-types")
       if (res.ok) setAssetTypes(await res.json())
     } catch {}
+  }
+
+  // Opens the inline asset edit form for a given asset. Shared by the per-row
+  // Edit button and the ?edit=<assetId> deep-link from the asset detail page,
+  // so the two paths can never drift apart.
+  function openAssetEdit(asset: Asset) {
+    setEditingAsset(asset.id)
+    if (assetTypes.length === 0) fetchAssetTypes()
+    setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", assetTag: asset.assetTag ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", vlan: asset.vlan ?? "", switchPort: asset.switchPort ?? "", room: asset.room ?? "", managementUrl: asset.managementUrl ?? "", splashtopUrl: asset.splashtopUrl ?? "", driverUrl: asset.driverUrl ?? "", firmwareVersion: asset.firmwareVersion ?? "", portCount: asset.portCount ?? "", os: asset.os ?? "", ram: asset.ram ?? "", cpu: asset.cpu ?? "", storageCapacity: asset.storageCapacity ?? "", purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : "", warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.slice(0, 10) : "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" })
   }
 
   async function saveAsset() {
@@ -2589,7 +2613,7 @@ export default function ClientDetailPage() {
                           <button onClick={() => toggleAssetHistory(asset.id)} style={{ fontSize: "12px", color: loadingAssetHistory[asset.id] ? "var(--color-text-muted)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                             {loadingAssetHistory[asset.id] ? "..." : expandedAssetHistory[asset.id] !== undefined ? "History ▲" : "History"}
                           </button>
-                          <button onClick={() => { setEditingAsset(asset.id); if (assetTypes.length === 0) fetchAssetTypes(); setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", assetTag: asset.assetTag ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", vlan: asset.vlan ?? "", switchPort: asset.switchPort ?? "", room: asset.room ?? "", managementUrl: asset.managementUrl ?? "", splashtopUrl: asset.splashtopUrl ?? "", driverUrl: asset.driverUrl ?? "", firmwareVersion: asset.firmwareVersion ?? "", portCount: asset.portCount ?? "", os: asset.os ?? "", ram: asset.ram ?? "", cpu: asset.cpu ?? "", storageCapacity: asset.storageCapacity ?? "", purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : "", warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.slice(0, 10) : "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" }) }} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                          <button onClick={() => openAssetEdit(asset)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                         </div>
                       </div>
                       {expandedAssetHistory[asset.id] !== undefined && (
@@ -2792,12 +2816,32 @@ export default function ClientDetailPage() {
                         { key: "secureNotes", label: "Secure Notes (blank = keep current)", type: "text" },
                         { key: "url",      label: "URL",                  type: "text"     },
                         { key: "notes",    label: "Notes",                type: "text"     },
-                      ].map(({ key, label, type }) => (
-                        <div key={key} style={{ marginBottom: "8px" }}>
-                          <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
-                          <input type={type} value={credEditForm[key] ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inpStyle} />
-                        </div>
-                      ))}
+                      ].map(({ key, label, type }) => {
+                        // B28: a stored TOTP seed / secure note can now be removed
+                        // outright (blank still means "keep current"), via an
+                        // explicit sentinel the server treats as a clear.
+                        const clearKey = key === "totp" ? "clearTotp" : key === "secureNotes" ? "clearSecureNotes" : null
+                        const hasStored = key === "totp" ? cred.hasTotp : key === "secureNotes" ? cred.hasSecureNotes : false
+                        const isCleared = clearKey ? !!credEditForm[clearKey] : false
+                        return (
+                          <div key={key} style={{ marginBottom: "8px" }}>
+                            <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
+                            {isCleared ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "7px 10px", border: "0.5px dashed #dc2626", borderRadius: "7px" }}>
+                                <span style={{ fontSize: "12px", color: "#dc2626" }}>Will be removed on save</span>
+                                <button type="button" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey!]: false }))} style={{ fontSize: "11px", background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Undo</button>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                <input type={type} value={credEditForm[key] ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inpStyle} />
+                                {clearKey && hasStored && (
+                                  <button type="button" title="Remove the stored value on save" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey]: true, [key]: "" }))} style={{ fontSize: "11px", whiteSpace: "nowrap", padding: "6px 10px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "#dc2626", cursor: "pointer" }}>Remove</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                       {client && client.people.length > 0 && (
                         <div style={{ marginBottom: "8px" }}>
                           <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Linked person</label>

@@ -8,7 +8,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
@@ -19,9 +19,13 @@ export async function GET(
         person: { select: { id: true, name: true, email: true, m365Upn: true } },
       },
     })
-    // Return with password decrypted but marked as hidden for initial load
+    // TECH users who can't reveal a credential shouldn't see its plaintext
+    // `notes` either — those often hold the same secrets we gate behind reveal
+    // (S8). ADMIN and reveal-allowed creds are unaffected.
+    const role = session?.user?.role
     const safe = credentials.map(c => ({
       ...c,
+      notes: role === "TECH" && !c.allowTechReveal ? null : c.notes,
       encryptedPassword: undefined,
       encryptedTotp: undefined,
       encryptedNotes: undefined,

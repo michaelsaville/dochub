@@ -169,7 +169,8 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
             name: ifaceName,
             ipAddress: ifaceIp,
             macAddress: ifaceMac,
-            vlanId: portForm.vlanId || null,
+            // Don't push the port's VLAN onto the interface — the interface owns
+            // its own VLAN, and forcing portForm.vlanId here clobbered it (B23).
             switchPortId: port?.id ?? null,
           }),
         })
@@ -213,7 +214,7 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
             name: ifaceName,
             ipAddress: ifaceIp,
             macAddress: ifaceMac,
-            vlanId: portForm.vlanId || null,
+            // New interface starts with no VLAN rather than inheriting the port's (B23).
             switchPortId: portId,
           }),
         })

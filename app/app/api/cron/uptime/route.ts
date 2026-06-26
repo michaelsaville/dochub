@@ -60,6 +60,9 @@ export async function GET(req: Request) {
         severity: "CRITICAL",
         type: "Site Down",
         message: `${site.domain} is down${status ? ` (HTTP ${status})` : ""}: ${errorMsg || "unreachable"}`,
+        // Dedup per-domain so a second site going down for the same client still
+        // alarms — and so create-dedup lines up with the per-domain auto-resolve below (B29).
+        dedupeKey: site.domain,
       })
     }
     if (up && !wasUp) {

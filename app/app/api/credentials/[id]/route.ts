@@ -38,7 +38,7 @@ export async function PATCH(
     const current = await prisma.credential.findUnique({ where: { id } })
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const { label, username, password, totp, secureNotes, url, notes, personId, expiryDate } = body
+    const { label, username, password, totp, secureNotes, url, notes, personId, expiryDate, clearTotp, clearSecureNotes } = body
     const changedBy = session?.user?.name ?? "unknown"
 
     const historyEntries: {
@@ -62,6 +62,12 @@ export async function PATCH(
     if (password?.trim()) {
       historyEntries.push({ entityType: "credential", entityId: id, field: "password", oldValue: null, newValue: null, changedBy })
     }
+    if (clearTotp && current.encryptedTotp) {
+      historyEntries.push({ entityType: "credential", entityId: id, field: "totp", oldValue: null, newValue: null, changedBy })
+    }
+    if (clearSecureNotes && current.encryptedNotes) {
+      historyEntries.push({ entityType: "credential", entityId: id, field: "secureNotes", oldValue: null, newValue: null, changedBy })
+    }
 
     const updated = await prisma.credential.update({
       where: { id },
@@ -69,8 +75,14 @@ export async function PATCH(
         ...(label?.trim()       && { label: label.trim() }),
         ...(username !== undefined && { username: username?.trim() || null }),
         ...(password?.trim()    && { encryptedPassword: encrypt(password), lastRotated: new Date() }),
-        ...(totp     !== undefined && totp?.trim() && { encryptedTotp: encrypt(totp.trim()) }),
-        ...(secureNotes !== undefined && secureNotes?.trim() && { encryptedNotes: encrypt(secureNotes.trim()) }),
+        // Explicit clear wins; otherwise only set when a non-blank value is sent
+        // (blank = keep current, so a normal edit never wipes the seed). (B28)
+        ...(clearTotp
+          ? { encryptedTotp: null }
+          : (totp !== undefined && totp?.trim() ? { encryptedTotp: encrypt(totp.trim()) } : {})),
+        ...(clearSecureNotes
+          ? { encryptedNotes: null }
+          : (secureNotes !== undefined && secureNotes?.trim() ? { encryptedNotes: encrypt(secureNotes.trim()) } : {})),
         ...(url      !== undefined && { url:   url?.trim()   || null }),
         ...(notes    !== undefined && { notes: notes?.trim() || null }),
         ...(personId !== undefined && { personId: personId || null }),
