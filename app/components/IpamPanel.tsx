@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import VlanPicker from "@/components/VlanPicker"
+import { ipToInt, isIpv4 } from "@/lib/cidr"
 
 type IpAssignment = {
   id: string
@@ -18,6 +20,7 @@ type Subnet = {
   dns1: string | null
   dns2: string | null
   vlan: string | null
+  vlanRefId: string | null
   description: string | null
   notes: string | null
   location: { id: string; name: string } | null
@@ -39,7 +42,7 @@ const label = { fontSize: "13px", color: "var(--color-text-secondary)", display:
 export default function IpamPanel({ subnets, locations, assets, people, clientId, onSubnetsChange }: Props) {
   const [expandedSubnets, setExpandedSubnets] = useState<Record<string, boolean>>({})
   const [showAddSubnet, setShowAddSubnet] = useState(false)
-  const [subnetForm, setSubnetForm] = useState({ cidr: "", locationId: "", gateway: "", dns1: "", dns2: "", vlan: "", description: "", notes: "" })
+  const [subnetForm, setSubnetForm] = useState({ cidr: "", locationId: "", gateway: "", dns1: "", dns2: "", vlan: "", vlanRefId: "", description: "", notes: "" })
   const [savingSubnet, setSavingSubnet] = useState(false)
   const [editingSubnet, setEditingSubnet] = useState<string | null>(null)
   const [subnetEditForm, setSubnetEditForm] = useState<any>({})
@@ -54,6 +57,27 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
     setExpandedSubnets(s => ({ ...s, [id]: !s[id] }))
   }
 
+  // Numeric octet ordering so e.g. .2 sorts before .19 (not lexicographic).
+  function cmpIp(a: IpAssignment, b: IpAssignment) {
+    if (!isIpv4(a.ipAddress) || !isIpv4(b.ipAddress)) return a.ipAddress.localeCompare(b.ipAddress)
+    return ipToInt(a.ipAddress) - ipToInt(b.ipAddress)
+  }
+
+  // Cross-subnet duplicate detection: the same IP documented under two different
+  // subnets of this client is almost always a data-entry error. Count the distinct
+  // subnets each address appears in; size > 1 means it's duplicated across subnets.
+  const subnetsByIp = new Map<string, Set<string>>()
+  for (const s of subnets) {
+    for (const a of s.ipAssignments) {
+      const set = subnetsByIp.get(a.ipAddress) ?? new Set<string>()
+      set.add(s.id)
+      subnetsByIp.set(a.ipAddress, set)
+    }
+  }
+  const crossSubnetDupIps = new Set<string>(
+    [...subnetsByIp.entries()].filter(([, set]) => set.size > 1).map(([ip]) => ip)
+  )
+
   async function saveSubnet() {
     if (!subnetForm.cidr.trim()) return
     setSavingSubnet(true)
@@ -66,7 +90,7 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
       if (res.ok) {
         const created = await res.json()
         onSubnetsChange([...subnets, created])
-        setSubnetForm({ cidr: "", locationId: "", gateway: "", dns1: "", dns2: "", vlan: "", description: "", notes: "" })
+        setSubnetForm({ cidr: "", locationId: "", gateway: "", dns1: "", dns2: "", vlan: "", vlanRefId: "", description: "", notes: "" })
         setShowAddSubnet(false)
       } else {
         const err = await res.json().catch(() => ({}))
@@ -173,8 +197,8 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
               <input value={subnetForm.gateway} onChange={e => setSubnetForm(f => ({ ...f, gateway: e.target.value }))} placeholder="e.g. 192.168.1.1" style={input} />
             </div>
             <div>
-              <label style={label}>VLAN</label>
-              <input value={subnetForm.vlan} onChange={e => setSubnetForm(f => ({ ...f, vlan: e.target.value }))} placeholder="e.g. 10" style={input} />
+              <VlanPicker clientId={clientId} value={subnetForm.vlanRefId}
+                onChange={(refId, v) => setSubnetForm(f => ({ ...f, vlanRefId: refId, vlan: v ? String(v.vlanNumber) : "" }))} />
             </div>
             <div>
               <label style={label}>DNS 1</label>
@@ -224,8 +248,8 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                       <input value={subnetEditForm.gateway ?? ""} onChange={e => setSubnetEditForm((f: any) => ({ ...f, gateway: e.target.value }))} style={input} />
                     </div>
                     <div>
-                      <label style={label}>VLAN</label>
-                      <input value={subnetEditForm.vlan ?? ""} onChange={e => setSubnetEditForm((f: any) => ({ ...f, vlan: e.target.value }))} style={input} />
+                      <VlanPicker clientId={clientId} value={subnetEditForm.vlanRefId ?? ""}
+                        onChange={(refId, v) => setSubnetEditForm((f: any) => ({ ...f, vlanRefId: refId, vlan: v ? String(v.vlanNumber) : f.vlan }))} />
                     </div>
                     <div>
                       <label style={label}>DNS 1</label>
@@ -256,9 +280,12 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                     {subnet.vlan && <span style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", background: "var(--color-background-hover)", color: "var(--color-text-secondary)" }}>VLAN {subnet.vlan}</span>}
                     {subnet.location && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{subnet.location.name}</span>}
                     <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{subnet.ipAssignments.length} IP{subnet.ipAssignments.length !== 1 ? "s" : ""}</span>
+                    {subnet.ipAssignments.some(ip => crossSubnetDupIps.has(ip.ipAddress)) && (
+                      <span title="Contains an IP also documented in another subnet" style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", background: "var(--color-background-hover)", color: "var(--color-text-danger)" }}>⚠ duplicate IP</span>
+                    )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setEditingSubnet(subnet.id); setSubnetEditForm({ cidr: subnet.cidr, locationId: subnet.location?.id ?? "", gateway: subnet.gateway ?? "", vlan: subnet.vlan ?? "", dns1: subnet.dns1 ?? "", dns2: subnet.dns2 ?? "", description: subnet.description ?? "" }) }}
+                    <button onClick={() => { setEditingSubnet(subnet.id); setSubnetEditForm({ cidr: subnet.cidr, locationId: subnet.location?.id ?? "", gateway: subnet.gateway ?? "", vlan: subnet.vlan ?? "", vlanRefId: subnet.vlanRefId ?? "", dns1: subnet.dns1 ?? "", dns2: subnet.dns2 ?? "", description: subnet.description ?? "" }) }}
                       style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
                     <button onClick={() => deleteSubnet(subnet.id)}
                       style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Delete</button>
@@ -285,7 +312,7 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                           <div key={h} style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
                         ))}
                       </div>
-                      {subnet.ipAssignments.map((ip, i) => editingIp === ip.id ? (
+                      {[...subnet.ipAssignments].sort(cmpIp).map((ip, i, arr) => editingIp === ip.id ? (
                         <div key={ip.id} style={{ padding: "12px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-primary)" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                             <div>
@@ -321,8 +348,11 @@ export default function IpamPanel({ subnets, locations, assets, people, clientId
                           </div>
                         </div>
                       ) : (
-                        <div key={ip.id} style={{ display: "grid", gridTemplateColumns: "140px 160px 1fr 80px", padding: "10px 16px", borderBottom: i < subnet.ipAssignments.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
-                          <div style={{ fontFamily: "monospace", fontSize: "13px", color: "var(--color-text-primary)" }}>{ip.ipAddress}</div>
+                        <div key={ip.id} style={{ display: "grid", gridTemplateColumns: "140px 160px 1fr 80px", padding: "10px 16px", borderBottom: i < arr.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", alignItems: "center" }}>
+                          <div style={{ fontFamily: "monospace", fontSize: "13px", color: "var(--color-text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span>{ip.ipAddress}</span>
+                            {crossSubnetDupIps.has(ip.ipAddress) && <span title="This IP is also documented in another subnet for this client" style={{ fontSize: "11px", color: "var(--color-text-danger)" }}>⚠</span>}
+                          </div>
                           <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{ip.hostname ?? "—"}</div>
                           <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                             {ip.asset ? ip.asset.name : ip.person ? ip.person.name : "—"}

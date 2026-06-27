@@ -5,6 +5,7 @@ import {
   unifiLogin, unifiGetSites, unifiGetDevices, unifiLogout, unifiDeviceType,
   uiCloudGetDevices, uiCloudDeviceType,
 } from "@/lib/unifi"
+import { upsertNetworkAsset, type NetworkAssetData } from "@/lib/network-asset"
 
 // Map UniFi device type → AssetType name
 const TYPE_MAP: Record<string, string> = {
@@ -82,9 +83,14 @@ function isViewportDevice(d: any): boolean {
   return (d.model || "").toLowerCase().includes("viewport")
 }
 
-export async function POST() {
-  const { error } = await requireAuth()
-  if (error) return error
+export async function POST(req: Request) {
+  // Allow the nightly cron (Bearer CRON_SECRET) OR an authenticated session.
+  const authHeader = req.headers.get("authorization")
+  const isCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+  if (!isCron) {
+    const { error } = await requireAuth()
+    if (error) return error
+  }
   try {
     const keys = [
       "integration:unifi:url",
@@ -116,49 +122,10 @@ export async function POST() {
     let totalCameras = 0
     const errors: string[] = []
 
-    // Returns the upserted asset's ID
-    async function upsertDevice(clientId: string, locationId: string | null, mac: string | null, assetData: {
-      name: string
-      assetTypeId: string | null
-      make: string | null
-      model: string | null
-      ipAddress: string | null
-      macAddress: string | null
-      serial: string | null
-      firmwareVersion: string | null
-      managementUrl: string | null
-    }): Promise<string> {
-      const clientLocations = await prisma.location.findMany({
-        where: { clientId },
-        select: { id: true },
-      })
-      const locationIds = clientLocations.map(l => l.id)
-      const resolvedLocationId = locationId ?? clientLocations[0]?.id
-      if (!resolvedLocationId) throw new Error("No location found for client")
-
-      const existing = mac
-        ? await prisma.asset.findFirst({
-            where: { macAddress: mac, locationId: { in: locationIds } },
-          })
-        : null
-
-      if (existing) {
-        await prisma.asset.update({
-          where: { id: existing.id },
-          data: { ...assetData, dataSource: "UNIFI" },
-        })
-        return existing.id
-      } else {
-        const created = await prisma.asset.create({
-          data: {
-            locationId: resolvedLocationId,
-            ...assetData,
-            dataSource: "UNIFI",
-            status: "ACTIVE",
-          },
-        })
-        return created.id
-      }
+    // Returns the upserted asset's ID — delegates to the shared network-asset
+    // upsert so UniFi, Meraki, SonicWall, and the manual POST share one path.
+    async function upsertDevice(clientId: string, locationId: string | null, mac: string | null, assetData: NetworkAssetData): Promise<string> {
+      return upsertNetworkAsset(clientId, locationId, { mac }, assetData, "UNIFI")
     }
 
     async function syncProtectDevices(

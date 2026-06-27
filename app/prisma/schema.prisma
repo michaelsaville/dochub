@@ -271,6 +271,11 @@ model Asset {
   managementUrl      String?
   purchaseDate       DateTime?
   warrantyExpiry     DateTime?
+  endOfLife          DateTime? // hardware end-of-life (no longer manufactured/sold)
+  endOfSupport       DateTime? // end of vendor security/support — drives refresh-by
+  leaseEnd           DateTime? // lease/finance term end, if leased
+  /// Acquisition cost in cents (one-time). Stored as cents to avoid float drift in budget rollups.
+  cost               Int?
   room               String?
   syncroAssetId      String?                @unique
   notes              String?

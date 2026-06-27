@@ -30,7 +30,8 @@ export async function GET(
           orderBy: { cidr: "asc" },
         },
         internetCircuits: {
-          select: { id: true, label: true, role: true, status: true, staticBlockCidr: true, vendor: { select: { id: true, name: true } } },
+          select: { id: true, label: true, role: true, status: true, staticBlockCidr: true, wanIp: true, ispNameFallback: true, vendor: { select: { id: true, name: true } } },
+          orderBy: { role: "asc" },
         },
         attachments: { select: { id: true } },
       },

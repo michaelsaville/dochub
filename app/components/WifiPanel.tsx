@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import CredentialPicker from "@/components/CredentialPicker"
+import VlanPicker from "@/components/VlanPicker"
 
 const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }
 const lbl: React.CSSProperties = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
@@ -77,6 +78,7 @@ type WifiNetwork = {
   purpose: string
   vlanId: number | null
   vlanName: string | null
+  vlanRefId: string | null
   isHidden: boolean
   clientIsolation: boolean
   bandSteering: boolean
@@ -110,7 +112,7 @@ type Props = {
 }
 
 const emptyCtrl = { name: "", type: "UNIFI", assetId: "", networkDeviceId: "", credentialId: "", managementUrl: "", notes: "" }
-const emptyNet = { ssid: "", band: "DUAL", security: "WPA2_PERSONAL", purpose: "CORPORATE", credentialId: "", subnetId: "", vlanId: "", vlanName: "", isHidden: false, clientIsolation: false, bandSteering: false, notes: "" }
+const emptyNet = { ssid: "", band: "DUAL", security: "WPA2_PERSONAL", purpose: "CORPORATE", credentialId: "", subnetId: "", vlanRefId: "", vlanId: "", vlanName: "", isHidden: false, clientIsolation: false, bandSteering: false, notes: "" }
 
 export default function WifiPanel({ controllers, assets, networkDevices, subnets, credentials, clientId, onControllersChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -328,7 +330,7 @@ export default function WifiPanel({ controllers, assets, networkDevices, subnets
   }
 
   function startEditNet(n: WifiNetwork) {
-    setNetForm({ ssid: n.ssid, band: n.band, security: n.security, purpose: n.purpose, credentialId: n.credential?.id || "", subnetId: n.subnet?.id || "", vlanId: n.vlanId?.toString() || "", vlanName: n.vlanName || "", isHidden: n.isHidden, clientIsolation: n.clientIsolation, bandSteering: n.bandSteering, notes: n.notes || "" })
+    setNetForm({ ssid: n.ssid, band: n.band, security: n.security, purpose: n.purpose, credentialId: n.credential?.id || "", subnetId: n.subnet?.id || "", vlanRefId: n.vlanRefId || "", vlanId: n.vlanId?.toString() || "", vlanName: n.vlanName || "", isHidden: n.isHidden, clientIsolation: n.clientIsolation, bandSteering: n.bandSteering, notes: n.notes || "" })
     setEditingNetId(n.id)
   }
 
@@ -637,6 +639,7 @@ type NetFormState = {
   purpose: string
   credentialId: string
   subnetId: string
+  vlanRefId: string
   vlanId: string
   vlanName: string
   isHidden: boolean
@@ -735,7 +738,17 @@ function NetForm({
           </select>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "10px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr", gap: "10px" }}>
+        <div>
+          <VlanPicker clientId={clientId} value={form.vlanRefId}
+            label="VLAN (documented)"
+            onChange={(refId, v) => setForm(f => ({
+              ...f,
+              vlanRefId: refId,
+              vlanId: v ? String(v.vlanNumber) : f.vlanId,
+              vlanName: v ? v.name : f.vlanName,
+            }))} />
+        </div>
         <div>
           <label style={lbl}>VLAN ID</label>
           <input style={inp} type="number" value={form.vlanId} onChange={e => setForm(f => ({ ...f, vlanId: e.target.value }))} placeholder="20" />

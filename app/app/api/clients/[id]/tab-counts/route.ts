@@ -28,7 +28,7 @@ export async function GET(
             applications: true,
             vendors: true,
             websites: true,
-            networkDevices: true,
+            networkDevices: { where: { assetId: null } },
             vpnGateways: true,
             phoneSystems: true,
             cameraSystems: true,

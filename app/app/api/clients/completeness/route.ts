@@ -17,7 +17,7 @@ export async function GET() {
           credentials: true,
           locations: true,
           documents: true,
-          networkDevices: true,
+          networkDevices: { where: { assetId: null } },
           websites: true,
           runbooks: true,
           vlans: true,

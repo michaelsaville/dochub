@@ -38,7 +38,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { name, vendor, vendorId, licenseKey, seats, assignedSeats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, personId } = body
+    const { name, vendor, vendorId, licenseKey, seats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, personId } = body
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
@@ -50,7 +50,7 @@ export async function POST(
         vendorId: vendorId || null,
         licenseKey: licenseKey?.trim() ? encrypt(licenseKey.trim()) : null,
         seats: seats ? Number(seats) : null,
-        assignedSeats: assignedSeats ? Number(assignedSeats) : null,
+        // assignedSeats is DERIVED from LicenseSeatAssignment rows; not written here.
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         renewalDate: renewalDate ? new Date(renewalDate) : null,

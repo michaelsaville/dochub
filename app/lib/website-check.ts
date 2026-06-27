@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { createAlarm } from "@/lib/alarms"
 import { resolve4, resolve6, resolveMx, resolveNs, resolveTxt } from "dns/promises"
 import tls from "tls"
 
@@ -21,13 +22,22 @@ async function rdapLookup(domain: string): Promise<{ expiresAt: Date | null; reg
   }
 }
 
+// DKIM has no discovery mechanism (the selector lives in the message header),
+// so presence can only be a best-effort probe of well-known provider selectors.
+const DKIM_SELECTORS = [
+  "google", "default", "selector1", "selector2", "s1", "s2", "k1", "k2",
+  "mail", "dkim", "smtp", "resend", "mandrill", "zoho", "amazonses",
+  "protonmail", "protonmail2", "protonmail3", "fm1", "fm2", "fm3", "mailjet",
+]
+
 async function dnsLookup(domain: string): Promise<Record<string, any>> {
-  const [aRes, aaaaRes, mxRes, nsRes, txtRes] = await Promise.allSettled([
+  const [aRes, aaaaRes, mxRes, nsRes, txtRes, dmarcRes] = await Promise.allSettled([
     resolve4(domain),
     resolve6(domain),
     resolveMx(domain),
     resolveNs(domain),
     resolveTxt(domain),
+    resolveTxt(`_dmarc.${domain}`),
   ])
   const records: Record<string, any> = {}
   if (aRes.status === "fulfilled" && aRes.value.length) records.A = aRes.value
@@ -35,7 +45,118 @@ async function dnsLookup(domain: string): Promise<Record<string, any>> {
   if (mxRes.status === "fulfilled" && mxRes.value.length) records.MX = mxRes.value
   if (nsRes.status === "fulfilled" && nsRes.value.length) records.NS = nsRes.value
   if (txtRes.status === "fulfilled" && txtRes.value.length) records.TXT = txtRes.value.flat()
+  if (dmarcRes.status === "fulfilled" && dmarcRes.value.length) records.DMARC = dmarcRes.value.flat()
+
+  // Best-effort DKIM selector probe — keep only selectors that actually resolve
+  // to something DKIM-shaped, joining the TXT chunks back into a single record.
+  const dkimResults = await Promise.allSettled(
+    DKIM_SELECTORS.map((sel) => resolveTxt(`${sel}._domainkey.${domain}`)),
+  )
+  const dkim: Record<string, string> = {}
+  dkimResults.forEach((r, i) => {
+    if (r.status === "fulfilled" && r.value.length) {
+      const joined = r.value.map((parts) => (Array.isArray(parts) ? parts.join("") : parts)).join(" ")
+      if (/v=DKIM1|(^|;|\s)p=/i.test(joined)) dkim[DKIM_SELECTORS[i]] = joined
+    }
+  })
+  if (Object.keys(dkim).length) records.DKIM = dkim
   return records
+}
+
+type EmailAuthIssue = { ok: boolean; severity: "INFO" | "WARNING" | "CRITICAL"; detail: string }
+
+/**
+ * Derive SPF / DKIM / DMARC posture from already-fetched DNS records. Pure (no
+ * network) so it never blanks data on a transient resolver failure — the caller
+ * decides whether to act on it.
+ */
+function evaluateEmailAuth(records: Record<string, any>): {
+  spf: EmailAuthIssue
+  dkim: EmailAuthIssue
+  dmarc: EmailAuthIssue
+} {
+  const txt: string[] = Array.isArray(records?.TXT) ? records.TXT : []
+  const spfRecords = txt.filter((t) => /^v=spf1\b/i.test(String(t).trim()))
+  let spf: EmailAuthIssue
+  if (spfRecords.length === 0) {
+    spf = { ok: false, severity: "WARNING", detail: "No SPF record (v=spf1) found" }
+  } else if (spfRecords.length > 1) {
+    spf = { ok: false, severity: "CRITICAL", detail: `Multiple SPF records (${spfRecords.length}) — RFC 7208 permits only one; SPF will permerror/fail` }
+  } else if (/\?all|\+all/i.test(spfRecords[0])) {
+    spf = { ok: false, severity: "WARNING", detail: `SPF present but ends with a permissive all: ${spfRecords[0]}` }
+  } else {
+    spf = { ok: true, severity: "INFO", detail: spfRecords[0] }
+  }
+
+  const dmarcTxt: string[] = Array.isArray(records?.DMARC) ? records.DMARC : []
+  const dmarcRecord = dmarcTxt.find((t) => /^v=DMARC1\b/i.test(String(t).trim()))
+  let dmarc: EmailAuthIssue
+  if (!dmarcRecord) {
+    dmarc = { ok: false, severity: "WARNING", detail: "No DMARC record (v=DMARC1) at _dmarc subdomain" }
+  } else {
+    const policy = (dmarcRecord.match(/[;\s]p=([a-z]+)/i)?.[1] ?? "none").toLowerCase()
+    if (policy === "none") {
+      dmarc = { ok: false, severity: "INFO", detail: `DMARC present but policy is p=none (monitoring only): ${dmarcRecord}` }
+    } else {
+      dmarc = { ok: true, severity: "INFO", detail: dmarcRecord }
+    }
+  }
+
+  const dkimFound = records?.DKIM && Object.keys(records.DKIM).length > 0
+  const dkim: EmailAuthIssue = dkimFound
+    ? { ok: true, severity: "INFO", detail: `DKIM found on selector(s): ${Object.keys(records.DKIM).join(", ")}` }
+    : { ok: false, severity: "INFO", detail: "No DKIM record on common selectors (selector may be custom — verify manually)" }
+
+  return { spf, dkim, dmarc }
+}
+
+/**
+ * Compare two DNS-record snapshots and return the record-type keys that changed.
+ * Order-insensitive. To avoid a one-time false-positive flood when the DMARC/
+ * DKIM keys are first introduced, a key is only flagged when it is one of the
+ * always-tracked core record types OR it already existed in the prior snapshot.
+ */
+function diffDnsRecords(prev: any, next: Record<string, any>): string[] {
+  if (!prev || typeof prev !== "object") return []
+  const core = new Set(["A", "AAAA", "MX", "NS", "TXT"])
+  const norm = (v: any): string => {
+    if (v == null) return ""
+    if (Array.isArray(v)) return JSON.stringify([...v].map((x) => (Array.isArray(x) ? x.join("") : x)).sort())
+    if (typeof v === "object") return JSON.stringify(Object.keys(v).sort().reduce((a: any, k) => ((a[k] = v[k]), a), {}))
+    return JSON.stringify(v)
+  }
+  const changed: string[] = []
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
+  for (const k of keys) {
+    if (norm(prev[k]) === norm(next[k])) continue
+    if (core.has(k) || Object.prototype.hasOwnProperty.call(prev, k)) changed.push(k)
+  }
+  return changed
+}
+
+/**
+ * Raise (via createAlarm — fans out to Teams + push, dedupes per-domain) or
+ * auto-resolve a per-check, per-domain email-auth alarm. Mirrors the per-domain
+ * resolve used by the uptime cron so a fixed record clears its own alarm.
+ */
+async function syncEmailAuthAlarm(clientId: string, type: string, domain: string, issue: EmailAuthIssue) {
+  if (issue.ok) {
+    const active = await prisma.alarm.findMany({
+      where: { clientId, type, status: "ACTIVE", message: { contains: domain } },
+    })
+    for (const a of active) {
+      await prisma.alarm.update({ where: { id: a.id }, data: { status: "RESOLVED", resolvedAt: new Date() } })
+    }
+    return
+  }
+  await createAlarm({
+    clientId,
+    severity: issue.severity as any,
+    type,
+    message: `${type.replace("_", " ")} for ${domain}: ${issue.detail}`,
+    details: issue.detail,
+    dedupeKey: domain,
+  })
 }
 
 async function sslCheck(domain: string): Promise<{ sslExpiresAt: Date | null; sslIssuer: string | null }> {
@@ -175,6 +296,51 @@ export async function checkWebsite(clientId: string, websiteId: string) {
         })
       }
     }
+  }
+
+  // (a) DNS-change detection — compare the freshly-resolved snapshot against the
+  // previously-stored one. Only meaningful when we actually got new data and
+  // there was a prior snapshot to compare against.
+  if (hasDns && website.dnsRecords) {
+    const changed = diffDnsRecords(website.dnsRecords, dnsRecords)
+    if (changed.length) {
+      await createAlarm({
+        clientId,
+        severity: "WARNING",
+        type: "DNS_CHANGE",
+        message: `DNS records changed for ${website.domain}: ${changed.join(", ")}`,
+        details:
+          `Changed record type(s): ${changed.join(", ")}\n` +
+          `Previous: ${JSON.stringify(website.dnsRecords)}\n` +
+          `Current: ${JSON.stringify(dnsRecords)}`,
+        dedupeKey: website.domain,
+      })
+    }
+  }
+
+  // (b) SPF / DKIM / DMARC posture — evaluate the records we just persisted (or
+  // the retained snapshot on a transient resolver failure) and raise/clear a
+  // per-check, per-domain alarm. DKIM is gated on MX presence (parked domains
+  // aren't expected to publish DKIM and selectors are unknowable) to avoid noise;
+  // SPF + DMARC are checked for every domain (anti-spoofing applies even to
+  // non-sending domains).
+  // Email-auth posture is always computed + persisted (and surfaced in the UI),
+  // but the per-domain SPF/DKIM/DMARC ALARMS are opt-in (ENABLE_EMAIL_AUTH_ALARMS
+  // =true). Default off so the first cron pass after deploy doesn't fan out a
+  // burst of Teams/push for every domain missing strict records (the warranties-
+  // flood lesson). DNS_CHANGE alarms above are event-driven and stay on.
+  const effectiveRecords = (hasDns ? dnsRecords : website.dnsRecords) as Record<string, any> | null
+  if (effectiveRecords && Object.keys(effectiveRecords).length && process.env.ENABLE_EMAIL_AUTH_ALARMS === "true") {
+    const { spf, dkim, dmarc } = evaluateEmailAuth(effectiveRecords)
+    const hasMx = Array.isArray(effectiveRecords.MX) && effectiveRecords.MX.length > 0
+    await syncEmailAuthAlarm(clientId, "SPF_ISSUE", website.domain, spf)
+    await syncEmailAuthAlarm(clientId, "DMARC_ISSUE", website.domain, dmarc)
+    await syncEmailAuthAlarm(
+      clientId,
+      "DKIM_ISSUE",
+      website.domain,
+      hasMx ? dkim : { ok: true, severity: "INFO", detail: "No MX — DKIM not applicable" },
+    )
   }
 
   return updated

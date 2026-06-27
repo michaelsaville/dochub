@@ -177,7 +177,7 @@ export const ENTITIES: Record<EntityKey, EntityDef> = {
       { key: "name",          label: "Name",          type: "string",  sortable: true,  filterable: true,  getValue: r => r.name },
       { key: "vendor",        label: "Vendor",        type: "string",  sortable: true,  filterable: true,  getValue: r => r.vendor },
       { key: "seats",         label: "Seats (Total)", type: "number",  sortable: true,                    getValue: r => r.seats },
-      { key: "assignedSeats", label: "Seats (Used)",  type: "number",  sortable: true,                    getValue: r => r.assignedSeats },
+      { key: "assignedSeats", label: "Seats (Used)",  type: "number",  sortable: true,                    getValue: r => r._count?.seatAssignments ?? 0 },
       { key: "billingTerm",   label: "Billing Term",  type: "string",  sortable: true,  filterable: true,  getValue: r => r.billingTerm },
       { key: "cost",          label: "Cost",          type: "number",  sortable: true,                    getValue: r => r.cost, format: v => v != null ? `$${Number(v).toFixed(2)}` : "—" },
       { key: "purchaseDate",  label: "Purchase Date", type: "date",    sortable: true,  filterable: true,  getValue: r => r.purchaseDate,    format: v => v ? new Date(v).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }) : "—" },

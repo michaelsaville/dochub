@@ -11,7 +11,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { ssid, band, security, purpose, credentialId, subnetId, vlanId, vlanName, isHidden, clientIsolation, bandSteering, notes, isActive } = body
+    const { ssid, band, security, purpose, credentialId, subnetId, vlanRefId, vlanId, vlanName, isHidden, clientIsolation, bandSteering, notes, isActive } = body
     if (!ssid?.trim()) return NextResponse.json({ error: "SSID is required" }, { status: 400 })
     const network = await prisma.wifiNetwork.update({
       where: { id },
@@ -22,6 +22,7 @@ export async function PUT(
         purpose: purpose || "CORPORATE",
         credentialId: credentialId || null,
         subnetId: subnetId || null,
+        vlanRefId: vlanRefId || null,
         vlanId: vlanId ? parseInt(vlanId) : null,
         vlanName: vlanName?.trim() || null,
         isHidden: isHidden ?? false,

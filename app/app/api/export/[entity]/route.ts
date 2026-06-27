@@ -83,6 +83,7 @@ export async function GET(
       include: {
         client: { select: { name: true } },
         vendorRef: { select: { name: true } },
+        _count: { select: { seatAssignments: true } },
       },
       orderBy: [{ name: "asc" }],
     })
@@ -91,7 +92,7 @@ export async function GET(
       client: l.client?.name ?? "",
       vendor: l.vendorRef?.name ?? l.vendor ?? "",
       seats: l.seats,
-      assignedSeats: l.assignedSeats,
+      assignedSeats: l._count.seatAssignments,
       cost: l.cost != null ? (l.cost / 100).toFixed(2) : "",
       purchaseDate: l.purchaseDate?.toISOString().split("T")[0] ?? "",
       expiryDate: l.expiryDate?.toISOString().split("T")[0] ?? "",

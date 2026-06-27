@@ -1719,6 +1719,10 @@ const INTEGRATION_LABELS: Record<string, string> = {
   unifiLocal:   "UniFi (local controller)",
   uptime:       "HTTP uptime probes",
   backupVerify: "Backup verification",
+  meraki:       "Cisco Meraki",
+  pax8:         "Pax8 licenses",
+  sonicwall:    "SonicWall firewalls",
+  unifiCloud:   "UniFi (cloud / controller)",
 }
 
 const STATUS_STYLES: Record<SyncStatusRow["status"], { bg: string; fg: string; label: string }> = {

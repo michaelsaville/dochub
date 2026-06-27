@@ -98,10 +98,10 @@ export async function POST(req: Request) {
         },
       })
 
-      // Link NetworkDevice → Asset and update SwitchPorts
+      // Link NetworkDevice → Asset, soft-delete the legacy row, and update SwitchPorts
       await prisma.networkDevice.update({
         where: { id: device.id },
-        data: { assetId: asset.id },
+        data: { assetId: asset.id, isActive: false },
       })
 
       if (device.switchPorts.length > 0) {

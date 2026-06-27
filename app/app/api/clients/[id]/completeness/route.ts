@@ -22,7 +22,7 @@ export async function GET(
     prisma.credential.count({ where: { clientId: id, isRetired: false } }),
     prisma.clientDocument.count({ where: { clientId: id } }),
     prisma.location.count({ where: { clientId: id } }),
-    prisma.networkDevice.count({ where: { clientId: id } }),
+    prisma.networkDevice.count({ where: { clientId: id, assetId: null } }),
     prisma.website.count({ where: { clientId: id } }),
     prisma.networkDiagram.count({ where: { clientId: id } }),
     prisma.runbook.count({ where: { clientId: id } }),

@@ -103,6 +103,7 @@ export async function PATCH(
       splashtopUrl, driverUrl, isFavorite,
       rdpEnabled, rdpHost, rdpPort, vncEnabled, vncHost, vncPort,
       purchaseDate, warrantyExpiry, room, notes,
+      endOfLife, endOfSupport, leaseEnd, cost,
       status, personId,
       firmwareVersion, portCount, os, ram, cpu, storageCapacity, customFields,
     } = body
@@ -167,6 +168,10 @@ export async function PATCH(
         ...(vncPort !== undefined && { vncPort: vncPort ? Number(vncPort) : null }),
         ...(purchaseDate !== undefined && { purchaseDate: purchaseDate ? new Date(purchaseDate) : null }),
         ...(warrantyExpiry !== undefined && { warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null }),
+        ...(endOfLife !== undefined && { endOfLife: endOfLife ? new Date(endOfLife) : null }),
+        ...(endOfSupport !== undefined && { endOfSupport: endOfSupport ? new Date(endOfSupport) : null }),
+        ...(leaseEnd !== undefined && { leaseEnd: leaseEnd ? new Date(leaseEnd) : null }),
+        ...(cost !== undefined && { cost: cost === "" || cost === null || !Number.isFinite(Number(cost)) ? null : Math.round(Number(cost) * 100) }),
         ...(room !== undefined && { room: room?.trim() || null }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
         ...(status && { status }),

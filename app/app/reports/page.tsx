@@ -17,6 +17,12 @@ const REPORTS = [
     icon: "🛡️",
   },
   {
+    href: "/reports/asset-lifecycle",
+    title: "Asset Lifecycle & Refresh Budget",
+    description: "Cost-weighted hardware aging by fiscal year. ScalePad-style refresh forecast for QBRs.",
+    icon: "♻️",
+  },
+  {
     href: "/reports/client-summary",
     title: "Client Summary (QBR)",
     description: "One-page overview per client: contacts, assets, licenses, domain status.",

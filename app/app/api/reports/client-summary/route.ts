@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         locations: { select: { id: true, name: true, city: true, state: true, address: true } },
         licenses: {
           where: { isActive: true },
-          select: { id: true, name: true, seats: true, assignedSeats: true, expiryDate: true },
+          select: { id: true, name: true, seats: true, expiryDate: true },
         },
         websites: {
           select: { id: true, domain: true, expiresAt: true, sslExpiresAt: true },

@@ -22,7 +22,7 @@ export function isIpv4(s: string): boolean {
   return m.slice(1, 5).every(o => { const n = Number(o); return n >= 0 && n <= 255 })
 }
 
-function ipToInt(ip: string): number {
+export function ipToInt(ip: string): number {
   return ip.split('.').reduce((acc, o) => (acc * 256) + Number(o), 0) >>> 0
 }
 

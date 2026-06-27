@@ -12,7 +12,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await req.json()
-    const { cidr, locationId, gateway, dns1, dns2, vlan, description, notes } = body
+    const { cidr, locationId, gateway, dns1, dns2, vlan, vlanRefId, description, notes } = body
     let normalizedCidr: string | undefined = undefined
     if (cidr !== undefined) {
       const parsed = parseCidr(cidr?.trim() ?? "")
@@ -28,6 +28,7 @@ export async function PUT(
         dns1: dns1?.trim() ?? null,
         dns2: dns2?.trim() ?? null,
         vlan: vlan?.trim() ?? null,
+        vlanRefId: vlanRefId || null,
         description: description?.trim() ?? null,
         notes: notes?.trim() ?? null,
       },

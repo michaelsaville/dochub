@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { upsertNetworkAsset, loadAssetTypeMap } from "@/lib/network-asset"
 import https from "node:https"
 
 // SonicOS REST API v2 (firmware 6.5.4+)
@@ -101,9 +102,14 @@ async function sonicwallSync(device: SonicwallDevice) {
   }
 }
 
-export async function POST() {
-  const { error } = await requireAuth()
-  if (error) return error
+export async function POST(req: Request) {
+  // Allow the nightly cron (Bearer CRON_SECRET) OR an authenticated session.
+  const authHeader = req.headers.get("authorization")
+  const isCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+  if (!isCron) {
+    const { error } = await requireAuth()
+    if (error) return error
+  }
   try {
     const row = await prisma.appSetting.findUnique({ where: { key: "integration:sonicwall:devices" } })
     if (!row?.value) return NextResponse.json({ error: "No SonicWall devices configured" }, { status: 422 })
@@ -111,6 +117,7 @@ export async function POST() {
     const devices: SonicwallDevice[] = JSON.parse(row.value)
     if (!devices.length) return NextResponse.json({ error: "No SonicWall devices configured" }, { status: 422 })
 
+    const typeByName = await loadAssetTypeMap()
     let totalDevices = 0
     const errors: string[] = []
 
@@ -124,37 +131,22 @@ export async function POST() {
         })
         if (!client) { errors.push(`Client ${device.clientId} not found`); continue }
 
-        const upsertData = {
-          clientId: device.clientId,
-          locationId: client.locations[0]?.id || null,
-          name: info.name,
-          type: "FIREWALL" as any,
-          make: "SonicWall",
-          model: info.model,
-          serial: info.serial,
-          firmwareVersion: info.firmwareVersion,
-          managementUrl: device.host,
-          ipAddress: new URL(device.host).hostname,
-          dataSource: "SONICWALL",
-          externalId: info.serial || device.host,
-          lastSeenAt: new Date(),
-          isActive: true,
-        }
-
-        const existing = await prisma.networkDevice.findFirst({
-          where: {
-            OR: [
-              ...(info.serial ? [{ externalId: info.serial, clientId: device.clientId }] : []),
-              { managementUrl: device.host, clientId: device.clientId },
-            ],
+        await upsertNetworkAsset(
+          device.clientId,
+          client.locations[0]?.id || null,
+          { serial: info.serial || null, managementUrl: device.host },
+          {
+            name: info.name,
+            assetTypeId: typeByName["Firewall"] ?? null,
+            make: "SonicWall",
+            model: info.model,
+            ipAddress: new URL(device.host).hostname,
+            serial: info.serial,
+            firmwareVersion: info.firmwareVersion,
+            managementUrl: device.host,
           },
-        })
-
-        if (existing) {
-          await prisma.networkDevice.update({ where: { id: existing.id }, data: upsertData })
-        } else {
-          await prisma.networkDevice.create({ data: upsertData })
-        }
+          "SONICWALL",
+        )
         totalDevices++
       } catch (devErr: any) {
         errors.push(`${device.host}: ${devErr.message}`)

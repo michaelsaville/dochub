@@ -102,6 +102,10 @@ type Asset = {
   vncHost: string | null
   vncPort: number | null
   warrantyExpiry: string | null
+  endOfLife: string | null
+  endOfSupport: string | null
+  leaseEnd: string | null
+  cost: number | null
   syncroAssetId: string | null
   dataSource: string | null
   notes: string | null
@@ -326,7 +330,7 @@ export default function ClientDetailPage() {
   const [licenses, setLicenses] = useState<any[]>([])
   const [loadingLicenses, setLoadingLicenses] = useState(false)
   const [showAddLicense, setShowAddLicense] = useState(false)
-  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", personId: "" })
+  const [licenseForm, setLicenseForm] = useState({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", personId: "" })
   const [savingLicense, setSavingLicense] = useState(false)
   const [editingLicense, setEditingLicense] = useState<string | null>(null)
   const [licenseEditForm, setLicenseEditForm] = useState<any>({})
@@ -1208,7 +1212,7 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const newLicense = await res.json()
         setLicenses(l => [...l, newLicense])
-        setLicenseForm({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", assignedSeats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", personId: "" })
+        setLicenseForm({ name: "", vendor: "", vendorId: "", licenseKey: "", seats: "", purchaseDate: "", expiryDate: "", renewalDate: "", cost: "", notes: "", personId: "" })
         setShowAddLicense(false)
       }
     } catch {}
@@ -1392,7 +1396,7 @@ export default function ClientDetailPage() {
   function openAssetEdit(asset: Asset) {
     setEditingAsset(asset.id)
     if (assetTypes.length === 0) fetchAssetTypes()
-    setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", assetTag: asset.assetTag ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", vlan: asset.vlan ?? "", switchPort: asset.switchPort ?? "", room: asset.room ?? "", managementUrl: asset.managementUrl ?? "", splashtopUrl: asset.splashtopUrl ?? "", driverUrl: asset.driverUrl ?? "", firmwareVersion: asset.firmwareVersion ?? "", portCount: asset.portCount ?? "", os: asset.os ?? "", ram: asset.ram ?? "", cpu: asset.cpu ?? "", storageCapacity: asset.storageCapacity ?? "", purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : "", warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.slice(0, 10) : "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" })
+    setAssetEditForm({ name: asset.name, friendlyName: asset.friendlyName ?? "", make: asset.make ?? "", model: asset.model ?? "", serial: asset.serial ?? "", assetTag: asset.assetTag ?? "", ipAddress: asset.ipAddress ?? "", macAddress: asset.macAddress ?? "", vlan: asset.vlan ?? "", switchPort: asset.switchPort ?? "", room: asset.room ?? "", managementUrl: asset.managementUrl ?? "", splashtopUrl: asset.splashtopUrl ?? "", driverUrl: asset.driverUrl ?? "", firmwareVersion: asset.firmwareVersion ?? "", portCount: asset.portCount ?? "", os: asset.os ?? "", ram: asset.ram ?? "", cpu: asset.cpu ?? "", storageCapacity: asset.storageCapacity ?? "", purchaseDate: asset.purchaseDate ? asset.purchaseDate.slice(0, 10) : "", warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.slice(0, 10) : "", endOfLife: asset.endOfLife ? asset.endOfLife.slice(0, 10) : "", endOfSupport: asset.endOfSupport ? asset.endOfSupport.slice(0, 10) : "", leaseEnd: asset.leaseEnd ? asset.leaseEnd.slice(0, 10) : "", cost: asset.cost != null ? (asset.cost / 100).toFixed(2) : "", notes: asset.notes ?? "", assetTypeId: asset.assetTypeId ?? "", status: asset.status, personId: asset.personId ?? "", rdpEnabled: asset.rdpEnabled, rdpHost: asset.rdpHost ?? "", rdpPort: asset.rdpPort ?? "", vncEnabled: asset.vncEnabled, vncHost: asset.vncHost ?? "", vncPort: asset.vncPort ?? "" })
   }
 
   async function saveAsset() {
@@ -2435,6 +2439,8 @@ export default function ClientDetailPage() {
                             { key: "ram", label: "RAM" }, { key: "storageCapacity", label: "Storage" },
                             { key: "firmwareVersion", label: "Firmware" }, { key: "portCount", label: "Port Count", type: "number" },
                             { key: "purchaseDate", label: "Purchase Date", type: "date" }, { key: "warrantyExpiry", label: "Warranty Expiry", type: "date" },
+                            { key: "endOfLife", label: "End of Life", type: "date" }, { key: "endOfSupport", label: "End of Support (replace-by)", type: "date" },
+                            { key: "leaseEnd", label: "Lease End", type: "date" }, { key: "cost", label: "Acquisition Cost ($)", type: "number" },
                             { key: "managementUrl", label: "Management URL" }, { key: "splashtopUrl", label: "Splashtop URL" },
                             { key: "driverUrl", label: "Driver URL" }, { key: "notes", label: "Notes" },
                           ].map(({ key, label, type }) => (
@@ -3022,11 +3028,6 @@ export default function ClientDetailPage() {
                       style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Assigned seats</label>
-                    <input value={licenseForm.assignedSeats} onChange={e => setLicenseForm(f => ({ ...f, assignedSeats: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
-                  </div>
-                  <div>
                     <label style={{ fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>Cost ($/mo)</label>
                     <input value={licenseForm.cost} onChange={e => setLicenseForm(f => ({ ...f, cost: e.target.value }))}
                       style={{ width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
@@ -3085,7 +3086,7 @@ export default function ClientDetailPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                       {[
                         { key: "name", label: "Name" },
-                        { key: "seats", label: "Total seats" }, { key: "assignedSeats", label: "Assigned seats" },
+                        { key: "seats", label: "Total seats" },
                         { key: "cost", label: "Cost ($/mo)" }, { key: "purchaseDate", label: "Purchase date", type: "date" },
                         { key: "expiryDate", label: "Expiry", type: "date" }, { key: "renewalDate", label: "Renewal", type: "date" },
                       ].map(({ key, label, type }) => (
@@ -3148,7 +3149,7 @@ export default function ClientDetailPage() {
                         {vendorSupportChip(lic.vendorRef)}
                       </div>
                       <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                        {lic.seats ? `${lic._count?.seatAssignments ?? lic.assignedSeats ?? 0}/${lic.seats}` : "—"}
+                        {lic.seats ? `${lic._count?.seatAssignments ?? 0}/${lic.seats}` : "—"}
                       </div>
                       <div style={{ fontSize: "13px", color: lic.expiryDate && new Date(lic.expiryDate) < new Date() ? "var(--color-text-danger)" : "var(--color-text-secondary)" }}>
                         {lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : "—"}
@@ -3168,7 +3169,7 @@ export default function ClientDetailPage() {
                     <LicenseSeats
                       licenseId={lic.id}
                       totalSeats={lic.seats ?? null}
-                      initialAssigned={lic._count?.seatAssignments ?? lic.assignedSeats ?? 0}
+                      initialAssigned={lic._count?.seatAssignments ?? 0}
                       people={client.people}
                       assets={assets.map((a: any) => ({ id: a.id, name: a.name, friendlyName: a.friendlyName ?? null }))}
                     />
@@ -3783,6 +3784,8 @@ export default function ClientDetailPage() {
                             {dns.MX && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>MX</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.MX.map((r: any) => `${r.exchange} (${r.priority})`).join(", ")}</div></>}
                             {dns.NS && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>NS</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace" }}>{dns.NS.join(", ")}</div></>}
                             {dns.TXT && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>TXT</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace", wordBreak: "break-all" }}>{dns.TXT.join(" · ")}</div></>}
+                            {dns.DMARC && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>DMARC</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace", wordBreak: "break-all" }}>{dns.DMARC.join(" · ")}</div></>}
+                            {dns.DKIM && <><div style={{ color: "var(--color-text-muted)", fontWeight: 500 }}>DKIM</div><div style={{ color: "var(--color-text-primary)", fontFamily: "monospace", wordBreak: "break-all" }}>{Object.keys(dns.DKIM).join(", ")}</div></>}
                             {Object.keys(dns).length === 0 && <div style={{ gridColumn: "1 / -1", color: "var(--color-text-muted)" }}>No DNS records found</div>}
                           </div>
                         </div>

@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 // Background Sync — mutations that fail while offline get parked in the
-// service worker's sync queue and replayed when connectivity returns.
-// The in-tab Dexie queue handles "offline mid-session"; API endpoints
-// enforce clientOpId idempotency so double-replay is safe.
+// service worker's Workbox BackgroundSync queue ("dochub-mutations") and
+// replayed when connectivity returns. This SW queue is the sole offline
+// mechanism; plain fetch() mutations are intercepted transparently.
 const MUTATION_PATTERN =
   /^https?:\/\/[^/]+\/api\/(clients|credentials|documents|assets|backups|applications|notes|share)(\/|$)/i
 

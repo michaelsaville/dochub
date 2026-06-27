@@ -99,8 +99,14 @@ export default function NetworkDiagramPanel({ clientId }: Props) {
     }
   }, [editorReady, loading, xml, sendToEditor])
 
+  // Base URL for the drawio editor. Defaults to the public diagrams.net embed
+  // for backwards compatibility, but should be pointed at a self-hosted drawio
+  // (set NEXT_PUBLIC_DRAWIO_URL) so client network topology never leaves our infra.
+  const drawioBase = (
+    process.env.NEXT_PUBLIC_DRAWIO_URL || "https://embed.diagrams.net"
+  ).replace(/\/+$/, "")
   const embedUrl =
-    "https://embed.diagrams.net/?embed=1&spin=1&proto=json&ui=dark" +
+    `${drawioBase}/?embed=1&spin=1&proto=json&ui=dark` +
     "&modified=unsavedChanges&noSaveBtn=0&saveAndExit=0&noExitBtn=1" +
     "&libraries=1&lang=en"
 

@@ -17,7 +17,13 @@ function classifyResult(result: any): { status: SyncStatus; message: string | nu
     if (lower.includes("unauthorized") || lower.includes("401")) {
       return { status: "ERROR", message: result.error }
     }
-    if (lower.includes("not configured") || lower.includes("skipped")) {
+    if (
+      lower.includes("not configured") ||
+      lower.includes("skipped") ||
+      lower.includes("required") ||
+      lower.includes("mapped") ||
+      lower.includes("configured")
+    ) {
       return { status: "UNCONFIGURED", message: result.error }
     }
     return { status: "ERROR", message: result.error }
@@ -96,6 +102,46 @@ export async function GET(req: Request) {
     results.backupVerify = { success: false, error: e.message }
   }
 
+  try {
+    const res = await fetch("http://localhost:3000/api/integrations/meraki/sync", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.meraki = await res.json()
+  } catch (e: any) {
+    results.meraki = { success: false, error: e.message }
+  }
+
+  try {
+    const res = await fetch("http://localhost:3000/api/integrations/pax8/sync", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.pax8 = await res.json()
+  } catch (e: any) {
+    results.pax8 = { success: false, error: e.message }
+  }
+
+  try {
+    const res = await fetch("http://localhost:3000/api/integrations/sonicwall/sync", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.sonicwall = await res.json()
+  } catch (e: any) {
+    results.sonicwall = { success: false, error: e.message }
+  }
+
+  try {
+    const res = await fetch("http://localhost:3000/api/integrations/unifi/sync", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.unifiCloud = await res.json()
+  } catch (e: any) {
+    results.unifiCloud = { success: false, error: e.message }
+  }
+
   // Persist per-integration status so Settings can render last-run + last-error.
   await Promise.all([
     recordSyncStatus("syncro",       ...statusFor(results.syncro)),
@@ -105,6 +151,10 @@ export async function GET(req: Request) {
     recordSyncStatus("unifiLocal",   ...statusFor(results.unifiLocal)),
     recordSyncStatus("uptime",       ...statusFor(results.uptime)),
     recordSyncStatus("backupVerify", ...statusFor(results.backupVerify)),
+    recordSyncStatus("meraki",       ...statusFor(results.meraki)),
+    recordSyncStatus("pax8",         ...statusFor(results.pax8)),
+    recordSyncStatus("sonicwall",    ...statusFor(results.sonicwall)),
+    recordSyncStatus("unifiCloud",   ...statusFor(results.unifiCloud)),
   ])
 
   const success = results.syncro?.success !== false

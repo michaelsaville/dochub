@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { upsertNetworkAsset, loadAssetTypeMap, NETWORK_TYPE_MAP } from "@/lib/network-asset"
 
 const MERAKI_BASE = "https://api.meraki.com/api/v1"
 
@@ -14,9 +15,14 @@ function merakiDeviceType(productType: string, model: string): string {
   return "OTHER"
 }
 
-export async function POST() {
-  const { error } = await requireAuth()
-  if (error) return error
+export async function POST(req: Request) {
+  // Allow the nightly cron (Bearer CRON_SECRET) OR an authenticated session.
+  const authHeader = req.headers.get("authorization")
+  const isCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+  if (!isCron) {
+    const { error } = await requireAuth()
+    if (error) return error
+  }
   try {
     const rows = await prisma.appSetting.findMany({
       where: { key: { in: ["integration:meraki:apiKey", "integration:meraki:orgId", "integration:meraki:networkMap"] } },
@@ -51,6 +57,7 @@ export async function POST() {
     const statusMap: Record<string, string> = {}
     for (const s of allStatuses) statusMap[s.serial] = s.status
 
+    const typeByName = await loadAssetTypeMap()
     let totalDevices = 0
     const errors: string[] = []
 
@@ -70,35 +77,26 @@ export async function POST() {
             const type = merakiDeviceType(d.productType, d.model)
             const status = statusMap[d.serial] ?? "unknown"
             const notesLine = status !== "online" ? `Status: ${status}` : null
+            const assetTypeName = NETWORK_TYPE_MAP[type] ?? "Other"
 
-            const upsertData = {
+            await upsertNetworkAsset(
               clientId,
-              locationId: client.locations[0]?.id || null,
-              name: d.name || d.model || d.serial,
-              type: type as any,
-              make: "Cisco Meraki",
-              model: d.model || null,
-              ipAddress: d.lanIp || null,
-              macAddress: d.mac?.toLowerCase() || null,
-              serial: d.serial || null,
-              firmwareVersion: d.firmware || null,
-              managementUrl: `https://dashboard.meraki.com`,
-              dataSource: "MERAKI",
-              externalId: d.serial,
-              lastSeenAt: new Date(),
-              isActive: true,
-              notes: notesLine,
-            }
-
-            const existing = await prisma.networkDevice.findFirst({
-              where: { OR: [{ externalId: d.serial, clientId }, { macAddress: d.mac?.toLowerCase(), clientId }] },
-            })
-
-            if (existing) {
-              await prisma.networkDevice.update({ where: { id: existing.id }, data: upsertData })
-            } else {
-              await prisma.networkDevice.create({ data: upsertData })
-            }
+              client.locations[0]?.id || null,
+              { mac: d.mac?.toLowerCase() || null, serial: d.serial || null },
+              {
+                name: d.name || d.model || d.serial,
+                assetTypeId: typeByName[assetTypeName] ?? null,
+                make: "Cisco Meraki",
+                model: d.model || null,
+                ipAddress: d.lanIp || null,
+                macAddress: d.mac?.toLowerCase() || null,
+                serial: d.serial || null,
+                firmwareVersion: d.firmware || null,
+                managementUrl: "https://dashboard.meraki.com",
+                notes: notesLine,
+              },
+              "MERAKI",
+            )
             totalDevices++
           } catch (devErr: any) {
             errors.push(`Device ${d.serial}: ${devErr.message}`)

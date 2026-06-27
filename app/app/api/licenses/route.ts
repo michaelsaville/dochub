@@ -18,6 +18,7 @@ export async function GET(req: Request) {
         client: { select: { id: true, name: true } },
         vendorRef: { select: { id: true, name: true } },
         person: { select: { id: true, name: true } },
+        _count: { select: { seatAssignments: true } },
       },
       orderBy: { renewalDate: "asc" },
     })

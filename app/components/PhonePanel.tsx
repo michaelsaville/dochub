@@ -116,6 +116,32 @@ type PhoneSystem = {
   potsLines: PotsLine[]
 }
 
+// ── DID reconciliation ──────────────────────────────────────────────────────
+// PhoneExtension.did is a free-text convenience copy. The canonical routing
+// lives on SipDid.extensionId / PotsNumber.extensionId, so we derive the real
+// routed numbers from the trunk/POTS records and treat .did as a fallback we
+// reconcile against (show a matches/link chip) rather than a second source.
+type RoutedNumber = { number: string; designation: string | null; source: string; kind: "SIP" | "POTS" }
+
+const onlyDigits = (s: string) => s.replace(/\D/g, "")
+
+function didMatches(a: string | null | undefined, b: string | null | undefined) {
+  if (!a || !b) return false
+  const da = onlyDigits(a), db = onlyDigits(b)
+  if (!da || !db) return false
+  if (da === db) return true
+  return da.length >= 10 && db.length >= 10 && da.slice(-10) === db.slice(-10)
+}
+
+function routedNumbersFor(system: PhoneSystem, extId: string): RoutedNumber[] {
+  const out: RoutedNumber[] = []
+  for (const t of system.sipTrunks || [])
+    for (const d of t.dids) if (d.extensionId === extId) out.push({ number: d.number, designation: d.designation, source: t.carrier, kind: "SIP" })
+  for (const l of system.potsLines || [])
+    for (const n of l.numbers) if (n.extensionId === extId) out.push({ number: n.number, designation: n.designation, source: l.carrier, kind: "POTS" })
+  return out
+}
+
 type Props = {
   systems: PhoneSystem[]
   assets: { id: string; name: string; friendlyName: string | null; category: string; managementUrl?: string | null; ipAddress?: string | null }[]
@@ -512,7 +538,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
 
   // ── Extension Form ────────────────────────────────────────────────────────
 
-  function ExtForm({ onSubmit, onCancel }: { onSubmit: () => void; onCancel: () => void }) {
+  function ExtForm({ onSubmit, onCancel, routed = [] }: { onSubmit: () => void; onCancel: () => void; routed?: RoutedNumber[] }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "16px", background: "var(--color-background-primary)", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", marginTop: "12px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr", gap: "10px" }}>
@@ -535,6 +561,24 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
           <div>
             <label style={lbl}>DID (Direct Dial)</label>
             <input style={inp} value={extForm.did} onChange={e => setExtForm(f => ({ ...f, did: e.target.value }))} placeholder="+15551234567" />
+            {routed.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "5px", alignItems: "center" }}>
+                <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Routed:</span>
+                {routed.map((r, i) => {
+                  const sel = didMatches(r.number, extForm.did)
+                  return (
+                    <button key={i} type="button"
+                      onClick={() => setExtForm(f => ({ ...f, did: r.number }))}
+                      title={`${r.kind} · ${r.source}${r.designation ? ` · ${r.designation}` : ""} — click to use as DID`}
+                      style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", cursor: "pointer", fontVariantNumeric: "tabular-nums",
+                        background: sel ? "#10b98122" : "#06b6d422", color: sel ? "#10b981" : "#06b6d4",
+                        border: `1px solid ${sel ? "#10b98144" : "#06b6d444"}` }}>
+                      {sel ? "✓ " : "+ "}{r.number}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
           <div>
             <label style={lbl}>Person</label>
@@ -671,10 +715,13 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
               )}
 
               {/* Extension rows */}
-              {system.extensions.map(ext => (
+              {system.extensions.map(ext => {
+                const routed = routedNumbersFor(system, ext.id)
+                const didLinked = routed.some(r => didMatches(r.number, ext.did))
+                return (
                 <div key={ext.id}>
                   {editingExtId === ext.id ? (
-                    ExtForm({ onSubmit: () => updateExtension(ext.id, system.id), onCancel: () => { setEditingExtId(null); setError("") } })
+                    ExtForm({ onSubmit: () => updateExtension(ext.id, system.id), onCancel: () => { setEditingExtId(null); setError("") }, routed })
                   ) : (
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "10px 12px", borderRadius: "7px", background: "var(--color-background-primary)", marginBottom: "6px", gap: "10px" }}>
                       <div style={{ flex: 1 }}>
@@ -685,8 +732,28 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
                           {ext.voicemailEnabled && <span style={{ fontSize: "11px", color: "#10b981" }}>VM</span>}
                           {!ext.isActive && <span style={{ fontSize: "11px", color: "#ef4444" }}>Inactive</span>}
                         </div>
-                        <div style={{ display: "flex", gap: "14px", marginTop: "4px", flexWrap: "wrap" }}>
-                          {ext.did && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>DID: {ext.did}</span>}
+                        <div style={{ display: "flex", gap: "14px", marginTop: "4px", flexWrap: "wrap", alignItems: "center" }}>
+                          {/* Canonical routed numbers, derived from SIP DIDs / POTS numbers */}
+                          {routed.map((r, i) => (
+                            <span key={i} style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "8px", background: "#06b6d422", color: "#06b6d4", border: "1px solid #06b6d444", fontVariantNumeric: "tabular-nums" }}>
+                              → {r.number}{r.designation ? ` · ${r.designation}` : ""} <span style={{ opacity: 0.7 }}>({r.kind}·{r.source})</span>
+                            </span>
+                          ))}
+                          {ext.did && (
+                            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              DID: {ext.did}
+                              {didLinked ? (
+                                <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "8px", background: "#10b98122", color: "#10b981", border: "1px solid #10b98144" }}>✓ matches routing</span>
+                              ) : routed.length > 0 ? (
+                                <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "8px", background: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b44" }}>⚠ not in routed numbers</span>
+                              ) : (
+                                <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "8px", background: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b44" }}>manual — no trunk/POTS link</span>
+                              )}
+                            </span>
+                          )}
+                          {!ext.did && routed.length > 0 && (
+                            <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "8px", background: "#10b98122", color: "#10b981", border: "1px solid #10b98144" }}>routed via trunk/POTS</span>
+                          )}
                           {ext.person && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Person: {ext.person.name}</span>}
                           {ext.asset && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Handset: {assetLabel(ext.asset)}</span>}
                           {ext.credential && <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>SIP cred: {ext.credential.label}</span>}
@@ -701,7 +768,7 @@ export default function PhonePanel({ systems, assets, people, credentials, vendo
                     </div>
                   )}
                 </div>
-              ))}
+              ) })}
 
               {/* Add extension form */}
               {addingExtFor === system.id && (

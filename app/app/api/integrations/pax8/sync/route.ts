@@ -37,9 +37,14 @@ async function getPax8Subscriptions(pax8CompanyId: string, token: string): Promi
   return subs
 }
 
-export async function POST() {
-  const { error } = await requireAuth()
-  if (error) return error
+export async function POST(req: Request) {
+  // Allow the nightly cron (Bearer CRON_SECRET) OR an authenticated session.
+  const authHeader = req.headers.get("authorization")
+  const isCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+  if (!isCron) {
+    const { error } = await requireAuth()
+    if (error) return error
+  }
   try {
     const rows = await prisma.appSetting.findMany({
       where: { key: { in: ["integration:pax8:clientId", "integration:pax8:clientSecret", "integration:pax8:companyMap"] } },

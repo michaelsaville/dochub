@@ -37,7 +37,7 @@ type LocationDetail = {
   networkDevices: { id: string; name: string; type: string; ipAddress: string | null }[]
   racks: { id: string; name: string }[]
   subnets: { id: string; cidr: string; vlan: string | null; description: string | null }[]
-  internetCircuits: { id: string; label: string; role: string; status: string; staticBlockCidr: string | null; vendor: { id: string; name: string } | null }[]
+  internetCircuits: { id: string; label: string; role: string; status: string; staticBlockCidr: string | null; wanIp: string | null; ispNameFallback: string | null; vendor: { id: string; name: string } | null }[]
   attachments: { id: string }[]
   thSite: ThSite | null
 }
@@ -88,6 +88,39 @@ function addressDiffers(loc: LocationDetail, th: ThSite | null): boolean {
   return false
 }
 
+type CircuitLite = LocationDetail["internetCircuits"][number]
+
+// The authoritative circuit for ISP/WAN: prefer the active primary, then any
+// primary, then any active, then whatever exists.
+function pickPrimaryCircuit(cs: CircuitLite[]): CircuitLite | null {
+  if (!cs || cs.length === 0) return null
+  return cs.find(c => c.role === "PRIMARY" && c.status === "ACTIVE")
+      ?? cs.find(c => c.role === "PRIMARY")
+      ?? cs.find(c => c.status === "ACTIVE")
+      ?? cs[0]
+}
+
+type Match = "match" | "differ" | "only-circuit" | "only-location" | "none"
+
+// Compare a legacy Location column against the value derived from the circuit.
+function matchState(locVal: string | null, circuitVal: string | null): Match {
+  const a = normalize(locVal), b = normalize(circuitVal)
+  if (a && b) return a === b ? "match" : "differ"
+  if (b) return "only-circuit"
+  if (a) return "only-location"
+  return "none"
+}
+
+function MatchChip({ state }: { state: Match }) {
+  if (state === "match") return (
+    <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-success, #16a34a22)", color: "var(--color-text-success, #16a34a)" }}>matches circuit ✓</span>
+  )
+  if (state === "differ") return (
+    <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, #f59e0b22)", color: "var(--color-text-warning, #b45309)" }}>differs from circuit ⚠</span>
+  )
+  return null
+}
+
 export default function LocationDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
@@ -110,6 +143,12 @@ export default function LocationDetailPage() {
   if (error || !loc) return <AppShell><div style={{ padding: 32, color: "#ef4444" }}>{error ?? "Not found"}</div></AppShell>
 
   const drift = addressDiffers(loc, loc.thSite)
+  const primaryCircuit = pickPrimaryCircuit(loc.internetCircuits)
+  const circuitIsp = primaryCircuit ? (primaryCircuit.vendor?.name ?? primaryCircuit.ispNameFallback ?? null) : null
+  const circuitWan = primaryCircuit ? (primaryCircuit.wanIp ?? primaryCircuit.staticBlockCidr ?? null) : null
+  const ispMatch = matchState(loc.ispName, circuitIsp)
+  const wanMatch = matchState(loc.wanIp, circuitWan)
+  const hasDrift = ispMatch === "differ" || wanMatch === "differ"
 
   return (
     <AppShell>
@@ -200,16 +239,32 @@ export default function LocationDetailPage() {
           )}
         </div>
 
-        {/* Identifying details */}
+        {/* Identifying details — ISP/WAN derive from the linked InternetCircuit, not from the legacy Location columns. */}
         <div style={card}>
-          <div style={cardTitle}>Network details</div>
+          <div style={cardTitle}>
+            Network details
+            {primaryCircuit && (
+              <span style={{ fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "var(--color-text-muted)" }}>
+                from circuit{" "}
+                <a href={`/clients/${loc.client.id}?tab=Network&sub=circuits`} style={{ color: "var(--color-accent)", textDecoration: "none" }}>{primaryCircuit.label}</a>
+              </span>
+            )}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "8px 16px", fontSize: 13 }}>
             <div style={{ color: "var(--color-text-muted)" }}>ISP</div>
-            <div>{loc.ispName ?? <em style={{ color: "var(--color-text-muted)" }}>not set</em>}</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {circuitIsp ?? loc.ispName ?? <em style={{ color: "var(--color-text-muted)" }}>not set</em>}
+              {circuitIsp && loc.ispName && <MatchChip state={ispMatch} />}
+            </div>
             <div style={{ color: "var(--color-text-muted)" }}>WAN IP</div>
-            <div style={{ fontFamily: "monospace" }}>{loc.wanIp ?? <em style={{ color: "var(--color-text-muted)" }}>not set</em>}</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {circuitWan ?? loc.wanIp
+                ? <span style={{ fontFamily: "monospace" }}>{circuitWan ?? loc.wanIp}</span>
+                : <em style={{ color: "var(--color-text-muted)" }}>not set</em>}
+              {circuitWan && loc.wanIp && <MatchChip state={wanMatch} />}
+            </div>
             <div style={{ color: "var(--color-text-muted)" }}>Tailscale IP</div>
-            <div style={{ fontFamily: "monospace" }}>{loc.tailscaleIp ?? <em style={{ color: "var(--color-text-muted)" }}>not set</em>}</div>
+            <div style={{ fontFamily: "monospace" }}>{loc.tailscaleIp ?? <em style={{ fontFamily: "inherit", color: "var(--color-text-muted)" }}>not set</em>}</div>
             {loc.notes && (
               <>
                 <div style={{ color: "var(--color-text-muted)" }}>Notes</div>
@@ -217,6 +272,18 @@ export default function LocationDetailPage() {
               </>
             )}
           </div>
+          {hasDrift && (
+            <div style={{ marginTop: 10, padding: 10, background: "var(--color-background-warning, #f59e0b22)", borderRadius: 6, fontSize: 12, color: "var(--color-text-warning, #b45309)" }}>
+              Legacy ISP/WAN values on this Location differ from the linked circuit. The circuit is authoritative — manage ISP &amp; WAN under{" "}
+              <a href={`/clients/${loc.client.id}?tab=Network&sub=circuits`} style={{ color: "inherit", textDecoration: "underline" }}>Network → Circuits</a>.
+            </div>
+          )}
+          {!primaryCircuit && (loc.ispName || loc.wanIp) && (
+            <div style={{ marginTop: 10, padding: 10, background: "var(--color-background-hover)", borderRadius: 6, fontSize: 12, color: "var(--color-text-muted)" }}>
+              These ISP/WAN values are legacy Location fields with no linked circuit yet. Promote them under{" "}
+              <a href={`/clients/${loc.client.id}?tab=Network&sub=circuits`} style={{ color: "var(--color-accent)", textDecoration: "none" }}>Network → Circuits</a> so they live in one place.
+            </div>
+          )}
         </div>
 
         {/* Relation cards (read-only counts that link out) */}

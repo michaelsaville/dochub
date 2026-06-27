@@ -40,7 +40,7 @@ export async function POST(
   try {
     const { id } = await params
     const body = await req.json()
-    const { cidr, locationId, gateway, dns1, dns2, vlan, description, notes } = body
+    const { cidr, locationId, gateway, dns1, dns2, vlan, vlanRefId, description, notes } = body
     if (!cidr?.trim()) return NextResponse.json({ error: "CIDR is required" }, { status: 400 })
     const parsed = parseCidr(cidr.trim())
     if (!parsed) return NextResponse.json({ error: "Invalid CIDR — expected e.g. 192.168.1.0/24" }, { status: 400 })
@@ -53,6 +53,7 @@ export async function POST(
         dns1: dns1?.trim() || null,
         dns2: dns2?.trim() || null,
         vlan: vlan?.trim() || null,
+        vlanRefId: vlanRefId || null,
         description: description?.trim() || null,
         notes: notes?.trim() || null,
       },

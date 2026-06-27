@@ -23,22 +23,26 @@ export async function POST(req: Request) {
   if (access.mode === "denied") return NextResponse.json({ ok: false, error: "Not authorized for this client" }, { status: 403 })
   if (!categoryAllowed(access, "licenses")) return NextResponse.json({ ok: true, licenses: [] })
 
-  const licenses = await prisma.license.findMany({
+  const rows = await prisma.license.findMany({
     where: { clientId: payload.clientId, isActive: true },
     select: {
       id: true,
       name: true,
       vendor: true,
       seats: true,
-      assignedSeats: true,
       expiryDate: true,
       renewalDate: true,
       billingTerm: true,
       status: true,
       person: { select: { name: true } },
+      _count: { select: { seatAssignments: true } },
     },
     orderBy: [{ expiryDate: "asc" }, { name: "asc" }],
   })
+
+  // assignedSeats is DERIVED from LicenseSeatAssignment rows (no drift); field
+  // name preserved for the portal contract.
+  const licenses = rows.map(({ _count, ...l }) => ({ ...l, assignedSeats: _count.seatAssignments }))
 
   return NextResponse.json({ ok: true, licenses })
 }

@@ -20,7 +20,7 @@ async function fetchEntityData(entity: EntityKey, clientIds: string[]): Promise<
     case "licenses":
       return prisma.license.findMany({
         where: clientWhere ? { clientId: { in: clientWhere } } : undefined,
-        include: { client: { select: { name: true } } },
+        include: { client: { select: { name: true } }, _count: { select: { seatAssignments: true } } },
       })
 
     case "contacts":
