@@ -893,7 +893,7 @@ export default function AssetDetailPage() {
                         <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", vlanId: iface.vlan?.id ?? "", notes: iface.notes ?? "", tailscaleIp: iface.tailscaleIp ?? "", tailscaleHostname: iface.tailscaleHostname ?? "", tailscaleDeviceId: iface.tailscaleDeviceId ?? "", tailscaleIsExitNode: iface.tailscaleIsExitNode, tailscaleIsSubnetRouter: iface.tailscaleIsSubnetRouter, tailscaleSubnets: iface.tailscaleSubnets ?? "", tailscaleTags: iface.tailscaleTags ?? "", tailscaleOs: iface.tailscaleOs ?? "", tailscaleVersion: iface.tailscaleVersion ?? "" }) }}
                           style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }}>Edit</button>
                         <button onClick={() => deleteInterface(iface.id)}
-                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: 0 }}>×</button>
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", padding: 0 }}>×</button>
                       </div>
                     </div>
                     {iface.ipAddress && (
@@ -1067,7 +1067,7 @@ export default function AssetDetailPage() {
                       {synologyConfig.lastSyncedAt ? `Last synced ${new Date(synologyConfig.lastSyncedAt).toLocaleString()}` : "Never synced — hit Sync now"}
                     </div>
                     {synologySyncResult && (
-                      <div style={{ fontSize: "12px", marginBottom: "10px", color: synologySyncResult.success ? "#22c55e" : "#ef4444" }}>
+                      <div style={{ fontSize: "12px", marginBottom: "10px", color: synologySyncResult.success ? "#00d4aa" : "#ff4d6d" }}>
                         {synologySyncResult.success ? `Synced — ${synologySyncResult.jobs} job(s) found` : `Error: ${synologySyncResult.error}`}
                       </div>
                     )}
@@ -1076,7 +1076,7 @@ export default function AssetDetailPage() {
                     ) : (
                       <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden" }}>
                         {synologyConfig.backupJobs?.map((job: any, i: number) => {
-                          const resultColor: Record<string, string> = { success: "#22c55e", error: "#ef4444", warning: "#f59e0b", running: "#3d6fff", unfinished: "#94a3b8", none: "#94a3b8" }
+                          const resultColor: Record<string, string> = { success: "#00d4aa", error: "#ff4d6d", warning: "#ffb347", running: "#3d6fff", unfinished: "#94a3b8", none: "#94a3b8" }
                           const color = resultColor[job.lastResult] ?? "#94a3b8"
                           return (
                             <div key={job.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", borderBottom: i < synologyConfig.backupJobs.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
@@ -1269,7 +1269,7 @@ export default function AssetDetailPage() {
                           )}
                         </div>
                         <button onClick={() => removeAssetLink(link.id)}
-                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: 0, flexShrink: 0 }}>
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", padding: 0, flexShrink: 0 }}>
                           x
                         </button>
                       </div>
@@ -1497,12 +1497,12 @@ export default function AssetDetailPage() {
                 <div style={cardTitle}>TicketHub Tickets</div>
                 {tickethubTickets.map((t: any, i: number) => {
                   const statusColors: Record<string, string> = {
-                    NEW: "#3b82f6", OPEN: "#2563eb", IN_PROGRESS: "#f59e0b",
+                    NEW: "#3d6fff", OPEN: "#2563eb", IN_PROGRESS: "#ffb347",
                     WAITING_CUSTOMER: "#8b5cf6", WAITING_THIRD_PARTY: "#8b5cf6",
-                    RESOLVED: "#10b981", CLOSED: "#6b7280", CANCELLED: "#374151",
+                    RESOLVED: "#00d4aa", CLOSED: "#6b7280", CANCELLED: "#374151",
                   }
                   const priorityColors: Record<string, string> = {
-                    URGENT: "#ef4444", HIGH: "#f97316", MEDIUM: "#3b82f6", LOW: "#6b7280",
+                    URGENT: "#ff4d6d", HIGH: "#f97316", MEDIUM: "#3d6fff", LOW: "#6b7280",
                   }
                   const tickethubUrl = (typeof window !== "undefined" ? "" : "") + (process.env.NEXT_PUBLIC_TICKETHUB_URL || "https://tickethub.pcc2k.com")
                   const isClosed = t.status === "CLOSED" || t.status === "CANCELLED" || t.status === "RESOLVED"

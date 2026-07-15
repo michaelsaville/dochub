@@ -80,15 +80,15 @@ function daysUntil(iso: string) {
 
 function expiryColor(iso: string) {
   const d = daysUntil(iso)
-  if (d < 0) return "#ef4444"
-  if (d <= 7) return "#ef4444"
-  if (d <= 30) return "#f59e0b"
-  return "#22c55e"
+  if (d < 0) return "#ff4d6d"
+  if (d <= 7) return "#ff4d6d"
+  if (d <= 30) return "#ffb347"
+  return "#00d4aa"
 }
 
 function alarmColor(severity: string) {
-  if (severity === "CRITICAL") return "#ef4444"
-  if (severity === "WARNING") return "#f59e0b"
+  if (severity === "CRITICAL") return "#ff4d6d"
+  if (severity === "WARNING") return "#ffb347"
   return "#3d6fff"
 }
 

@@ -120,7 +120,7 @@ export default function RunbookHistoryPage() {
                   <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{run.client.name}</div>
                   <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{run.startedBy}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: done ? "#22c55e" : "#f59e0b", flexShrink: 0 }} />
+                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: done ? "#00d4aa" : "#ffb347", flexShrink: 0 }} />
                     <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{completed}/{total}</span>
                   </div>
                   <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{duration(run.startedAt, run.completedAt)}</div>

@@ -102,8 +102,8 @@ export default function AuxDisplayPage() {
                   width: 10,
                   height: 10,
                   borderRadius: "50%",
-                  background: enabled ? "#22c55e" : "#64748b",
-                  boxShadow: enabled ? "0 0 8px #22c55e" : "none",
+                  background: enabled ? "#00d4aa" : "#64748b",
+                  boxShadow: enabled ? "0 0 8px #00d4aa" : "none",
                 }}
               />
               <span style={{ fontSize: 16, fontWeight: 600 }}>
@@ -130,7 +130,7 @@ export default function AuxDisplayPage() {
               fontSize: 15,
               fontWeight: 700,
               color: "#fff",
-              background: enabled ? "#ef4444" : "#22c55e",
+              background: enabled ? "#ff4d6d" : "#00d4aa",
               minWidth: 120,
             }}
           >
@@ -209,7 +209,7 @@ export default function AuxDisplayPage() {
                     fontSize: 14,
                     fontWeight: 700,
                     color: "#fff",
-                    background: "#3b82f6",
+                    background: "#3d6fff",
                     textDecoration: "none",
                   }}
                 >
@@ -316,7 +316,7 @@ function RolePick({
         borderRadius: 12,
         cursor: "pointer",
         border: active
-          ? "1px solid #3b82f6"
+          ? "1px solid #3d6fff"
           : "0.5px solid var(--color-border-tertiary)",
         background: active ? "rgba(59,130,246,0.10)" : "var(--color-background-secondary)",
         color: "var(--color-text-secondary)",
@@ -325,7 +325,7 @@ function RolePick({
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 14 }}>
         <span style={{ fontSize: 16 }}>{icon}</span>
         {title}
-        {active && <span style={{ marginLeft: "auto", color: "#3b82f6", fontSize: 12 }}>✓</span>}
+        {active && <span style={{ marginLeft: "auto", color: "#3d6fff", fontSize: 12 }}>✓</span>}
       </div>
       <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>{sub}</div>
     </button>

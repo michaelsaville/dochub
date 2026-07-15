@@ -73,7 +73,7 @@ export default function ClientSummaryReport() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px", marginBottom: "24px" }}>
             <ReportStat label="Total Assets" value={c.totalAssets} />
             <ReportStat label="Warranty Expired" value={c.warrantyCritical} color={c.warrantyCritical > 0 ? "var(--color-text-danger)" : undefined} />
-            <ReportStat label="Warranty Warning" value={c.warrantyWarn} color={c.warrantyWarn > 0 ? "#f59e0b" : undefined} />
+            <ReportStat label="Warranty Warning" value={c.warrantyWarn} color={c.warrantyWarn > 0 ? "#ffb347" : undefined} />
             <ReportStat label="Active Licenses" value={c.totalLicenses} />
             <ReportStat label="Expired Licenses" value={c.expiredLicenses} color={c.expiredLicenses > 0 ? "var(--color-text-danger)" : undefined} />
             <ReportStat label="Total Domains" value={c.totalDomains} />

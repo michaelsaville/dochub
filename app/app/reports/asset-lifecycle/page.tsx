@@ -123,7 +123,7 @@ export default function AssetLifecycleReport() {
             <ReportStat label="Assets in scope" value={totals.count} />
             <ReportStat label="Total acquisition cost" value={fmtMoney(totals.totalCostCents)} />
             <ReportStat label="Overdue refresh budget" value={fmtMoney(totals.overdueCostCents)} color={totals.overdueCostCents > 0 ? "var(--color-text-danger)" : undefined} />
-            <ReportStat label="Unscheduled assets" value={totals.unscheduledCount} color={totals.unscheduledCount > 0 ? "#f59e0b" : undefined} />
+            <ReportStat label="Unscheduled assets" value={totals.unscheduledCount} color={totals.unscheduledCount > 0 ? "#ffb347" : undefined} />
           </div>
 
           {totals.costedCount < totals.count && (

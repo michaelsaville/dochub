@@ -40,9 +40,9 @@ const CATEGORIES: { key: AlertCategory | "all"; label: string }[] = [
 
 const urgencyConfig: Record<AlertUrgency, { label: string; bg: string; color: string }> = {
   expired:  { label: "Expired",  bg: "#fef2f2", color: "#dc2626" },
-  critical: { label: "Critical", bg: "#fef2f2", color: "#ef4444" },
-  warning:  { label: "Warning",  bg: "#fffbeb", color: "#f59e0b" },
-  upcoming: { label: "Upcoming", bg: "#f0fdf4", color: "#22c55e" },
+  critical: { label: "Critical", bg: "#fef2f2", color: "#ff4d6d" },
+  warning:  { label: "Warning",  bg: "#fffbeb", color: "#ffb347" },
+  upcoming: { label: "Upcoming", bg: "#f0fdf4", color: "#00d4aa" },
   info:     { label: "Info",     bg: "#f5f3ff", color: "#6366f1" },
 }
 
@@ -91,10 +91,10 @@ export default function UnifiedAlertsPage() {
         {/* Stat tiles */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
           {[
-            { label: "Expired", value: stats.expired, color: "#ef4444", filter: "expired" as const },
-            { label: "Critical", value: stats.critical, color: "#f59e0b", filter: "critical" as const },
+            { label: "Expired", value: stats.expired, color: "#ff4d6d", filter: "expired" as const },
+            { label: "Critical", value: stats.critical, color: "#ffb347", filter: "critical" as const },
             { label: "Warning", value: stats.warning, color: "#eab308", filter: "warning" as const },
-            { label: "Upcoming", value: stats.upcoming, color: "#22c55e", filter: "upcoming" as const },
+            { label: "Upcoming", value: stats.upcoming, color: "#00d4aa", filter: "upcoming" as const },
             { label: "Total", value: stats.total, color: "var(--muted)", filter: "all" as const },
           ].map(s => (
             <button
@@ -186,7 +186,7 @@ export default function UnifiedAlertsPage() {
                   </div>
 
                   {/* Expiry */}
-                  <div style={{ fontSize: "11px", fontFamily: "var(--mono)", color: alert.urgency === "expired" ? "#ef4444" : "var(--muted)" }}>
+                  <div style={{ fontSize: "11px", fontFamily: "var(--mono)", color: alert.urgency === "expired" ? "#ff4d6d" : "var(--muted)" }}>
                     {alert.expiresAt ? daysUntil(alert.expiresAt) : "—"}
                   </div>
 

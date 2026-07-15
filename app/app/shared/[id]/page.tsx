@@ -143,7 +143,7 @@ export default function SharedResourcePage() {
           onClick={() => reveal(passphrase)}
           style={{
             marginTop: 12, padding: "10px 20px", fontSize: 14, fontWeight: 500,
-            background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8,
+            background: "#3d6fff", color: "#fff", border: "none", borderRadius: 8,
             cursor: "pointer",
           }}
         >
@@ -163,7 +163,7 @@ export default function SharedResourcePage() {
         <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 20 }}>{d.label}</h1>
         {d.url && (
           <Row label="URL">
-            <a href={d.url} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", textDecoration: "none", wordBreak: "break-all" }}>
+            <a href={d.url} target="_blank" rel="noreferrer" style={{ color: "#3d6fff", textDecoration: "none", wordBreak: "break-all" }}>
               {d.url}
             </a>
           </Row>

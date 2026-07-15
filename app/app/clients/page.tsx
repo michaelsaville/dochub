@@ -275,7 +275,7 @@ function ClientsPageInner() {
                     <span style={{
                       display: "inline-block", fontSize: "11px", fontWeight: 600,
                       padding: "2px 7px", borderRadius: "10px",
-                      background: "rgba(239,68,68,0.12)", color: "#ef4444",
+                      background: "rgba(239,68,68,0.12)", color: "#ff4d6d",
                     }}>
                       {client._count.alarms}
                     </span>

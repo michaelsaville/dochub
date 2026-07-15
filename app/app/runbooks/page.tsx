@@ -121,7 +121,7 @@ export default function RunbooksPage() {
                         <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>Global</span>
                       )}
                       {rb.client && (
-                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "#3b82f622", color: "#3b82f6" }}>{rb.client.name}</span>
+                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "#3d6fff22", color: "#3d6fff" }}>{rb.client.name}</span>
                       )}
                     </div>
                     {rb.summary && (

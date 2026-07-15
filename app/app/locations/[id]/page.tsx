@@ -116,7 +116,7 @@ function MatchChip({ state }: { state: Match }) {
     <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-success, #16a34a22)", color: "var(--color-text-success, #16a34a)" }}>matches circuit ✓</span>
   )
   if (state === "differ") return (
-    <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, #f59e0b22)", color: "var(--color-text-warning, #b45309)" }}>differs from circuit ⚠</span>
+    <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, #ffb34722)", color: "var(--color-text-warning, #b45309)" }}>differs from circuit ⚠</span>
   )
   return null
 }
@@ -140,7 +140,7 @@ export default function LocationDetailPage() {
   }, [id])
 
   if (loading) return <AppShell><div style={{ padding: 32 }}>Loading…</div></AppShell>
-  if (error || !loc) return <AppShell><div style={{ padding: 32, color: "#ef4444" }}>{error ?? "Not found"}</div></AppShell>
+  if (error || !loc) return <AppShell><div style={{ padding: 32, color: "#ff4d6d" }}>{error ?? "Not found"}</div></AppShell>
 
   const drift = addressDiffers(loc, loc.thSite)
   const primaryCircuit = pickPrimaryCircuit(loc.internetCircuits)
@@ -193,7 +193,7 @@ export default function LocationDetailPage() {
           <div style={cardTitle}>
             TicketHub Site
             {loc.thSite && drift && (
-              <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, #f59e0b22)", color: "var(--color-text-warning, #b45309)" }}>
+              <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, #ffb34722)", color: "var(--color-text-warning, #b45309)" }}>
                 Address differs ⚠
               </span>
             )}
@@ -220,7 +220,7 @@ export default function LocationDetailPage() {
                 </a>
               </div>
               {drift && (
-                <div style={{ marginTop: 10, padding: 10, background: "var(--color-background-warning, #f59e0b22)", borderRadius: 6, fontSize: 12, color: "var(--color-text-warning, #b45309)" }}>
+                <div style={{ marginTop: 10, padding: 10, background: "var(--color-background-warning, #ffb34722)", borderRadius: 6, fontSize: 12, color: "var(--color-text-warning, #b45309)" }}>
                   The address on this DocHub Location and the matching TicketHub Site don&apos;t match. TicketHub is authoritative for billing tax — update there first, then refresh.
                 </div>
               )}
@@ -273,7 +273,7 @@ export default function LocationDetailPage() {
             )}
           </div>
           {hasDrift && (
-            <div style={{ marginTop: 10, padding: 10, background: "var(--color-background-warning, #f59e0b22)", borderRadius: 6, fontSize: 12, color: "var(--color-text-warning, #b45309)" }}>
+            <div style={{ marginTop: 10, padding: 10, background: "var(--color-background-warning, #ffb34722)", borderRadius: 6, fontSize: 12, color: "var(--color-text-warning, #b45309)" }}>
               Legacy ISP/WAN values on this Location differ from the linked circuit. The circuit is authoritative — manage ISP &amp; WAN under{" "}
               <a href={`/clients/${loc.client.id}?tab=Network&sub=circuits`} style={{ color: "inherit", textDecoration: "underline" }}>Network → Circuits</a>.
             </div>

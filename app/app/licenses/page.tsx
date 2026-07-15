@@ -39,7 +39,7 @@ const SOURCE_LABELS: Record<string, string> = {
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
-  SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
+  SYNCRO: "#3d6fff", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#00d4aa", PULSEWAY: "#ec4899",
   MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
 }
 

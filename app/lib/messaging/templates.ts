@@ -142,7 +142,7 @@ export const expirationDigest: MessageTemplate<ExpirationDigestVars> = {
       ${digestSection("Expired & Critical", "#dc2626", v.critical, v.generatedAt)}
       ${digestSection("Expiring within 30 days", "#ca8a04", v.warning, v.generatedAt)}
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;">
-        View the full expirations dashboard at <a href="https://dochub.pcc2k.com/expirations" style="color:#3b82f6;">dochub.pcc2k.com/expirations</a>
+        View the full expirations dashboard at <a href="https://dochub.pcc2k.com/expirations" style="color:#3d6fff;">dochub.pcc2k.com/expirations</a>
       </div>
     </div>
   </div>

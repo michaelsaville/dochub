@@ -166,7 +166,7 @@ export default function AdminMessagesPage() {
                         </div>
                         <button
                           onClick={() => setExpanded((p) => ({ ...p, [t.key]: !isOpen }))}
-                          style={{ marginTop: "10px", background: "transparent", border: "none", color: "var(--accent, #3b82f6)", cursor: "pointer", fontSize: "12px", padding: 0 }}
+                          style={{ marginTop: "10px", background: "transparent", border: "none", color: "var(--accent, #3d6fff)", cursor: "pointer", fontSize: "12px", padding: 0 }}
                         >
                           {isOpen ? "Hide preview ↑" : "Preview with sample data ↓"}
                         </button>

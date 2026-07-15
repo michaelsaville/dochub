@@ -87,7 +87,7 @@ Schema pushes must be run **from the host** with an explicit DATABASE_URL pointi
 the DB IP. Do NOT run from inside the app container.
 
 ```bash
-DATABASE_URL="postgresql://dochub:changeme_before_production@172.18.0.3:5432/dochub" npx prisma db push
+DATABASE_URL="postgresql://dochub:<DB_PASSWORD>@172.18.0.3:5432/dochub" npx prisma db push
 ```
 
 ### 5. Named Prisma Relations
@@ -125,7 +125,7 @@ Local code change
 **After schema changes:** must also run `prisma db push` on the live database:
 ```bash
 # From local machine with DB accessible
-DATABASE_URL="postgresql://dochub:changeme_before_production@172.18.0.3:5432/dochub" npx prisma db push
+DATABASE_URL="postgresql://dochub:<DB_PASSWORD>@172.18.0.3:5432/dochub" npx prisma db push
 # OR from the Linode host:
 docker compose exec app npx prisma db push
 ```

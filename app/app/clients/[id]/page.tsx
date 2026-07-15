@@ -194,7 +194,7 @@ const ASSET_FIELD_META: Record<string, { label: string; placeholder?: string; ty
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
-  SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
+  SYNCRO: "#3d6fff", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#00d4aa", PULSEWAY: "#ec4899",
   MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
 }
 
@@ -1837,8 +1837,8 @@ export default function ClientDetailPage() {
                         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                           {dashRevealedTotps[cred.id] ? (
                             <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "#10b981" }}>{dashRevealedTotps[cred.id].code}</span>
-                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#ffb347" : "#00d4aa" }}>{dashRevealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#ffb347" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
                               <button onClick={() => navigator.clipboard.writeText(dashRevealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
                               <button onClick={() => setDashRevealedTotps(t => { const n = { ...t }; delete n[cred.id]; return n })} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
                             </>
@@ -2218,7 +2218,7 @@ export default function ClientDetailPage() {
                     <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "8px 10px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px" }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: d.isOnline ? "#22c55e" : "var(--color-text-muted)", flexShrink: 0 }} />
+                          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: d.isOnline ? "#00d4aa" : "var(--color-text-muted)", flexShrink: 0 }} />
                           <span style={{ fontSize: "13px", fontWeight: 500 }}>{d.friendlyName || d.hostname || "Unknown device"}</span>
                           {d.role && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{d.role}</span>}
                         </div>
@@ -2289,7 +2289,7 @@ export default function ClientDetailPage() {
                             const match = subnets.find((s: any) => s.cidr && ipInCidr(assetForm.ipAddress.trim(), s.cidr))
                             return match ? (
                               <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "4px", display: "flex", alignItems: "center", gap: "5px" }}>
-                                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+                                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#00d4aa", display: "inline-block" }} />
                                 Matches subnet <span style={{ fontFamily: "monospace", color: "var(--color-text-primary)" }}>{match.cidr}</span>{match.description ? ` · ${match.description}` : ""} — will be filed in IPAM
                               </div>
                             ) : (
@@ -2577,7 +2577,7 @@ export default function ClientDetailPage() {
                           <button
                             onClick={() => toggleAssetFavorite(asset.id, asset.isFavorite)}
                             title={asset.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
-                            style={{ fontSize: "14px", background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1, color: asset.isFavorite ? "#f59e0b" : "var(--color-text-muted)" }}
+                            style={{ fontSize: "14px", background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1, color: asset.isFavorite ? "#ffb347" : "var(--color-text-muted)" }}
                           >★</button>
                           {asset.splashtopUrl && (
                             <a href={asset.splashtopUrl} title="Launch Splashtop" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -2777,7 +2777,7 @@ export default function ClientDetailPage() {
                       <button
                         onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
                         title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
-                        style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "#f59e0b" : "var(--color-text-muted)" }}
+                        style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "#ffb347" : "var(--color-text-muted)" }}
                       >★</button>
                       {!isEditing && (
                         <button
@@ -2793,7 +2793,7 @@ export default function ClientDetailPage() {
                         <button
                           onClick={() => rotateViaGraph(cred.id, cred.user.m365Upn)}
                           title={`Rotate ${cred.user.m365Upn} via Microsoft Graph`}
-                          style={{ fontSize: "12px", color: "#3b82f6", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                          style={{ fontSize: "12px", color: "#3d6fff", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Rotate ↻</button>
                       )}
                       <button onClick={() => deleteCred(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Retire</button>
@@ -2866,7 +2866,7 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{cred.username}</span>
                           <button
                             onClick={() => { navigator.clipboard.writeText(cred.username); flashCopied(cred.id, "username") }}
-                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "username" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "username" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                           >{copiedCreds[cred.id] === "username" ? "Copied!" : "Copy"}</button>
                         </div>
                       )}
@@ -2876,10 +2876,10 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{revealedPasswords[cred.id] ?? "••••••••••••"}</span>
                           <button
                             onClick={() => copyPassword(cred.id)}
-                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "password" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "password" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                           >{copiedCreds[cred.id] === "password" ? "Copied!" : "Copy"}</button>
                           <button onClick={() => revealPassword(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
-                          <button onClick={() => checkBreach(cred.id)} disabled={breachStatus[cred.id]?.checking} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", padding: 0, color: breachStatus[cred.id]?.count === 0 ? "#22c55e" : breachStatus[cred.id]?.count > 0 ? "#ef4444" : "var(--color-text-muted)" }}>
+                          <button onClick={() => checkBreach(cred.id)} disabled={breachStatus[cred.id]?.checking} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", padding: 0, color: breachStatus[cred.id]?.count === 0 ? "#00d4aa" : breachStatus[cred.id]?.count > 0 ? "#ff4d6d" : "var(--color-text-muted)" }}>
                             {breachStatus[cred.id]?.checking ? "Checking..." : breachStatus[cred.id]?.count === 0 ? "Safe" : breachStatus[cred.id]?.count > 0 ? `Breached (${breachStatus[cred.id].count.toLocaleString()}x)` : "Breach check"}
                           </button>
                         </div>
@@ -2889,12 +2889,12 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>MFA</span>
                           {revealedTotps[cred.id] ? (
                             <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "#10b981" }}>{revealedTotps[cred.id].code}</span>
-                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#ffb347" : "#00d4aa" }}>{revealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#ffb347" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
                               <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>· {revealedTotps[cred.id].seed}</span>
                               <button
                                 onClick={() => copyTotpCode(cred.id)}
-                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                               >{copiedCreds[cred.id] === "totp" ? "Copied!" : "Copy"}</button>
                               <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
                             </>
@@ -2903,7 +2903,7 @@ export default function ClientDetailPage() {
                               <span style={{ fontSize: "13px", fontFamily: "monospace", letterSpacing: "3px" }}>••••••</span>
                               <button
                                 onClick={() => copyTotpCode(cred.id)}
-                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                               >{copiedCreds[cred.id] === "totp" ? "Copied!" : "Copy code"}</button>
                               <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
                             </>
@@ -2928,7 +2928,7 @@ export default function ClientDetailPage() {
                             {revealedSecureNotes[cred.id] && (
                               <button
                                 onClick={() => { navigator.clipboard.writeText(revealedSecureNotes[cred.id]); flashCopied(cred.id, "secureNotes") }}
-                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "secureNotes" ? "#22c55e" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "secureNotes" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                               >{copiedCreds[cred.id] === "secureNotes" ? "Copied!" : "Copy"}</button>
                             )}
                           </div>
@@ -3162,7 +3162,7 @@ export default function ClientDetailPage() {
                             <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Archive</button>
                           </>
                         ) : (
-                          <button onClick={() => restoreLicense(lic.id)} style={{ fontSize: "12px", color: "#22c55e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
+                          <button onClick={() => restoreLicense(lic.id)} style={{ fontSize: "12px", color: "#00d4aa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
                         )}
                       </div>
                     </div>
@@ -3221,9 +3221,9 @@ export default function ClientDetailPage() {
                           ))}
                         </div>
                         {subs.map((sub, i) => {
-                          const statusColor = sub.status === "Active" ? "#22c55e"
-                            : sub.status === "Suspended" ? "#f59e0b"
-                            : sub.status === "Trial" ? "#3b82f6"
+                          const statusColor = sub.status === "Active" ? "#00d4aa"
+                            : sub.status === "Suspended" ? "#ffb347"
+                            : sub.status === "Trial" ? "#3d6fff"
                             : "#94a3b8"
                           return (
                             <div key={sub.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 70px 90px 110px 160px", padding: "11px 16px", borderBottom: i < subs.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
@@ -3533,7 +3533,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{expandedVendor === v.id ? "▾" : "▸"}</span>
-                        <button onClick={(e) => { e.stopPropagation(); removeClientVendor(v.id) }} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", padding: "2px 4px" }}>Remove</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeClientVendor(v.id) }} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", padding: "2px 4px" }}>Remove</button>
                       </div>
                     </div>
                     {expandedVendor === v.id && (
@@ -3726,8 +3726,8 @@ export default function ClientDetailPage() {
                             {site.autoRenew && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Auto-renews</div>}
                             {site.uptimeEnabled && (
                               <div style={{ fontSize: "11px", marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" }}>
-                                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: site.isUp ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
-                                <span style={{ color: site.isUp ? "#22c55e" : "#ef4444", fontWeight: 500 }}>{site.isUp ? "Up" : "Down"}</span>
+                                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: site.isUp ? "#00d4aa" : "#ff4d6d", flexShrink: 0 }} />
+                                <span style={{ color: site.isUp ? "#00d4aa" : "#ff4d6d", fontWeight: 500 }}>{site.isUp ? "Up" : "Down"}</span>
                                 {site.responseTimeMs != null && <span style={{ color: "var(--color-text-muted)" }}>· {site.responseTimeMs}ms</span>}
                                 {site.uptimeCheckedAt && <span style={{ color: "var(--color-text-muted)" }}>· {new Date(site.uptimeCheckedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
                               </div>
@@ -4061,16 +4061,16 @@ export default function ClientDetailPage() {
               const typeConfig: Record<string, { label: string; color: string }> = {
                 TECH_NOTE:           { label: "Tech note",    color: "#6366f1" },
                 SITE_VISIT:          { label: "Site visit",   color: "#0ea5e9" },
-                KNOWN_ISSUE:         { label: "Known issue",  color: "#f59e0b" },
+                KNOWN_ISSUE:         { label: "Known issue",  color: "#ffb347" },
                 PLANNED_MAINTENANCE: { label: "Maintenance",  color: "#8b5cf6" },
-                CREDENTIAL_ROTATED:  { label: "Credential",   color: "#10b981" },
-                LICENSE_CHANGED:     { label: "License",      color: "#10b981" },
-                ASSET_ADDED:         { label: "Asset added",  color: "#10b981" },
+                CREDENTIAL_ROTATED:  { label: "Credential",   color: "#00d4aa" },
+                LICENSE_CHANGED:     { label: "License",      color: "#00d4aa" },
+                ASSET_ADDED:         { label: "Asset added",  color: "#00d4aa" },
                 ASSET_RETIRED:       { label: "Asset retired",color: "#94a3b8" },
                 ASSET_UPDATED:       { label: "Asset update", color: "#94a3b8" },
                 API_SYNC:            { label: "Sync",         color: "#94a3b8" },
-                ALARM_TRIGGERED:     { label: "Alarm",        color: "#ef4444" },
-                USER_ADDED:          { label: "User added",   color: "#10b981" },
+                ALARM_TRIGGERED:     { label: "Alarm",        color: "#ff4d6d" },
+                USER_ADDED:          { label: "User added",   color: "#00d4aa" },
                 USER_REMOVED:        { label: "User removed", color: "#94a3b8" },
               }
               const cfg = typeConfig[event.eventType] ?? { label: event.eventType, color: "#94a3b8" }

@@ -113,7 +113,7 @@ export default function ScanPage() {
 
         {(supported === false || error) && (
           <div style={{ marginTop: "12px" }}>
-            {error && <p style={{ fontSize: "13px", color: "#f59e0b", marginBottom: "10px" }}>{error}</p>}
+            {error && <p style={{ fontSize: "13px", color: "#ffb347", marginBottom: "10px" }}>{error}</p>}
             {supported === false && <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>Live scanning isn&apos;t supported on this browser. Type the serial / asset tag to search.</p>}
             <form onSubmit={e => { e.preventDefault(); if (manual.trim()) goSearch(manual.trim()) }} style={{ display: "flex", gap: "8px" }}>
               <input value={manual} onChange={e => setManual(e.target.value)} placeholder="Serial or asset tag" style={{ flex: 1, padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />

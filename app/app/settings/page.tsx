@@ -107,10 +107,10 @@ function SyncResult({ result }: { result: any }) {
   const hasErrors = result.errors?.length > 0
   const allFailed = result.success && result.errors?.length > 0 && result.devices === 0 && result.clients === 0 && result.assets === 0
   return (
-    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: result.success ? (hasErrors ? "rgba(245,158,11,0.08)" : "rgba(34,197,94,0.08)") : "rgba(239,68,68,0.08)", border: `0.5px solid ${result.success ? (hasErrors ? "#f59e0b44" : "#22c55e44") : "#ef444444"}`, fontSize: "13px" }}>
+    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: result.success ? (hasErrors ? "rgba(245,158,11,0.08)" : "rgba(34,197,94,0.08)") : "rgba(239,68,68,0.08)", border: `0.5px solid ${result.success ? (hasErrors ? "#ffb34744" : "#00d4aa44") : "#ff4d6d44"}`, fontSize: "13px" }}>
       {result.success ? (
         <div>
-          <div style={{ fontWeight: 500, color: hasErrors ? "#f59e0b" : "#22c55e", marginBottom: "4px" }}>
+          <div style={{ fontWeight: 500, color: hasErrors ? "#ffb347" : "#00d4aa", marginBottom: "4px" }}>
             {allFailed ? "Sync failed — see errors below" : hasErrors ? "Sync complete with errors" : "Sync complete"}
           </div>
           {!allFailed && (
@@ -128,15 +128,15 @@ function SyncResult({ result }: { result: any }) {
           {hasErrors && (
             <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
               {result.errors.map((e: string, i: number) => (
-                <div key={i} style={{ fontSize: "12px", color: "#f59e0b", fontFamily: "monospace", wordBreak: "break-all" }}>{e}</div>
+                <div key={i} style={{ fontSize: "12px", color: "#ffb347", fontFamily: "monospace", wordBreak: "break-all" }}>{e}</div>
               ))}
             </div>
           )}
         </div>
       ) : (
         <div>
-          <div style={{ fontWeight: 500, color: "#ef4444", marginBottom: "4px" }}>Sync failed</div>
-          <div style={{ fontSize: "12px", color: "#ef4444", fontFamily: "monospace", wordBreak: "break-all" }}>{result.error}</div>
+          <div style={{ fontWeight: 500, color: "#ff4d6d", marginBottom: "4px" }}>Sync failed</div>
+          <div style={{ fontSize: "12px", color: "#ff4d6d", fontFamily: "monospace", wordBreak: "break-all" }}>{result.error}</div>
         </div>
       )}
     </div>
@@ -210,8 +210,8 @@ export default function SettingsPage() {
 
   // --- Data Sources ---
   const [sourceColors, setSourceColors] = useState<Record<string, string>>({
-    SYNCRO: "#3b82f6", UNIFI: "#8b5cf6", MERAKI: "#00bcf2", HPINSTANTON: "#01a982",
-    SONICWALL: "#f97316", ITFLOW: "#f97316", PAX8: "#10b981", PULSEWAY: "#ec4899",
+    SYNCRO: "#3d6fff", UNIFI: "#8b5cf6", MERAKI: "#00bcf2", HPINSTANTON: "#01a982",
+    SONICWALL: "#f97316", ITFLOW: "#f97316", PAX8: "#00d4aa", PULSEWAY: "#ec4899",
   })
   const [savingColors, setSavingColors] = useState(false)
 
@@ -621,7 +621,7 @@ export default function SettingsPage() {
                           {logoUploading ? "Uploading..." : "Replace logo"}
                           <input type="file" accept="image/*" style={{ display: "none" }} disabled={logoUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = "" }} />
                         </label>
-                        <button onClick={removeLogo} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "none", background: "transparent", cursor: "pointer", color: "var(--color-text-danger, #ef4444)", textAlign: "left" }}>
+                        <button onClick={removeLogo} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "none", background: "transparent", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", textAlign: "left" }}>
                           Remove logo
                         </button>
                       </div>
@@ -976,7 +976,7 @@ export default function SettingsPage() {
                     {sendingTestEmail ? "Sending..." : "Send test email now"}
                   </button>
                   {testEmailResult && (
-                    <span style={{ fontSize: "13px", color: testEmailResult.ok ? "#10b981" : "var(--color-text-danger)" }}>
+                    <span style={{ fontSize: "13px", color: testEmailResult.ok ? "#00d4aa" : "var(--color-text-danger)" }}>
                       {testEmailResult.message}
                     </span>
                   )}
@@ -1090,7 +1090,7 @@ export default function SettingsPage() {
                     {sendingTeamsTest ? "Sending..." : "Send test card"}
                   </button>
                   {teamsTestResult && (
-                    <span style={{ fontSize: "13px", color: teamsTestResult.ok ? "#10b981" : "var(--color-text-danger)" }}>
+                    <span style={{ fontSize: "13px", color: teamsTestResult.ok ? "#00d4aa" : "var(--color-text-danger)" }}>
                       {teamsTestResult.message}
                     </span>
                   )}
@@ -1372,7 +1372,7 @@ export default function SettingsPage() {
                 <SectionCard title="Migrate Network Devices to Assets" description="Convert legacy Network Device records into Assets with the correct type template. Switch port diagrams and links are preserved. This cannot be undone.">
                   {migrationResult ? (
                     <div>
-                      <div style={{ fontSize: "14px", color: "#22c55e", marginBottom: "8px" }}>Migration complete — {migrationResult.migrated} device(s) migrated.</div>
+                      <div style={{ fontSize: "14px", color: "#00d4aa", marginBottom: "8px" }}>Migration complete — {migrationResult.migrated} device(s) migrated.</div>
                       {migrationResult.errors?.length > 0 && (
                         <div style={{ fontSize: "13px", color: "var(--color-text-danger)" }}>
                           {migrationResult.errors.length} error(s): {migrationResult.errors.map((e: any) => e.name).join(", ")}
@@ -1394,7 +1394,7 @@ export default function SettingsPage() {
                         ))}
                       </div>
                       <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={runMigration} disabled={runningMigration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "#ef4444", color: "white", cursor: "pointer" }}>
+                        <button onClick={runMigration} disabled={runningMigration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "#ff4d6d", color: "white", cursor: "pointer" }}>
                           {runningMigration ? "Migrating..." : `Migrate ${migrationPreview.length} device(s)`}
                         </button>
                         <button onClick={() => setMigrationPreview(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
@@ -1452,7 +1452,7 @@ export default function SettingsPage() {
                   {mergePreview && (
                     <div style={{ marginTop: "16px", padding: "16px", borderRadius: "8px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)" }}>
                       <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>
-                        Moving all records from <span style={{ color: "#ef4444" }}>{mergePreview.source}</span> → <span style={{ color: "#22c55e" }}>{mergePreview.target}</span>
+                        Moving all records from <span style={{ color: "#ff4d6d" }}>{mergePreview.source}</span> → <span style={{ color: "#00d4aa" }}>{mergePreview.target}</span>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", marginBottom: "14px" }}>
                         {Object.entries(mergePreview.counts).filter(([, v]) => v > 0).map(([key, val]) => (
@@ -1469,13 +1469,13 @@ export default function SettingsPage() {
                       {!mergeConfirm ? (
                         <button
                           onClick={() => setMergeConfirm(true)}
-                          style={{ fontSize: "14px", fontWeight: 500, padding: "8px 18px", borderRadius: "8px", border: "none", background: "#ef4444", color: "white", cursor: "pointer" }}
+                          style={{ fontSize: "14px", fontWeight: 500, padding: "8px 18px", borderRadius: "8px", border: "none", background: "#ff4d6d", color: "white", cursor: "pointer" }}
                         >
                           Merge clients
                         </button>
                       ) : (
-                        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.08)", border: "0.5px solid #ef444466", borderRadius: "8px" }}>
-                          <div style={{ fontSize: "14px", fontWeight: 500, color: "#ef4444", marginBottom: "8px" }}>
+                        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.08)", border: "0.5px solid #ff4d6d66", borderRadius: "8px" }}>
+                          <div style={{ fontSize: "14px", fontWeight: 500, color: "#ff4d6d", marginBottom: "8px" }}>
                             Are you sure? This cannot be undone.
                           </div>
                           <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>
@@ -1485,7 +1485,7 @@ export default function SettingsPage() {
                             <button
                               onClick={executeMerge}
                               disabled={mergeDoing}
-                              style={{ fontSize: "14px", fontWeight: 500, padding: "7px 18px", borderRadius: "8px", border: "none", background: "#ef4444", color: "white", cursor: "pointer", opacity: mergeDoing ? 0.6 : 1 }}
+                              style={{ fontSize: "14px", fontWeight: 500, padding: "7px 18px", borderRadius: "8px", border: "none", background: "#ff4d6d", color: "white", cursor: "pointer", opacity: mergeDoing ? 0.6 : 1 }}
                             >
                               {mergeDoing ? "Merging..." : "Yes, merge now"}
                             </button>
@@ -1502,14 +1502,14 @@ export default function SettingsPage() {
                   )}
 
                   {mergeResult && (
-                    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: mergeResult.success ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)", border: `0.5px solid ${mergeResult.success ? "#22c55e44" : "#ef444444"}`, fontSize: "13px" }}>
+                    <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: mergeResult.success ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)", border: `0.5px solid ${mergeResult.success ? "#00d4aa44" : "#ff4d6d44"}`, fontSize: "13px" }}>
                       {mergeResult.success ? (
                         <div>
-                          <div style={{ fontWeight: 500, color: "#22c55e", marginBottom: "4px" }}>Merge complete</div>
+                          <div style={{ fontWeight: 500, color: "#00d4aa", marginBottom: "4px" }}>Merge complete</div>
                           <div style={{ color: "var(--color-text-secondary)" }}>All records from <strong>{mergeResult.source}</strong> have been moved to <strong>{mergeResult.target}</strong>. The source client has been marked inactive.</div>
                         </div>
                       ) : (
-                        <div style={{ color: "#ef4444" }}>Error: {mergeResult.error}</div>
+                        <div style={{ color: "#ff4d6d" }}>Error: {mergeResult.error}</div>
                       )}
                     </div>
                   )}
@@ -2243,8 +2243,8 @@ function MyVaultSection() {
   }
   const btnDanger: React.CSSProperties = {
     padding: "5px 10px", fontSize: "12px", borderRadius: "6px",
-    background: "transparent", color: "#ef4444",
-    border: "0.5px solid #ef4444", cursor: "pointer",
+    background: "transparent", color: "#ff4d6d",
+    border: "0.5px solid #ff4d6d", cursor: "pointer",
   }
 
   return (
@@ -2391,10 +2391,10 @@ function MyVaultSection() {
                           )}
                           {revealed[item.id].totpCode && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <code style={{ fontSize: "14px", fontWeight: 600, letterSpacing: "0.1em", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-primary)" }}>
+                              <code style={{ fontSize: "14px", fontWeight: 600, letterSpacing: "0.1em", color: totpSecondsLeft <= 5 ? "#ffb347" : "var(--color-text-primary)" }}>
                                 {revealed[item.id].totpCode}
                               </code>
-                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#f59e0b" : "var(--color-text-secondary)" }}>{totpSecondsLeft}s</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#ffb347" : "var(--color-text-secondary)" }}>{totpSecondsLeft}s</span>
                               <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].totpCode!, "TOTP code")}>Copy</button>
                             </div>
                           )}
@@ -2438,7 +2438,7 @@ function MyVaultSection() {
                         <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-hover)", color: "var(--color-text-secondary)" }}>Note</span>
                         <div style={{ fontWeight: 500, fontSize: "14px" }}>{n.title}</div>
                         <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-hover)", color: "var(--color-text-muted)", fontStyle: "italic" }}>{noteCategoryLabel(n.category)}</span>
-                        {isExpired(n.expiryDate) && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-danger, rgba(239,68,68,0.14))", color: "var(--color-text-danger, #ef4444)" }}>Expired</span>}
+                        {isExpired(n.expiryDate) && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-danger, rgba(239,68,68,0.14))", color: "var(--color-text-danger, #ff4d6d)" }}>Expired</span>}
                         {!isExpired(n.expiryDate) && isExpiringSoon(n.expiryDate) && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, rgba(245,158,11,0.14))", color: "var(--color-text-warning, #b45309)" }}>Expiring ≤30d</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
