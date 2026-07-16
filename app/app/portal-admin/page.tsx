@@ -226,7 +226,7 @@ export default function PortalAdminPage() {
                   <div style={{ fontSize: "12px", color: "var(--muted)" }}>
                     {user.lastLoginAt
                       ? formatDate(user.lastLoginAt)
-                      : <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", fontWeight: 500, background: "rgba(245,158,11,0.14)", color: "#ffb347" }}>Never logged in</span>}
+                      : <span style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", fontWeight: 500, background: "rgba(255,179,71,0.14)", color: "var(--warn)" }}>Never logged in</span>}
                   </div>
                   {/* Status badge */}
                   <div>
@@ -251,7 +251,7 @@ export default function PortalAdminPage() {
                     <button
                       onClick={() => toggleActive(user)}
                       disabled={togglingId === user.id}
-                      style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", border: "0.5px solid var(--border)", background: "var(--surface)", color: user.isActive ? "#ff4d6d" : "var(--accent2)", cursor: "pointer", opacity: togglingId === user.id ? 0.5 : 1 }}
+                      style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", border: "0.5px solid var(--border)", background: "var(--surface)", color: user.isActive ? "var(--danger)" : "var(--accent2)", cursor: "pointer", opacity: togglingId === user.id ? 0.5 : 1 }}
                     >
                       {user.isActive ? "Disable" : "Enable"}
                     </button>
@@ -265,7 +265,7 @@ export default function PortalAdminPage() {
                       <button
                         onClick={() => revokeSessions(user.id)}
                         disabled={revokingId === user.id}
-                        style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", border: "0.5px solid var(--border)", background: "var(--surface)", color: "#ffb347", cursor: "pointer", opacity: revokingId === user.id ? 0.5 : 1 }}
+                        style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--warn)", cursor: "pointer", opacity: revokingId === user.id ? 0.5 : 1 }}
                       >
                         {revokingId === user.id ? "..." : "Kick"}
                       </button>
@@ -294,7 +294,7 @@ export default function PortalAdminPage() {
                         {resetting ? "Saving..." : "Set password"}
                       </button>
                       {resetResult[user.id] === "ok" && <span style={{ fontSize: "12px", color: "var(--accent2)" }}>Password updated. Sessions revoked.</span>}
-                      {resetResult[user.id] === "err" && <span style={{ fontSize: "12px", color: "#ff4d6d" }}>Failed — try again.</span>}
+                      {resetResult[user.id] === "err" && <span style={{ fontSize: "12px", color: "var(--danger)" }}>Failed — try again.</span>}
                     </div>
                   </div>
                 )}

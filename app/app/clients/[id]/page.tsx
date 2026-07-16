@@ -194,7 +194,7 @@ const ASSET_FIELD_META: Record<string, { label: string; placeholder?: string; ty
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
-  SYNCRO: "#3d6fff", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#00d4aa", PULSEWAY: "#ec4899",
+  SYNCRO: "var(--accent)", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "var(--accent2)", PULSEWAY: "#ec4899",
   MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
 }
 
@@ -258,7 +258,7 @@ function sourceTag(
 ) {
   const src = dataSource || (fallbackSyncroId ? "SYNCRO" : fallbackPax8Id ? "PAX8" : "MANUAL")
   if (src === "MANUAL") return null
-  const color = colors?.[src] ?? SOURCE_DEFAULTS[src] ?? "#64748b"
+  const color = colors?.[src] ?? SOURCE_DEFAULTS[src] ?? "var(--muted)"
   const label = SOURCE_LABELS[src] ?? src
   return <SourceStamp sourceKey={src} color={color} label={label} />
 }
@@ -1646,10 +1646,10 @@ export default function ClientDetailPage() {
                   fontSize: "12px", fontWeight: 600, padding: "3px 10px",
                   borderRadius: "10px", border: "none", cursor: "pointer",
                   ...(completeness.score >= 80
-                    ? { background: "rgba(34,197,94,0.14)", color: "#16a34a" }
+                    ? { background: "rgba(0,212,170,0.14)", color: "var(--accent2)" }
                     : completeness.score >= 50
-                    ? { background: "rgba(245,158,11,0.14)", color: "#b45309" }
-                    : { background: "rgba(239,68,68,0.14)", color: "#dc2626" }),
+                    ? { background: "rgba(255,179,71,0.14)", color: "var(--warn)" }
+                    : { background: "rgba(255,77,109,0.14)", color: "var(--danger)" }),
                 }}
               >
                 {completeness.score}% complete
@@ -1765,7 +1765,7 @@ export default function ClientDetailPage() {
                             {[a.make, a.model].filter(Boolean).join(" ") || categoryLabel[a.category] || a.category}
                           </div>
                         </div>
-                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[a.status] ?? "#94a3b8", flexShrink: 0, marginTop: "6px" }} />
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[a.status] ?? "var(--muted)", flexShrink: 0, marginTop: "6px" }} />
                       </div>
                       {a.ipAddress && (
                         <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace", marginBottom: "8px" }}>{a.ipAddress}</div>
@@ -1837,8 +1837,8 @@ export default function ClientDetailPage() {
                         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                           {dashRevealedTotps[cred.id] ? (
                             <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#ffb347" : "#00d4aa" }}>{dashRevealedTotps[cred.id].code}</span>
-                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#ffb347" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--accent2)" }}>{dashRevealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
                               <button onClick={() => navigator.clipboard.writeText(dashRevealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
                               <button onClick={() => setDashRevealedTotps(t => { const n = { ...t }; delete n[cred.id]; return n })} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
                             </>
@@ -2205,10 +2205,10 @@ export default function ClientDetailPage() {
             </div>
 
             {discovered.length > 0 && (
-              <div style={{ background: "rgba(74,144,226,0.06)", border: "0.5px solid rgba(74,144,226,0.3)", borderRadius: "10px", padding: "14px 16px", marginBottom: "20px" }}>
+              <div style={{ background: "rgba(61,111,255,0.06)", border: "0.5px solid rgba(61,111,255,0.3)", borderRadius: "10px", padding: "14px 16px", marginBottom: "20px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                   <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)" }}>Discovered by FleetHub</span>
-                  <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "4px", background: "rgba(74,144,226,0.15)", color: "#4A90E2" }}>{discovered.length}</span>
+                  <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "4px", background: "rgba(61,111,255,0.15)", color: "var(--accent)" }}>{discovered.length}</span>
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>
                   The FleetHub agent sees these machines but they aren&apos;t documented yet. Confirm to create a prefilled asset.
@@ -2218,7 +2218,7 @@ export default function ClientDetailPage() {
                     <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "8px 10px", background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px" }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: d.isOnline ? "#00d4aa" : "var(--color-text-muted)", flexShrink: 0 }} />
+                          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: d.isOnline ? "var(--accent2)" : "var(--color-text-muted)", flexShrink: 0 }} />
                           <span style={{ fontSize: "13px", fontWeight: 500 }}>{d.friendlyName || d.hostname || "Unknown device"}</span>
                           {d.role && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{d.role}</span>}
                         </div>
@@ -2289,7 +2289,7 @@ export default function ClientDetailPage() {
                             const match = subnets.find((s: any) => s.cidr && ipInCidr(assetForm.ipAddress.trim(), s.cidr))
                             return match ? (
                               <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "4px", display: "flex", alignItems: "center", gap: "5px" }}>
-                                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#00d4aa", display: "inline-block" }} />
+                                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--accent2)", display: "inline-block" }} />
                                 Matches subnet <span style={{ fontFamily: "monospace", color: "var(--color-text-primary)" }}>{match.cidr}</span>{match.description ? ` · ${match.description}` : ""} — will be filed in IPAM
                               </div>
                             ) : (
@@ -2568,7 +2568,7 @@ export default function ClientDetailPage() {
                           ) : <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>—</span>}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", flexShrink: 0 }} />
+                          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[asset.status] ?? "var(--muted)", flexShrink: 0 }} />
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
                             {statusLabel[asset.status] ?? asset.status}
                           </span>
@@ -2577,7 +2577,7 @@ export default function ClientDetailPage() {
                           <button
                             onClick={() => toggleAssetFavorite(asset.id, asset.isFavorite)}
                             title={asset.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
-                            style={{ fontSize: "14px", background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1, color: asset.isFavorite ? "#ffb347" : "var(--color-text-muted)" }}
+                            style={{ fontSize: "14px", background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1, color: asset.isFavorite ? "var(--warn)" : "var(--color-text-muted)" }}
                           >★</button>
                           {asset.splashtopUrl && (
                             <a href={asset.splashtopUrl} title="Launch Splashtop" style={{ fontSize: "11px", padding: "2px 7px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -2754,8 +2754,8 @@ export default function ClientDetailPage() {
                             padding: "1px 6px", borderRadius: "4px",
                             border: "none", cursor: "pointer",
                             background: cred.allowTechReveal
-                              ? "rgba(34,197,94,0.14)" : "rgba(148,163,184,0.18)",
-                            color: cred.allowTechReveal ? "#16a34a" : "#64748b",
+                              ? "rgba(0,212,170,0.14)" : "rgba(148,163,184,0.18)",
+                            color: cred.allowTechReveal ? "var(--accent2)" : "var(--muted)",
                           }}
                         >
                           {cred.allowTechReveal ? "TEAM" : "ADMIN"}
@@ -2766,7 +2766,7 @@ export default function ClientDetailPage() {
                           style={{
                             fontSize: "10px", fontWeight: 600,
                             padding: "1px 6px", borderRadius: "4px",
-                            background: "rgba(148,163,184,0.18)", color: "#64748b",
+                            background: "rgba(148,163,184,0.18)", color: "var(--muted)",
                           }}
                         >
                           ADMIN
@@ -2777,7 +2777,7 @@ export default function ClientDetailPage() {
                       <button
                         onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
                         title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
-                        style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "#ffb347" : "var(--color-text-muted)" }}
+                        style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "var(--warn)" : "var(--color-text-muted)" }}
                       >★</button>
                       {!isEditing && (
                         <button
@@ -2793,7 +2793,7 @@ export default function ClientDetailPage() {
                         <button
                           onClick={() => rotateViaGraph(cred.id, cred.user.m365Upn)}
                           title={`Rotate ${cred.user.m365Upn} via Microsoft Graph`}
-                          style={{ fontSize: "12px", color: "#3d6fff", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                          style={{ fontSize: "12px", color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Rotate ↻</button>
                       )}
                       <button onClick={() => deleteCred(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Retire</button>
@@ -2822,15 +2822,15 @@ export default function ClientDetailPage() {
                           <div key={key} style={{ marginBottom: "8px" }}>
                             <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>{label}</label>
                             {isCleared ? (
-                              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "7px 10px", border: "0.5px dashed #dc2626", borderRadius: "7px" }}>
-                                <span style={{ fontSize: "12px", color: "#dc2626" }}>Will be removed on save</span>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "7px 10px", border: "0.5px dashed var(--danger)", borderRadius: "7px" }}>
+                                <span style={{ fontSize: "12px", color: "var(--danger)" }}>Will be removed on save</span>
                                 <button type="button" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey!]: false }))} style={{ fontSize: "11px", background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Undo</button>
                               </div>
                             ) : (
                               <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                 <input type={type} value={credEditForm[key] ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inpStyle} />
                                 {clearKey && hasStored && (
-                                  <button type="button" title="Remove the stored value on save" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey]: true, [key]: "" }))} style={{ fontSize: "11px", whiteSpace: "nowrap", padding: "6px 10px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "#dc2626", cursor: "pointer" }}>Remove</button>
+                                  <button type="button" title="Remove the stored value on save" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey]: true, [key]: "" }))} style={{ fontSize: "11px", whiteSpace: "nowrap", padding: "6px 10px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--danger)", cursor: "pointer" }}>Remove</button>
                                 )}
                               </div>
                             )}
@@ -2866,7 +2866,7 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{cred.username}</span>
                           <button
                             onClick={() => { navigator.clipboard.writeText(cred.username); flashCopied(cred.id, "username") }}
-                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "username" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "username" ? "var(--accent2)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                           >{copiedCreds[cred.id] === "username" ? "Copied!" : "Copy"}</button>
                         </div>
                       )}
@@ -2876,10 +2876,10 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "13px", fontFamily: "monospace" }}>{revealedPasswords[cred.id] ?? "••••••••••••"}</span>
                           <button
                             onClick={() => copyPassword(cred.id)}
-                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "password" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                            style={{ fontSize: "11px", color: copiedCreds[cred.id] === "password" ? "var(--accent2)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                           >{copiedCreds[cred.id] === "password" ? "Copied!" : "Copy"}</button>
                           <button onClick={() => revealPassword(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{revealedPasswords[cred.id] ? "Hide" : "Show"}</button>
-                          <button onClick={() => checkBreach(cred.id)} disabled={breachStatus[cred.id]?.checking} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", padding: 0, color: breachStatus[cred.id]?.count === 0 ? "#00d4aa" : breachStatus[cred.id]?.count > 0 ? "#ff4d6d" : "var(--color-text-muted)" }}>
+                          <button onClick={() => checkBreach(cred.id)} disabled={breachStatus[cred.id]?.checking} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", padding: 0, color: breachStatus[cred.id]?.count === 0 ? "var(--accent2)" : breachStatus[cred.id]?.count > 0 ? "var(--danger)" : "var(--color-text-muted)" }}>
                             {breachStatus[cred.id]?.checking ? "Checking..." : breachStatus[cred.id]?.count === 0 ? "Safe" : breachStatus[cred.id]?.count > 0 ? `Breached (${breachStatus[cred.id].count.toLocaleString()}x)` : "Breach check"}
                           </button>
                         </div>
@@ -2889,12 +2889,12 @@ export default function ClientDetailPage() {
                           <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", width: "80px" }}>MFA</span>
                           {revealedTotps[cred.id] ? (
                             <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "#ffb347" : "#00d4aa" }}>{revealedTotps[cred.id].code}</span>
-                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "#ffb347" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
+                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--accent2)" }}>{revealedTotps[cred.id].code}</span>
+                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
                               <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>· {revealedTotps[cred.id].seed}</span>
                               <button
                                 onClick={() => copyTotpCode(cred.id)}
-                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "var(--accent2)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                               >{copiedCreds[cred.id] === "totp" ? "Copied!" : "Copy"}</button>
                               <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
                             </>
@@ -2903,7 +2903,7 @@ export default function ClientDetailPage() {
                               <span style={{ fontSize: "13px", fontFamily: "monospace", letterSpacing: "3px" }}>••••••</span>
                               <button
                                 onClick={() => copyTotpCode(cred.id)}
-                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "totp" ? "var(--accent2)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                               >{copiedCreds[cred.id] === "totp" ? "Copied!" : "Copy code"}</button>
                               <button onClick={() => revealTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show</button>
                             </>
@@ -2928,7 +2928,7 @@ export default function ClientDetailPage() {
                             {revealedSecureNotes[cred.id] && (
                               <button
                                 onClick={() => { navigator.clipboard.writeText(revealedSecureNotes[cred.id]); flashCopied(cred.id, "secureNotes") }}
-                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "secureNotes" ? "#00d4aa" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ fontSize: "11px", color: copiedCreds[cred.id] === "secureNotes" ? "var(--accent2)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                               >{copiedCreds[cred.id] === "secureNotes" ? "Copied!" : "Copy"}</button>
                             )}
                           </div>
@@ -3162,7 +3162,7 @@ export default function ClientDetailPage() {
                             <button onClick={() => deleteLicense(lic.id)} style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Archive</button>
                           </>
                         ) : (
-                          <button onClick={() => restoreLicense(lic.id)} style={{ fontSize: "12px", color: "#00d4aa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
+                          <button onClick={() => restoreLicense(lic.id)} style={{ fontSize: "12px", color: "var(--accent2)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Restore</button>
                         )}
                       </div>
                     </div>
@@ -3221,10 +3221,10 @@ export default function ClientDetailPage() {
                           ))}
                         </div>
                         {subs.map((sub, i) => {
-                          const statusColor = sub.status === "Active" ? "#00d4aa"
-                            : sub.status === "Suspended" ? "#ffb347"
-                            : sub.status === "Trial" ? "#3d6fff"
-                            : "#94a3b8"
+                          const statusColor = sub.status === "Active" ? "var(--accent2)"
+                            : sub.status === "Suspended" ? "var(--warn)"
+                            : sub.status === "Trial" ? "var(--accent)"
+                            : "var(--muted)"
                           return (
                             <div key={sub.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 70px 90px 110px 160px", padding: "11px 16px", borderBottom: i < subs.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)", alignItems: "center" }}>
                               <div>
@@ -3526,24 +3526,24 @@ export default function ClientDetailPage() {
                   <div key={v.id} style={{ background: "var(--color-background-primary)", borderRadius: "10px", border: "0.5px solid var(--color-border-secondary)", overflow: "hidden" }}>
                     <div onClick={() => setExpandedVendor(expandedVendor === v.id ? null : v.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <a href={`/vendors/${v.id}`} onClick={e => e.stopPropagation()} style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-accent, #007AFF)", textDecoration: "none" }}>{v.name}</a>
+                        <a href={`/vendors/${v.id}`} onClick={e => e.stopPropagation()} style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-accent, var(--accent))", textDecoration: "none" }}>{v.name}</a>
                         <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "4px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{v.category?.toLowerCase()}</span>
                         {v._count?.licenses > 0 && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{v._count.licenses} license{v._count.licenses !== 1 ? "s" : ""}</span>}
                         {v._count?.applications > 0 && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{v._count.applications} app{v._count.applications !== 1 ? "s" : ""}</span>}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{expandedVendor === v.id ? "▾" : "▸"}</span>
-                        <button onClick={(e) => { e.stopPropagation(); removeClientVendor(v.id) }} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", padding: "2px 4px" }}>Remove</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeClientVendor(v.id) }} style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, var(--danger))", padding: "2px 4px" }}>Remove</button>
                       </div>
                     </div>
                     {expandedVendor === v.id && (
                       <div style={{ padding: "0 16px 14px", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", paddingTop: "12px", fontSize: "13px" }}>
-                          {v.website && <div><span style={{ color: "var(--color-text-muted)" }}>Website: </span><a href={v.website.startsWith("http") ? v.website : `https://${v.website}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, #007AFF)" }}>{v.website}</a></div>}
-                          {v.portalUrl && <div><span style={{ color: "var(--color-text-muted)" }}>Portal: </span><a href={v.portalUrl.startsWith("http") ? v.portalUrl : `https://${v.portalUrl}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, #007AFF)" }}>{v.portalUrl}</a></div>}
+                          {v.website && <div><span style={{ color: "var(--color-text-muted)" }}>Website: </span><a href={v.website.startsWith("http") ? v.website : `https://${v.website}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, var(--accent))" }}>{v.website}</a></div>}
+                          {v.portalUrl && <div><span style={{ color: "var(--color-text-muted)" }}>Portal: </span><a href={v.portalUrl.startsWith("http") ? v.portalUrl : `https://${v.portalUrl}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, var(--accent))" }}>{v.portalUrl}</a></div>}
                           {v.supportPhone && <div><span style={{ color: "var(--color-text-muted)" }}>Support: </span>{v.supportPhone}</div>}
-                          {v.supportEmail && <div><span style={{ color: "var(--color-text-muted)" }}>Email: </span><a href={`mailto:${v.supportEmail}`} style={{ color: "var(--color-accent, #007AFF)" }}>{v.supportEmail}</a></div>}
-                          {v.supportUrl && <div><span style={{ color: "var(--color-text-muted)" }}>Support URL: </span><a href={v.supportUrl.startsWith("http") ? v.supportUrl : `https://${v.supportUrl}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, #007AFF)" }}>{v.supportUrl}</a></div>}
+                          {v.supportEmail && <div><span style={{ color: "var(--color-text-muted)" }}>Email: </span><a href={`mailto:${v.supportEmail}`} style={{ color: "var(--color-accent, var(--accent))" }}>{v.supportEmail}</a></div>}
+                          {v.supportUrl && <div><span style={{ color: "var(--color-text-muted)" }}>Support URL: </span><a href={v.supportUrl.startsWith("http") ? v.supportUrl : `https://${v.supportUrl}`} target="_blank" rel="noopener" style={{ color: "var(--color-accent, var(--accent))" }}>{v.supportUrl}</a></div>}
                           {v.accountNumber && <div><span style={{ color: "var(--color-text-muted)" }}>Account #: </span><span style={{ fontFamily: "monospace" }}>{v.accountNumber}</span></div>}
                         </div>
                         {v.notes && <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--color-text-muted)", fontStyle: "italic" }}>{v.notes}</div>}
@@ -3554,14 +3554,14 @@ export default function ClientDetailPage() {
                               <div key={vc.id} style={{ display: "flex", alignItems: "center", gap: "8px", paddingBottom: "4px", fontSize: "13px" }}>
                                 <span style={{ fontWeight: 500 }}>{vc.name}</span>
                                 {vc.role && <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({vc.role})</span>}
-                                {vc.email && <a href={`mailto:${vc.email}`} style={{ fontSize: "12px", color: "var(--color-accent, #007AFF)" }}>{vc.email}</a>}
+                                {vc.email && <a href={`mailto:${vc.email}`} style={{ fontSize: "12px", color: "var(--color-accent, var(--accent))" }}>{vc.email}</a>}
                                 {vc.phone && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{vc.phone}</span>}
                               </div>
                             ))}
                           </div>
                         )}
                         <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "0.5px solid var(--color-border-tertiary)" }}>
-                          <a href={`/vendors/${v.id}`} style={{ fontSize: "12px", color: "var(--color-accent, #007AFF)", textDecoration: "none" }}>View full vendor details →</a>
+                          <a href={`/vendors/${v.id}`} style={{ fontSize: "12px", color: "var(--color-accent, var(--accent))", textDecoration: "none" }}>View full vendor details →</a>
                         </div>
                       </div>
                     )}
@@ -3726,8 +3726,8 @@ export default function ClientDetailPage() {
                             {site.autoRenew && <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>Auto-renews</div>}
                             {site.uptimeEnabled && (
                               <div style={{ fontSize: "11px", marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" }}>
-                                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: site.isUp ? "#00d4aa" : "#ff4d6d", flexShrink: 0 }} />
-                                <span style={{ color: site.isUp ? "#00d4aa" : "#ff4d6d", fontWeight: 500 }}>{site.isUp ? "Up" : "Down"}</span>
+                                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: site.isUp ? "var(--accent2)" : "var(--danger)", flexShrink: 0 }} />
+                                <span style={{ color: site.isUp ? "var(--accent2)" : "var(--danger)", fontWeight: 500 }}>{site.isUp ? "Up" : "Down"}</span>
                                 {site.responseTimeMs != null && <span style={{ color: "var(--color-text-muted)" }}>· {site.responseTimeMs}ms</span>}
                                 {site.uptimeCheckedAt && <span style={{ color: "var(--color-text-muted)" }}>· {new Date(site.uptimeCheckedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
                               </div>
@@ -4061,19 +4061,19 @@ export default function ClientDetailPage() {
               const typeConfig: Record<string, { label: string; color: string }> = {
                 TECH_NOTE:           { label: "Tech note",    color: "#6366f1" },
                 SITE_VISIT:          { label: "Site visit",   color: "#0ea5e9" },
-                KNOWN_ISSUE:         { label: "Known issue",  color: "#ffb347" },
+                KNOWN_ISSUE:         { label: "Known issue",  color: "var(--warn)" },
                 PLANNED_MAINTENANCE: { label: "Maintenance",  color: "#8b5cf6" },
-                CREDENTIAL_ROTATED:  { label: "Credential",   color: "#00d4aa" },
-                LICENSE_CHANGED:     { label: "License",      color: "#00d4aa" },
-                ASSET_ADDED:         { label: "Asset added",  color: "#00d4aa" },
-                ASSET_RETIRED:       { label: "Asset retired",color: "#94a3b8" },
-                ASSET_UPDATED:       { label: "Asset update", color: "#94a3b8" },
-                API_SYNC:            { label: "Sync",         color: "#94a3b8" },
-                ALARM_TRIGGERED:     { label: "Alarm",        color: "#ff4d6d" },
-                USER_ADDED:          { label: "User added",   color: "#00d4aa" },
-                USER_REMOVED:        { label: "User removed", color: "#94a3b8" },
+                CREDENTIAL_ROTATED:  { label: "Credential",   color: "var(--accent2)" },
+                LICENSE_CHANGED:     { label: "License",      color: "var(--accent2)" },
+                ASSET_ADDED:         { label: "Asset added",  color: "var(--accent2)" },
+                ASSET_RETIRED:       { label: "Asset retired",color: "var(--muted)" },
+                ASSET_UPDATED:       { label: "Asset update", color: "var(--muted)" },
+                API_SYNC:            { label: "Sync",         color: "var(--muted)" },
+                ALARM_TRIGGERED:     { label: "Alarm",        color: "var(--danger)" },
+                USER_ADDED:          { label: "User added",   color: "var(--accent2)" },
+                USER_REMOVED:        { label: "User removed", color: "var(--muted)" },
               }
-              const cfg = typeConfig[event.eventType] ?? { label: event.eventType, color: "#94a3b8" }
+              const cfg = typeConfig[event.eventType] ?? { label: event.eventType, color: "var(--muted)" }
               return (
                 <div key={event.id} style={{
                   display: "flex", gap: "14px", marginBottom: "12px",

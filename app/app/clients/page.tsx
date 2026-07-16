@@ -29,11 +29,11 @@ function relativeTime(iso: string | null): string {
 
 function healthPillStyle(score: number | undefined): React.CSSProperties {
   if (score === undefined) {
-    return { background: "rgba(148,163,184,0.14)", color: "#64748b" }
+    return { background: "rgba(148,163,184,0.14)", color: "var(--muted)" }
   }
-  if (score >= 80) return { background: "rgba(34,197,94,0.14)", color: "#16a34a" }
-  if (score >= 50) return { background: "rgba(245,158,11,0.14)", color: "#b45309" }
-  return { background: "rgba(239,68,68,0.14)", color: "#dc2626" }
+  if (score >= 80) return { background: "rgba(0,212,170,0.14)", color: "var(--accent2)" }
+  if (score >= 50) return { background: "rgba(255,179,71,0.14)", color: "var(--warn)" }
+  return { background: "rgba(255,77,109,0.14)", color: "var(--danger)" }
 }
 
 // Inner component holds the useSearchParams() call — Next.js requires
@@ -275,7 +275,7 @@ function ClientsPageInner() {
                     <span style={{
                       display: "inline-block", fontSize: "11px", fontWeight: 600,
                       padding: "2px 7px", borderRadius: "10px",
-                      background: "rgba(239,68,68,0.12)", color: "#ff4d6d",
+                      background: "rgba(255,77,109,0.12)", color: "var(--danger)",
                     }}>
                       {client._count.alarms}
                     </span>

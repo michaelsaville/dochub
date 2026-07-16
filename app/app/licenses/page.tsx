@@ -39,7 +39,7 @@ const SOURCE_LABELS: Record<string, string> = {
 }
 
 const SOURCE_DEFAULTS: Record<string, string> = {
-  SYNCRO: "#3d6fff", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "#00d4aa", PULSEWAY: "#ec4899",
+  SYNCRO: "var(--accent)", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "var(--accent2)", PULSEWAY: "#ec4899",
   MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
 }
 
@@ -92,7 +92,7 @@ function sourceTag(
 ) {
   const src = dataSource || (fallbackPax8Id ? "PAX8" : "MANUAL")
   if (src === "MANUAL") return null
-  const color = colors?.[src] ?? SOURCE_DEFAULTS[src] ?? "#64748b"
+  const color = colors?.[src] ?? SOURCE_DEFAULTS[src] ?? "var(--muted)"
   const label = SOURCE_LABELS[src] ?? src
   return <SourceStamp sourceKey={src} color={color} label={label} />
 }

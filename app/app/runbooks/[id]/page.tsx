@@ -208,7 +208,7 @@ export default function RunbookViewPage() {
 
         {/* Active run banner */}
         {activeRun && (
-          <div style={{ background: "rgba(59,130,246,0.08)", border: "0.5px solid rgba(59,130,246,0.3)", borderRadius: "10px", padding: "14px 20px", marginBottom: "20px" }}>
+          <div style={{ background: "rgba(61,111,255,0.08)", border: "0.5px solid rgba(61,111,255,0.3)", borderRadius: "10px", padding: "14px 20px", marginBottom: "20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
               <div>
                 <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)" }}>
@@ -224,7 +224,7 @@ export default function RunbookViewPage() {
                 <button
                   onClick={() => finishRun("COMPLETED")}
                   disabled={finishingRun}
-                  style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "#00d4aa", color: "#fff", cursor: "pointer" }}
+                  style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--accent2)", color: "#fff", cursor: "pointer" }}
                 >
                   Complete
                 </button>
@@ -258,7 +258,7 @@ export default function RunbookViewPage() {
             )}
             {!runbook.clientId && <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>Global</span>}
             {runbook.client && (
-              <button onClick={() => router.push(`/clients/${runbook.client.id}`)} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "#3d6fff22", color: "#3d6fff", border: "none", cursor: "pointer" }}>
+              <button onClick={() => router.push(`/clients/${runbook.client.id}`)} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "rgba(61,111,255,0.13)", color: "var(--accent)", border: "none", cursor: "pointer" }}>
                 {runbook.client.name} ↗
               </button>
             )}
@@ -294,11 +294,11 @@ export default function RunbookViewPage() {
 
             {/* Progress bar */}
             <div style={{ height: "4px", background: "var(--color-background-hover)", borderRadius: "2px", marginBottom: "16px", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${totalSteps ? (completedCount / totalSteps) * 100 : 0}%`, background: allDone ? "#00d4aa" : "#3d6fff", borderRadius: "2px", transition: "width 0.3s ease" }} />
+              <div style={{ height: "100%", width: `${totalSteps ? (completedCount / totalSteps) * 100 : 0}%`, background: allDone ? "var(--accent2)" : "var(--accent)", borderRadius: "2px", transition: "width 0.3s ease" }} />
             </div>
 
             {allDone && !activeRun && (
-              <div style={{ padding: "12px 16px", background: "#00d4aa22", border: "1px solid #00d4aa44", borderRadius: "8px", fontSize: "14px", color: "#00d4aa", fontWeight: 500, marginBottom: "16px" }}>
+              <div style={{ padding: "12px 16px", background: "rgba(0,212,170,0.13)", border: "1px solid rgba(0,212,170,0.27)", borderRadius: "8px", fontSize: "14px", color: "var(--accent2)", fontWeight: 500, marginBottom: "16px" }}>
                 All steps complete ✓
               </div>
             )}
@@ -317,7 +317,7 @@ export default function RunbookViewPage() {
                         style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "12px 14px", cursor: isSaving ? "wait" : "pointer" }}
                         onClick={() => !isSaving && toggleStep(completion)}
                       >
-                        <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: `2px solid ${done ? "#00d4aa" : "var(--color-border-secondary)"}`, background: done ? "#00d4aa" : "transparent", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+                        <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: `2px solid ${done ? "var(--accent2)" : "var(--color-border-secondary)"}`, background: done ? "var(--accent2)" : "transparent", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
                           {done && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700 }}>✓</span>}
                         </div>
                         <div style={{ flex: 1 }}>
@@ -361,7 +361,7 @@ export default function RunbookViewPage() {
                   <div key={step.id} onClick={() => setChecked(c => ({ ...c, [i]: !c[i] }))}
                     style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "12px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", background: checked[i] ? "var(--color-background-secondary)" : "var(--color-background-primary)", cursor: "pointer", transition: "background 0.15s" }}
                   >
-                    <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: `2px solid ${checked[i] ? "#00d4aa" : "var(--color-border-secondary)"}`, background: checked[i] ? "#00d4aa" : "transparent", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+                    <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: `2px solid ${checked[i] ? "var(--accent2)" : "var(--color-border-secondary)"}`, background: checked[i] ? "var(--accent2)" : "transparent", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
                       {checked[i] && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700 }}>✓</span>}
                     </div>
                     <div style={{ flex: 1 }}>
@@ -415,7 +415,7 @@ export default function RunbookViewPage() {
                 ) : pastRuns.map(run => {
                   const done = run.steps.filter(s => s.completed).length
                   const total = run.steps.length
-                  const statusColor = run.status === "COMPLETED" ? "#00d4aa" : run.status === "ABANDONED" ? "#ff4d6d" : "#3d6fff"
+                  const statusColor = run.status === "COMPLETED" ? "var(--accent2)" : run.status === "ABANDONED" ? "var(--danger)" : "var(--accent)"
                   const statusLabel = run.status === "COMPLETED" ? "Completed" : run.status === "ABANDONED" ? "Abandoned" : "In progress"
                   return (
                     <div key={run.id} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "10px 14px", marginBottom: "4px", background: "var(--color-background-secondary)", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)" }}>

@@ -39,11 +39,11 @@ const CATEGORIES: { key: AlertCategory | "all"; label: string }[] = [
 ]
 
 const urgencyConfig: Record<AlertUrgency, { label: string; bg: string; color: string }> = {
-  expired:  { label: "Expired",  bg: "#fef2f2", color: "#dc2626" },
-  critical: { label: "Critical", bg: "#fef2f2", color: "#ff4d6d" },
-  warning:  { label: "Warning",  bg: "#fffbeb", color: "#ffb347" },
-  upcoming: { label: "Upcoming", bg: "#f0fdf4", color: "#00d4aa" },
-  info:     { label: "Info",     bg: "#f5f3ff", color: "#6366f1" },
+  expired:  { label: "Expired",  bg: "rgba(255,77,109,0.12)", color: "var(--danger)" },
+  critical: { label: "Critical", bg: "rgba(255,77,109,0.12)", color: "var(--danger)" },
+  warning:  { label: "Warning",  bg: "rgba(255,179,71,0.12)", color: "var(--warn)" },
+  upcoming: { label: "Upcoming", bg: "rgba(0,212,170,0.12)", color: "var(--accent2)" },
+  info:     { label: "Info",     bg: "rgba(99,102,241,0.12)", color: "#6366f1" },
 }
 
 const categoryIcons: Record<AlertCategory, string> = {
@@ -91,10 +91,10 @@ export default function UnifiedAlertsPage() {
         {/* Stat tiles */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
           {[
-            { label: "Expired", value: stats.expired, color: "#ff4d6d", filter: "expired" as const },
-            { label: "Critical", value: stats.critical, color: "#ffb347", filter: "critical" as const },
+            { label: "Expired", value: stats.expired, color: "var(--danger)", filter: "expired" as const },
+            { label: "Critical", value: stats.critical, color: "var(--warn)", filter: "critical" as const },
             { label: "Warning", value: stats.warning, color: "#eab308", filter: "warning" as const },
-            { label: "Upcoming", value: stats.upcoming, color: "#00d4aa", filter: "upcoming" as const },
+            { label: "Upcoming", value: stats.upcoming, color: "var(--accent2)", filter: "upcoming" as const },
             { label: "Total", value: stats.total, color: "var(--muted)", filter: "all" as const },
           ].map(s => (
             <button
@@ -186,7 +186,7 @@ export default function UnifiedAlertsPage() {
                   </div>
 
                   {/* Expiry */}
-                  <div style={{ fontSize: "11px", fontFamily: "var(--mono)", color: alert.urgency === "expired" ? "#ff4d6d" : "var(--muted)" }}>
+                  <div style={{ fontSize: "11px", fontFamily: "var(--mono)", color: alert.urgency === "expired" ? "var(--danger)" : "var(--muted)" }}>
                     {alert.expiresAt ? daysUntil(alert.expiresAt) : "—"}
                   </div>
 

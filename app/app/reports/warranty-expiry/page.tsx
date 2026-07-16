@@ -54,7 +54,7 @@ export default function WarrantyExpiryReport() {
     if (!date) return { label: "—", color: "var(--color-text-muted)" }
     const d = new Date(date)
     if (d < now) return { label: `Expired ${d.toLocaleDateString()}`, color: "var(--color-text-danger)" }
-    if (d < cutoff) return { label: `Expires ${d.toLocaleDateString()}`, color: "#ffb347" }
+    if (d < cutoff) return { label: `Expires ${d.toLocaleDateString()}`, color: "var(--warn)" }
     return { label: d.toLocaleDateString(), color: "var(--color-text-primary)" }
   }
 
@@ -117,8 +117,8 @@ export default function WarrantyExpiryReport() {
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "28px" }}>
             <ReportStat label="Expired" value={expired.length} color={expired.length > 0 ? "var(--color-text-danger)" : undefined} />
-            <ReportStat label={`Expiring within ${days} days`} value={expiringSoon.length} color={expiringSoon.length > 0 ? "#ffb347" : undefined} />
-            <ReportStat label="Valid" value={valid.length} color={valid.length > 0 ? "#00d4aa" : undefined} />
+            <ReportStat label={`Expiring within ${days} days`} value={expiringSoon.length} color={expiringSoon.length > 0 ? "var(--warn)" : undefined} />
+            <ReportStat label="Valid" value={valid.length} color={valid.length > 0 ? "var(--accent2)" : undefined} />
           </div>
 
           {expired.length > 0 && (

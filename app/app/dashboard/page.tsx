@@ -80,16 +80,16 @@ function daysUntil(iso: string) {
 
 function expiryColor(iso: string) {
   const d = daysUntil(iso)
-  if (d < 0) return "#ff4d6d"
-  if (d <= 7) return "#ff4d6d"
-  if (d <= 30) return "#ffb347"
-  return "#00d4aa"
+  if (d < 0) return "var(--danger)"
+  if (d <= 7) return "var(--danger)"
+  if (d <= 30) return "var(--warn)"
+  return "var(--accent2)"
 }
 
 function alarmColor(severity: string) {
-  if (severity === "CRITICAL") return "#ff4d6d"
-  if (severity === "WARNING") return "#ffb347"
-  return "#3d6fff"
+  if (severity === "CRITICAL") return "var(--danger)"
+  if (severity === "WARNING") return "var(--warn)"
+  return "var(--accent)"
 }
 
 export default function DashboardPage() {
@@ -181,7 +181,7 @@ export default function DashboardPage() {
               <div style={{ fontSize: "13px", fontWeight: 500 }}>Soonest expirations</div>
               <button
                 onClick={() => router.push("/expirations")}
-                style={{ fontSize: "11px", color: "var(--color-accent, #3d6fff)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                style={{ fontSize: "11px", color: "var(--color-accent, var(--accent))", background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 View all
               </button>
@@ -219,7 +219,7 @@ export default function DashboardPage() {
               <div style={{ fontSize: "13px", fontWeight: 500 }}>Active alarms</div>
               <button
                 onClick={() => router.push("/alarms")}
-                style={{ fontSize: "11px", color: "var(--color-accent, #3d6fff)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                style={{ fontSize: "11px", color: "var(--color-accent, var(--accent))", background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 View all
               </button>
@@ -258,14 +258,14 @@ export default function DashboardPage() {
               <div style={{ fontSize: "13px", fontWeight: 500 }}>
                 Docs flagged for review
                 {flaggedDocs.length > 0 && (
-                  <span style={{ marginLeft: 6, fontSize: 11, color: "#b45309" }}>
+                  <span style={{ marginLeft: 6, fontSize: 11, color: "var(--warn)" }}>
                     {flaggedDocs.length}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => router.push("/docs/review")}
-                style={{ fontSize: "11px", color: "var(--color-accent, #3d6fff)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                style={{ fontSize: "11px", color: "var(--color-accent, var(--accent))", background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 View all
               </button>
@@ -305,14 +305,14 @@ export default function DashboardPage() {
               <div style={{ fontSize: "13px", fontWeight: 500 }}>
                 Integration errors
                 {syncRows.length > 0 && (
-                  <span style={{ marginLeft: 6, fontSize: 11, color: "#dc2626" }}>
+                  <span style={{ marginLeft: 6, fontSize: 11, color: "var(--danger)" }}>
                     {syncRows.length}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => router.push("/settings?section=sync-status")}
-                style={{ fontSize: "11px", color: "var(--color-accent, #3d6fff)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                style={{ fontSize: "11px", color: "var(--color-accent, var(--accent))", background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 View all
               </button>

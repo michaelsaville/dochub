@@ -583,7 +583,7 @@ export default function ImportPage() {
                     <div style={{ fontSize: "13px", color: skip ? "var(--color-text-muted)" : "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: skip ? "line-through" : "none" }}>
                       {data.name || data.label || "—"}
                     </div>
-                    <div style={{ fontSize: "12px", color: skip ? "var(--color-text-muted)" : "#00d4aa" }}>{skip ? "skip" : "import"}</div>
+                    <div style={{ fontSize: "12px", color: skip ? "var(--color-text-muted)" : "var(--accent2)" }}>{skip ? "skip" : "import"}</div>
                   </div>
                 ))}
               </div>
@@ -600,7 +600,7 @@ export default function ImportPage() {
               <button
                 onClick={executeImport}
                 disabled={importing}
-                style={{ fontSize: "14px", fontWeight: 500, padding: "10px 24px", borderRadius: "8px", border: "none", background: "#00d4aa", color: "#fff", cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.7 : 1 }}
+                style={{ fontSize: "14px", fontWeight: 500, padding: "10px 24px", borderRadius: "8px", border: "none", background: "var(--accent2)", color: "#fff", cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.7 : 1 }}
               >
                 {importing ? "Importing..." : "Confirm & import"}
               </button>
@@ -615,7 +615,7 @@ export default function ImportPage() {
             <div style={{ fontSize: "18px", fontWeight: 600, color: "var(--color-text-primary)", marginBottom: "16px" }}>Import complete</div>
             <div style={{ display: "flex", gap: "24px", marginBottom: "24px" }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "32px", fontWeight: 700, color: "#00d4aa" }}>{importResult.created}</div>
+                <div style={{ fontSize: "32px", fontWeight: 700, color: "var(--accent2)" }}>{importResult.created}</div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Created</div>
               </div>
               <div style={{ textAlign: "center" }}>
@@ -624,7 +624,7 @@ export default function ImportPage() {
               </div>
               {importResult.errors.length > 0 && (
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "32px", fontWeight: 700, color: "#ff4d6d" }}>{importResult.errors.length}</div>
+                  <div style={{ fontSize: "32px", fontWeight: 700, color: "var(--danger)" }}>{importResult.errors.length}</div>
                   <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>Errors</div>
                 </div>
               )}
@@ -633,7 +633,7 @@ export default function ImportPage() {
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", padding: "16px", marginBottom: "20px" }}>
                 <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)", marginBottom: "8px" }}>Errors</div>
                 {importResult.errors.map((e, i) => (
-                  <div key={i} style={{ fontSize: "12px", color: "#ff4d6d", fontFamily: "monospace", marginBottom: "4px" }}>{e}</div>
+                  <div key={i} style={{ fontSize: "12px", color: "var(--danger)", fontFamily: "monospace", marginBottom: "4px" }}>{e}</div>
                 ))}
               </div>
             )}

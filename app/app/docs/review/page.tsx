@@ -134,8 +134,8 @@ export default function DocReviewQueuePage() {
                       fontSize: "12px", padding: "6px 12px",
                       borderRadius: "6px",
                       border: "0.5px solid var(--color-border-secondary)",
-                      background: marking === d.id ? "var(--color-background-secondary)" : "rgba(34,197,94,0.12)",
-                      color: "#16a34a", cursor: marking === d.id ? "wait" : "pointer",
+                      background: marking === d.id ? "var(--color-background-secondary)" : "rgba(0,212,170,0.12)",
+                      color: "var(--accent2)", cursor: marking === d.id ? "wait" : "pointer",
                       fontWeight: 500,
                     }}
                   >

@@ -589,8 +589,8 @@ export default function AssetDetailPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: "22px", fontWeight: 500, margin: 0 }}>{displayName}</h1>
-              <span style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", color: statusColor[asset.status] ?? "#94a3b8" }}>
-                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: statusColor[asset.status] ?? "#94a3b8", display: "inline-block" }} />
+              <span style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", color: statusColor[asset.status] ?? "var(--muted)" }}>
+                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: statusColor[asset.status] ?? "var(--muted)", display: "inline-block" }} />
                 {asset.status.charAt(0) + asset.status.slice(1).toLowerCase()}
               </span>
               <span style={{ fontSize: "12px", padding: "2px 8px", borderRadius: "5px", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", color: "var(--color-text-secondary)" }}>
@@ -887,20 +887,20 @@ export default function AssetDetailPage() {
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "13px", fontWeight: 500 }}>{iface.name}</span>
                         {iface.isPrimary && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>primary</span>}
-                        {iface.type !== "ETHERNET" && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: iface.type === "TAILSCALE" ? "rgba(74,144,226,0.15)" : "var(--color-background-hover)", color: iface.type === "TAILSCALE" ? "#4A90E2" : "var(--color-text-muted)" }}>{iface.type.toLowerCase()}</span>}
+                        {iface.type !== "ETHERNET" && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: iface.type === "TAILSCALE" ? "rgba(61,111,255,0.15)" : "var(--color-background-hover)", color: iface.type === "TAILSCALE" ? "var(--accent)" : "var(--color-text-muted)" }}>{iface.type.toLowerCase()}</span>}
                       </div>
                       <div style={{ display: "flex", gap: "6px" }}>
                         <button onClick={() => { setEditingIface(iface.id); setIfaceEditForm({ name: iface.name, ipAddress: iface.ipAddress ?? "", macAddress: iface.macAddress ?? "", vlanId: iface.vlan?.id ?? "", notes: iface.notes ?? "", tailscaleIp: iface.tailscaleIp ?? "", tailscaleHostname: iface.tailscaleHostname ?? "", tailscaleDeviceId: iface.tailscaleDeviceId ?? "", tailscaleIsExitNode: iface.tailscaleIsExitNode, tailscaleIsSubnetRouter: iface.tailscaleIsSubnetRouter, tailscaleSubnets: iface.tailscaleSubnets ?? "", tailscaleTags: iface.tailscaleTags ?? "", tailscaleOs: iface.tailscaleOs ?? "", tailscaleVersion: iface.tailscaleVersion ?? "" }) }}
                           style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }}>Edit</button>
                         <button onClick={() => deleteInterface(iface.id)}
-                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", padding: 0 }}>×</button>
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, var(--danger))", padding: 0 }}>×</button>
                       </div>
                     </div>
                     {iface.ipAddress && (
                       <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{iface.ipAddress}</div>
                     )}
                     {iface.type === "TAILSCALE" && iface.tailscaleIp && (
-                      <div style={{ fontSize: "12px", fontFamily: "monospace", color: "#4A90E2" }}>{iface.tailscaleIp}{iface.tailscaleHostname ? ` (${iface.tailscaleHostname})` : ""}</div>
+                      <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--accent)" }}>{iface.tailscaleIp}{iface.tailscaleHostname ? ` (${iface.tailscaleHostname})` : ""}</div>
                     )}
                     {iface.macAddress && (
                       <div style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>{iface.macAddress}</div>
@@ -1067,7 +1067,7 @@ export default function AssetDetailPage() {
                       {synologyConfig.lastSyncedAt ? `Last synced ${new Date(synologyConfig.lastSyncedAt).toLocaleString()}` : "Never synced — hit Sync now"}
                     </div>
                     {synologySyncResult && (
-                      <div style={{ fontSize: "12px", marginBottom: "10px", color: synologySyncResult.success ? "#00d4aa" : "#ff4d6d" }}>
+                      <div style={{ fontSize: "12px", marginBottom: "10px", color: synologySyncResult.success ? "var(--accent2)" : "var(--danger)" }}>
                         {synologySyncResult.success ? `Synced — ${synologySyncResult.jobs} job(s) found` : `Error: ${synologySyncResult.error}`}
                       </div>
                     )}
@@ -1076,8 +1076,8 @@ export default function AssetDetailPage() {
                     ) : (
                       <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "8px", overflow: "hidden" }}>
                         {synologyConfig.backupJobs?.map((job: any, i: number) => {
-                          const resultColor: Record<string, string> = { success: "#00d4aa", error: "#ff4d6d", warning: "#ffb347", running: "#3d6fff", unfinished: "#94a3b8", none: "#94a3b8" }
-                          const color = resultColor[job.lastResult] ?? "#94a3b8"
+                          const resultColor: Record<string, string> = { success: "var(--accent2)", error: "var(--danger)", warning: "var(--warn)", running: "var(--accent)", unfinished: "var(--muted)", none: "var(--muted)" }
+                          const color = resultColor[job.lastResult] ?? "var(--muted)"
                           return (
                             <div key={job.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", borderBottom: i < synologyConfig.backupJobs.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none", background: "var(--color-background-primary)" }}>
                               <div>
@@ -1269,7 +1269,7 @@ export default function AssetDetailPage() {
                           )}
                         </div>
                         <button onClick={() => removeAssetLink(link.id)}
-                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, #ff4d6d)", padding: 0, flexShrink: 0 }}>
+                          style={{ fontSize: "11px", background: "none", border: "none", cursor: "pointer", color: "var(--color-text-danger, var(--danger))", padding: 0, flexShrink: 0 }}>
                           x
                         </button>
                       </div>
@@ -1468,7 +1468,7 @@ export default function AssetDetailPage() {
                             </span>
                           )}
                           {cam.type && cam.type !== "IP_POE" && (
-                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(148,163,184,0.15)", color: "#94a3b8" }}>
+                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(148,163,184,0.15)", color: "var(--muted)" }}>
                               {cam.type.replace(/_/g, " ")}
                             </span>
                           )}
@@ -1497,12 +1497,12 @@ export default function AssetDetailPage() {
                 <div style={cardTitle}>TicketHub Tickets</div>
                 {tickethubTickets.map((t: any, i: number) => {
                   const statusColors: Record<string, string> = {
-                    NEW: "#3d6fff", OPEN: "#2563eb", IN_PROGRESS: "#ffb347",
+                    NEW: "var(--accent)", OPEN: "#2563eb", IN_PROGRESS: "var(--warn)",
                     WAITING_CUSTOMER: "#8b5cf6", WAITING_THIRD_PARTY: "#8b5cf6",
-                    RESOLVED: "#00d4aa", CLOSED: "#6b7280", CANCELLED: "#374151",
+                    RESOLVED: "var(--accent2)", CLOSED: "#6b7280", CANCELLED: "#374151",
                   }
                   const priorityColors: Record<string, string> = {
-                    URGENT: "#ff4d6d", HIGH: "#f97316", MEDIUM: "#3d6fff", LOW: "#6b7280",
+                    URGENT: "var(--danger)", HIGH: "#f97316", MEDIUM: "var(--accent)", LOW: "#6b7280",
                   }
                   const tickethubUrl = (typeof window !== "undefined" ? "" : "") + (process.env.NEXT_PUBLIC_TICKETHUB_URL || "https://tickethub.pcc2k.com")
                   const isClosed = t.status === "CLOSED" || t.status === "CANCELLED" || t.status === "RESOLVED"

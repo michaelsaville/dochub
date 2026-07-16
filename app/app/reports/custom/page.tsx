@@ -89,7 +89,7 @@ export default function CustomReportsList() {
               <button
                 onClick={() => del(r.id, r.name)}
                 disabled={deleting === r.id}
-                style={{ padding: "5px 14px", borderRadius: "6px", border: "0.5px solid rgba(239,68,68,0.3)", cursor: "pointer", background: "none", color: "var(--color-text-danger)", fontSize: "12px" }}
+                style={{ padding: "5px 14px", borderRadius: "6px", border: "0.5px solid rgba(255,77,109,0.3)", cursor: "pointer", background: "none", color: "var(--color-text-danger)", fontSize: "12px" }}
               >
                 Delete
               </button>

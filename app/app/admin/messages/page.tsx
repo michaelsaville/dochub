@@ -101,7 +101,7 @@ export default function AdminMessagesPage() {
         </div>
 
         {error && (
-          <div style={{ marginBottom: "16px", padding: "12px 16px", border: "1px solid var(--danger, #dc2626)", background: "rgba(220,38,38,0.05)", color: "var(--danger, #dc2626)", borderRadius: "8px", fontSize: "13px" }}>
+          <div style={{ marginBottom: "16px", padding: "12px 16px", border: "1px solid var(--danger, var(--danger))", background: "rgba(255,77,109,0.05)", color: "var(--danger, var(--danger))", borderRadius: "8px", fontSize: "13px" }}>
             {error}
           </div>
         )}
@@ -166,7 +166,7 @@ export default function AdminMessagesPage() {
                         </div>
                         <button
                           onClick={() => setExpanded((p) => ({ ...p, [t.key]: !isOpen }))}
-                          style={{ marginTop: "10px", background: "transparent", border: "none", color: "var(--accent, #3d6fff)", cursor: "pointer", fontSize: "12px", padding: 0 }}
+                          style={{ marginTop: "10px", background: "transparent", border: "none", color: "var(--accent, var(--accent))", cursor: "pointer", fontSize: "12px", padding: 0 }}
                         >
                           {isOpen ? "Hide preview ↑" : "Preview with sample data ↓"}
                         </button>
@@ -276,7 +276,7 @@ export default function AdminMessagesPage() {
                         <td style={{ padding: "8px 12px" }}>
                           <div>{m.subject}</div>
                           {m.errorMessage && (
-                            <div style={{ fontSize: "11px", color: "var(--danger, #dc2626)", marginTop: "2px" }}>{m.errorMessage}</div>
+                            <div style={{ fontSize: "11px", color: "var(--danger, var(--danger))", marginTop: "2px" }}>{m.errorMessage}</div>
                           )}
                         </td>
                         <td style={{ padding: "8px 12px" }}>
@@ -287,8 +287,8 @@ export default function AdminMessagesPage() {
                               borderRadius: "10px",
                               fontSize: "11px",
                               fontWeight: 500,
-                              background: m.status === "SENT" ? "rgba(34,197,94,0.12)" : "rgba(220,38,38,0.12)",
-                              color: m.status === "SENT" ? "var(--success, #15803d)" : "var(--danger, #dc2626)",
+                              background: m.status === "SENT" ? "rgba(0,212,170,0.12)" : "rgba(255,77,109,0.12)",
+                              color: m.status === "SENT" ? "var(--accent2)" : "var(--danger)",
                             }}
                           >
                             {m.status}

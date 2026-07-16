@@ -95,14 +95,14 @@ export default function SharedResourcePage() {
   }
 
   if (status === "loading") {
-    return <div style={frame}><p style={{ color: "#64748b" }}>Loading…</p></div>
+    return <div style={frame}><p style={{ color: "var(--muted)" }}>Loading…</p></div>
   }
 
   if (status === "expired") {
     return (
       <div style={frame}>
         <h1 style={{ fontSize: 20, fontWeight: 500 }}>Link expired</h1>
-        <p style={{ color: "#64748b", marginTop: 8 }}>
+        <p style={{ color: "var(--muted)", marginTop: 8 }}>
           This link has either reached its view limit, expired, or was never valid.
           Ask the person who shared it to generate a new one.
         </p>
@@ -114,7 +114,7 @@ export default function SharedResourcePage() {
     return (
       <div style={frame}>
         <h1 style={{ fontSize: 20, fontWeight: 500 }}>Something went wrong</h1>
-        <p style={{ color: "#64748b", marginTop: 8 }}>Try again in a moment.</p>
+        <p style={{ color: "var(--muted)", marginTop: 8 }}>Try again in a moment.</p>
       </div>
     )
   }
@@ -123,7 +123,7 @@ export default function SharedResourcePage() {
     return (
       <div style={frame}>
         <h1 style={{ fontSize: 20, fontWeight: 500 }}>Enter passphrase</h1>
-        <p style={{ color: "#64748b", marginTop: 8, marginBottom: 16, fontSize: 14 }}>
+        <p style={{ color: "var(--muted)", marginTop: 8, marginBottom: 16, fontSize: 14 }}>
           This {meta?.resourceType ?? "resource"} is passphrase-protected.
         </p>
         <input
@@ -135,15 +135,16 @@ export default function SharedResourcePage() {
           placeholder="Passphrase"
           style={{
             width: "100%", padding: "10px 12px", fontSize: 14,
-            border: "0.5px solid #cbd5e1", borderRadius: 8,
+            border: "0.5px solid var(--border)", borderRadius: 8,
+            background: "var(--surface)", color: "var(--text)",
           }}
         />
-        {error && <p style={{ color: "#dc2626", fontSize: 13, marginTop: 8 }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{error}</p>}
         <button
           onClick={() => reveal(passphrase)}
           style={{
             marginTop: 12, padding: "10px 20px", fontSize: 14, fontWeight: 500,
-            background: "#3d6fff", color: "#fff", border: "none", borderRadius: 8,
+            background: "var(--accent)", color: "#fff", border: "none", borderRadius: 8,
             cursor: "pointer",
           }}
         >
@@ -157,13 +158,13 @@ export default function SharedResourcePage() {
     const d = payload.data
     return (
       <div style={frame}>
-        <div style={{ marginBottom: 4, fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <div style={{ marginBottom: 4, fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
           Shared credential · one-time reveal
         </div>
         <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 20 }}>{d.label}</h1>
         {d.url && (
           <Row label="URL">
-            <a href={d.url} target="_blank" rel="noreferrer" style={{ color: "#3d6fff", textDecoration: "none", wordBreak: "break-all" }}>
+            <a href={d.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", textDecoration: "none", wordBreak: "break-all" }}>
               {d.url}
             </a>
           </Row>
@@ -175,9 +176,9 @@ export default function SharedResourcePage() {
           <CopyField value={d.password} copied={copied === "p"} onCopy={() => copy("p", d.password)} mono />
         </Row>
         {d.notes && <Row label="Notes">
-          <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13, color: "#334155", margin: 0 }}>{d.notes}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13, color: "var(--text)", margin: 0 }}>{d.notes}</pre>
         </Row>}
-        <div style={{ marginTop: 24, fontSize: 12, color: "#94a3b8" }}>
+        <div style={{ marginTop: 24, fontSize: 12, color: "var(--muted)" }}>
           For your eyes only. This page won't work again after you close it.
         </div>
       </div>
@@ -188,12 +189,12 @@ export default function SharedResourcePage() {
     const d = payload.data
     return (
       <div style={frame}>
-        <div style={{ marginBottom: 4, fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <div style={{ marginBottom: 4, fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
           Shared document · one-time view
         </div>
         <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: 16 }}>{d.title}</h1>
-        {d.category && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>{d.category}</div>}
-        <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, color: "#334155", lineHeight: 1.6, margin: 0 }}>
+        {d.category && <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{d.category}</div>}
+        <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>
           {d.content || "(empty)"}
         </pre>
       </div>
@@ -205,9 +206,9 @@ export default function SharedResourcePage() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ padding: "8px 0", borderBottom: "0.5px solid #e2e8f0" }}>
-      <div style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 14, color: "#0f172a" }}>{children}</div>
+    <div style={{ padding: "8px 0", borderBottom: "0.5px solid var(--border)" }}>
+      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 14, color: "var(--text)" }}>{children}</div>
     </div>
   )
 }
@@ -215,15 +216,15 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function CopyField({ value, copied, onCopy, mono }: { value: string; copied: boolean; onCopy: () => void; mono?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <code style={{ fontFamily: mono ? "ui-monospace, monospace" : "inherit", background: "#f1f5f9", padding: "4px 8px", borderRadius: 6, flex: 1, wordBreak: "break-all" }}>
+      <code style={{ fontFamily: mono ? "ui-monospace, monospace" : "inherit", background: "var(--card)", padding: "4px 8px", borderRadius: 6, flex: 1, wordBreak: "break-all" }}>
         {value}
       </code>
       <button
         onClick={onCopy}
         style={{
           fontSize: 12, padding: "4px 10px",
-          background: copied ? "#16a34a" : "#e2e8f0",
-          color: copied ? "#fff" : "#0f172a",
+          background: copied ? "var(--accent2)" : "var(--card)",
+          color: copied ? "#fff" : "var(--text)",
           border: "none", borderRadius: 6, cursor: "pointer",
         }}
       >

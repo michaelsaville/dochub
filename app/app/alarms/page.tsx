@@ -20,9 +20,9 @@ type Alarm = {
 type Client = { id: string; name: string }
 
 const severityConfig = {
-  CRITICAL: { label: "Critical", color: "#ff4d6d", bg: "#fef2f2" },
-  WARNING:  { label: "Warning",  color: "#ffb347", bg: "#fffbeb" },
-  INFO:     { label: "Info",     color: "#6366f1", bg: "#f5f3ff" },
+  CRITICAL: { label: "Critical", color: "var(--danger)", bg: "rgba(255,77,109,0.12)" },
+  WARNING:  { label: "Warning",  color: "var(--warn)", bg: "rgba(255,179,71,0.12)" },
+  INFO:     { label: "Info",     color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
 }
 
 const inputStyle = {
@@ -264,7 +264,7 @@ export default function AlarmsPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   {alarm.status === "ACTIVE" && <>
-                    <button onClick={() => updateAlarm(alarm.id, "resolve")} style={{ fontSize: "12px", color: "#00d4aa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Resolve</button>
+                    <button onClick={() => updateAlarm(alarm.id, "resolve")} style={{ fontSize: "12px", color: "var(--accent2)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Resolve</button>
                     <button onClick={() => updateAlarm(alarm.id, "dismiss")} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Dismiss</button>
                   </>}
                   {(alarm.status === "DISMISSED" || alarm.status === "RESOLVED") && (

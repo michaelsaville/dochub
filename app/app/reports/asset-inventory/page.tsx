@@ -52,7 +52,7 @@ export default function AssetInventoryReport() {
     const d = new Date(date)
     if (d < now) return "var(--color-text-danger)"
     const soon = new Date(now.getTime() + 90 * 86400 * 1000)
-    if (d < soon) return "#ffb347"
+    if (d < soon) return "var(--warn)"
     return undefined
   }
 
