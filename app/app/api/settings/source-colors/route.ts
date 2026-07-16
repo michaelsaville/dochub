@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { SOURCE_DEFAULTS } from "@/lib/source-colors"
 
 const SETTING_KEY = "source_colors"
 
-const DEFAULTS: Record<string, string> = {
-  SYNCRO:   "#3b82f6",
-  UNIFI:    "#8b5cf6",
-  ITFLOW:   "#f97316",
-  PAX8:     "#10b981",
-  PULSEWAY: "#ec4899",
-}
+const DEFAULTS = SOURCE_DEFAULTS
 
 export async function GET() {
   try {

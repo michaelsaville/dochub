@@ -600,7 +600,7 @@ export default function ImportPage() {
               <button
                 onClick={executeImport}
                 disabled={importing}
-                style={{ fontSize: "14px", fontWeight: 500, padding: "10px 24px", borderRadius: "8px", border: "none", background: "var(--accent2)", color: "#fff", cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.7 : 1 }}
+                style={{ fontSize: "14px", fontWeight: 500, padding: "10px 24px", borderRadius: "8px", border: "none", background: "var(--accent2)", color: "#000", cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.7 : 1 }}
               >
                 {importing ? "Importing..." : "Confirm & import"}
               </button>

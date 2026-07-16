@@ -43,7 +43,7 @@ const urgencyConfig: Record<AlertUrgency, { label: string; bg: string; color: st
   critical: { label: "Critical", bg: "rgba(255,77,109,0.12)", color: "var(--danger)" },
   warning:  { label: "Warning",  bg: "rgba(255,179,71,0.12)", color: "var(--warn)" },
   upcoming: { label: "Upcoming", bg: "rgba(0,212,170,0.12)", color: "var(--accent2)" },
-  info:     { label: "Info",     bg: "rgba(99,102,241,0.12)", color: "#6366f1" },
+  info:     { label: "Info",     bg: "rgba(129,140,248,0.14)", color: "#818cf8" },
 }
 
 const categoryIcons: Record<AlertCategory, string> = {
@@ -93,7 +93,7 @@ export default function UnifiedAlertsPage() {
           {[
             { label: "Expired", value: stats.expired, color: "var(--danger)", filter: "expired" as const },
             { label: "Critical", value: stats.critical, color: "var(--warn)", filter: "critical" as const },
-            { label: "Warning", value: stats.warning, color: "#eab308", filter: "warning" as const },
+            { label: "Warning", value: stats.warning, color: "var(--warn)", filter: "warning" as const },
             { label: "Upcoming", value: stats.upcoming, color: "var(--accent2)", filter: "upcoming" as const },
             { label: "Total", value: stats.total, color: "var(--muted)", filter: "all" as const },
           ].map(s => (

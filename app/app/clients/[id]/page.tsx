@@ -1,6 +1,7 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
+import { SOURCE_DEFAULTS, SOURCE_DOMAINS } from "@/lib/source-colors"
 import CastButton from "@/components/CastButton"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
@@ -193,21 +194,7 @@ const ASSET_FIELD_META: Record<string, { label: string; placeholder?: string; ty
   personId:        { label: "Person",              type: "person-select" },
 }
 
-const SOURCE_DEFAULTS: Record<string, string> = {
-  SYNCRO: "var(--accent)", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "var(--accent2)", PULSEWAY: "#ec4899",
-  MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
-}
-
-const SOURCE_DOMAINS: Record<string, string> = {
-  SYNCRO:      "syncromsp.com",
-  UNIFI:       "ui.com",
-  ITFLOW:      "itflow.org",
-  PAX8:        "pax8.com",
-  PULSEWAY:    "pulseway.com",
-  MERAKI:      "meraki.cisco.com",
-  HPINSTANTON: "arubainstanton.com",
-  SONICWALL:   "sonicwall.com",
-}
+// SOURCE_DEFAULTS + SOURCE_DOMAINS now live in @/lib/source-colors (one source of truth)
 
 function formatUptime(seconds: number | null | undefined): string {
   if (!seconds) return "—"
@@ -3139,7 +3126,7 @@ export default function ClientDetailPage() {
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontSize: "14px", fontWeight: 500 }}>{lic.name}</span>
-                          {!lic.isActive && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "#374151", color: "#9ca3af" }}>archived</span>}
+                          {!lic.isActive && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "var(--card)", color: "var(--muted)" }}>archived</span>}
                           {boundSourceTag(lic.dataSource, null, lic.pax8Id)}
                         </div>
                         {lic.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{lic.notes}</div>}

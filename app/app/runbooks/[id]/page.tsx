@@ -224,7 +224,7 @@ export default function RunbookViewPage() {
                 <button
                   onClick={() => finishRun("COMPLETED")}
                   disabled={finishingRun}
-                  style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--accent2)", color: "#fff", cursor: "pointer" }}
+                  style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--accent2)", color: "#000", cursor: "pointer" }}
                 >
                   Complete
                 </button>
@@ -318,7 +318,7 @@ export default function RunbookViewPage() {
                         onClick={() => !isSaving && toggleStep(completion)}
                       >
                         <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: `2px solid ${done ? "var(--accent2)" : "var(--color-border-secondary)"}`, background: done ? "var(--accent2)" : "transparent", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-                          {done && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700 }}>✓</span>}
+                          {done && <span style={{ color: "#000", fontSize: "10px", fontWeight: 700 }}>✓</span>}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: "14px", fontWeight: 500, color: done ? "var(--color-text-muted)" : "var(--color-text-primary)", textDecoration: done ? "line-through" : "none" }}>
@@ -362,7 +362,7 @@ export default function RunbookViewPage() {
                     style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "12px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-tertiary)", background: checked[i] ? "var(--color-background-secondary)" : "var(--color-background-primary)", cursor: "pointer", transition: "background 0.15s" }}
                   >
                     <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: `2px solid ${checked[i] ? "var(--accent2)" : "var(--color-border-secondary)"}`, background: checked[i] ? "var(--accent2)" : "transparent", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-                      {checked[i] && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700 }}>✓</span>}
+                      {checked[i] && <span style={{ color: "#000", fontSize: "10px", fontWeight: 700 }}>✓</span>}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: "14px", fontWeight: 500, color: checked[i] ? "var(--color-text-muted)" : "var(--color-text-primary)", textDecoration: checked[i] ? "line-through" : "none" }}>

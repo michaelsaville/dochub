@@ -1,6 +1,7 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
+import { SOURCE_DEFAULTS, SOURCE_DOMAINS } from "@/lib/source-colors"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -38,21 +39,7 @@ const SOURCE_LABELS: Record<string, string> = {
   SCOUT: "Scout",
 }
 
-const SOURCE_DEFAULTS: Record<string, string> = {
-  SYNCRO: "var(--accent)", UNIFI: "#8b5cf6", ITFLOW: "#f97316", PAX8: "var(--accent2)", PULSEWAY: "#ec4899",
-  MERAKI: "#00bceb", HPINSTANTON: "#0096d6", SONICWALL: "#e8521a", SCOUT: "#14b8a6",
-}
-
-const SOURCE_DOMAINS: Record<string, string> = {
-  SYNCRO:      "syncromsp.com",
-  UNIFI:       "ui.com",
-  ITFLOW:      "itflow.org",
-  PAX8:        "pax8.com",
-  PULSEWAY:    "pulseway.com",
-  MERAKI:      "meraki.cisco.com",
-  HPINSTANTON: "arubainstanton.com",
-  SONICWALL:   "sonicwall.com",
-}
+// SOURCE_DEFAULTS + SOURCE_DOMAINS now live in @/lib/source-colors (one source of truth)
 
 function SourceStamp({ sourceKey, color, label }: { sourceKey: string; color: string; label: string }) {
   const [failed, setFailed] = useState(false)

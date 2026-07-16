@@ -1,6 +1,7 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
+import { SOURCE_DEFAULTS } from "@/lib/source-colors"
 import { useState, useEffect } from "react"
 import { THEMES, useTheme, type ThemeId } from "@/components/ThemeProvider"
 
@@ -209,10 +210,7 @@ export default function SettingsPage() {
   const [migrationResult, setMigrationResult] = useState<any | null>(null)
 
   // --- Data Sources ---
-  const [sourceColors, setSourceColors] = useState<Record<string, string>>({
-    SYNCRO: "var(--accent)", UNIFI: "#8b5cf6", MERAKI: "#00bcf2", HPINSTANTON: "#01a982",
-    SONICWALL: "#f97316", ITFLOW: "#f97316", PAX8: "var(--accent2)", PULSEWAY: "#ec4899",
-  })
+  const [sourceColors, setSourceColors] = useState<Record<string, string>>(SOURCE_DEFAULTS)
   const [savingColors, setSavingColors] = useState(false)
 
   // --- SyncroMSP ---
@@ -2234,7 +2232,7 @@ function MyVaultSection() {
   }
   const btnPrimary: React.CSSProperties = {
     padding: "7px 14px", fontSize: "13px", fontWeight: 500, borderRadius: "7px",
-    background: "var(--color-brand)", color: "#fff", border: "none", cursor: "pointer",
+    background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer",
   }
   const btnSecondary: React.CSSProperties = {
     padding: "7px 14px", fontSize: "13px", borderRadius: "7px",
@@ -2253,8 +2251,9 @@ function MyVaultSection() {
         <div style={{
           position: "fixed", top: 20, right: 20, zIndex: 9999,
           padding: "10px 16px", borderRadius: "8px", fontSize: "13px",
-          background: msg.type === "ok" ? "#166534" : "#7f1d1d",
-          color: "#fff", boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          background: msg.type === "ok" ? "rgba(0,212,170,0.15)" : "rgba(255,77,109,0.15)",
+          border: msg.type === "ok" ? "1px solid rgba(0,212,170,0.4)" : "1px solid rgba(255,77,109,0.4)",
+          color: msg.type === "ok" ? "var(--accent2)" : "var(--danger)", boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
         }}>{msg.text}</div>
       )}
 
@@ -2376,7 +2375,7 @@ function MyVaultSection() {
                       </div>
                     </div>
                     {item.username && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: 2 }}>{item.username}</div>}
-                    {item.url && <div style={{ fontSize: "12px", color: "var(--color-brand)", marginTop: 2 }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.url}</a></div>}
+                    {item.url && <div style={{ fontSize: "12px", color: "var(--accent)", marginTop: 2 }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.url}</a></div>}
                     {item.hasSecureNotes && <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 2, fontStyle: "italic" }}>has secure notes</div>}
                     <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                       {!revealed[item.id] ? (

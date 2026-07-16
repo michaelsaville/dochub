@@ -224,7 +224,7 @@ function CopyField({ value, copied, onCopy, mono }: { value: string; copied: boo
         style={{
           fontSize: 12, padding: "4px 10px",
           background: copied ? "var(--accent2)" : "var(--card)",
-          color: copied ? "#fff" : "var(--text)",
+          color: copied ? "#000" : "var(--text)",
           border: "none", borderRadius: 6, cursor: "pointer",
         }}
       >

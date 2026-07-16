@@ -22,7 +22,7 @@ type Client = { id: string; name: string }
 const severityConfig = {
   CRITICAL: { label: "Critical", color: "var(--danger)", bg: "rgba(255,77,109,0.12)" },
   WARNING:  { label: "Warning",  color: "var(--warn)", bg: "rgba(255,179,71,0.12)" },
-  INFO:     { label: "Info",     color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
+  INFO:     { label: "Info",     color: "#818cf8", bg: "rgba(129,140,248,0.14)" },
 }
 
 const inputStyle = {
