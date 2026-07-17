@@ -224,7 +224,8 @@ export default function RunbookViewPage() {
               <button
                 onClick={startRun}
                 disabled={startingRun || !selectedClientId}
-                style={{ fontSize: "13px", fontWeight: 500, padding: "7px 16px", borderRadius: "7px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", flexShrink: 0, opacity: !selectedClientId ? 0.5 : 1 }}
+                className="btn btn-primary"
+                style={{ flexShrink: 0, opacity: !selectedClientId ? 0.5 : 1 }}
               >
                 {startingRun ? "Starting..." : "Start"}
               </button>

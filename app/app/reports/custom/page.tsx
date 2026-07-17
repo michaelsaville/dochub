@@ -47,7 +47,7 @@ export default function CustomReportsList() {
         </div>
         <button
           onClick={() => router.push("/reports/custom/builder")}
-          style={{ padding: "8px 18px", borderRadius: "7px", border: "none", cursor: "pointer", background: "var(--color-accent)", color: "#fff", fontSize: "13px", fontWeight: 500 }}
+          className="btn btn-primary"
         >
           + New Report
         </button>
@@ -82,14 +82,14 @@ export default function CustomReportsList() {
               </button>
               <button
                 onClick={() => router.push(`/reports/custom/builder?edit=${r.id}`)}
-                style={{ padding: "5px 14px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", cursor: "pointer", background: "none", color: "var(--color-text-secondary)", fontSize: "12px" }}
+                className="btn btn-ghost btn-sm"
               >
                 Edit
               </button>
               <button
                 onClick={() => del(r.id, r.name)}
                 disabled={deleting === r.id}
-                style={{ padding: "5px 14px", borderRadius: "6px", border: "0.5px solid rgba(255,77,109,0.3)", cursor: "pointer", background: "none", color: "var(--color-text-danger)", fontSize: "12px" }}
+                className="btn btn-danger btn-sm"
               >
                 Delete
               </button>

@@ -610,7 +610,7 @@ export default function AssetDetailPage() {
             </button>
             <button
               onClick={() => router.push(`/clients/${asset.location.client.id}?tab=Assets&edit=${asset.id}`)}
-              style={{ fontSize: "13px", padding: "7px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-secondary)", cursor: "pointer" }}
+              className="btn btn-secondary"
             >
               Edit
             </button>
@@ -730,7 +730,7 @@ export default function AssetDetailPage() {
                         {driverSaving ? "Saving…" : "Save"}
                       </button>
                       <button onClick={() => setDriverEditing(false)}
-                        style={{ fontSize: "12px", padding: "5px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                        className="btn btn-ghost btn-sm">Cancel</button>
                     </div>
                   </div>
                 )}
@@ -878,7 +878,7 @@ export default function AssetDetailPage() {
                       <button onClick={() => updateInterface(iface.id)} disabled={savingIface}
                         style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "5px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
                       <button onClick={() => setEditingIface(null)}
-                        style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                        className="btn btn-ghost btn-sm">Cancel</button>
                     </div>
                   </div>
                 ) : (

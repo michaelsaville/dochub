@@ -97,12 +97,7 @@ export default function VendorsPage() {
           </div>
           <button
             onClick={() => setShowAdd(true)}
-            style={{
-              fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
-              border: "0.5px solid var(--color-border-secondary)",
-              background: "var(--color-background-primary)", cursor: "pointer",
-              color: "var(--color-text-primary)",
-            }}
+            className="btn btn-secondary"
           >
             Add vendor
           </button>
@@ -186,11 +181,7 @@ export default function VendorsPage() {
               </button>
               <button
                 onClick={() => { setShowAdd(false); setError("") }}
-                style={{
-                  fontSize: "14px", padding: "8px 16px", borderRadius: "8px",
-                  border: "0.5px solid var(--color-border-secondary)",
-                  background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)",
-                }}
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
@@ -202,7 +193,7 @@ export default function VendorsPage() {
           <input
             type="text" placeholder="Search vendors..."
             value={search} onChange={(e) => setSearch(e.target.value)}
-            style={{ ...inputStyle, flex: 1 }}
+            className="filter-input" style={{ flex: 1 }}
           />
           <select
             value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}

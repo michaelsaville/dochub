@@ -166,7 +166,8 @@ export default function PortalAdminPage() {
             placeholder="Search users or clients..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ padding: "7px 12px", fontSize: "13px", borderRadius: "7px", border: "0.5px solid var(--border)", background: "var(--bg)", color: "var(--text)", width: "240px" }}
+            className="filter-input"
+            style={{ width: "240px" }}
           />
           <select value={filterClient} onChange={e => setFilterClient(e.target.value)} style={{ padding: "7px 12px", fontSize: "13px", borderRadius: "7px", border: "0.5px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}>
             <option value="">All clients</option>

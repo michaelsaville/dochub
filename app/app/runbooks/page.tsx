@@ -56,7 +56,7 @@ export default function RunbooksPage() {
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={() => router.push("/runbooks/history")}
-              style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)" }}
+              className="btn btn-secondary"
             >
               History
             </button>
@@ -75,7 +75,8 @@ export default function RunbooksPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search SOPs..."
-            style={{ flex: "1 1 200px", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", minWidth: "160px" }}
+            className="filter-input"
+            style={{ flex: "1 1 200px", minWidth: "160px" }}
           />
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
             <option value="">All categories</option>

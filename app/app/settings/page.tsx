@@ -709,11 +709,11 @@ export default function SettingsPage() {
               <SectionCard title="Asset Types" description="Custom asset types used when creating or editing assets manually.">
                 <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
                   {assetTypes.length === 0 && !loadingTypes && (
-                    <button onClick={seedDefaults} disabled={seedingDefaults} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                    <button onClick={seedDefaults} disabled={seedingDefaults} className="btn btn-secondary">
                       {seedingDefaults ? "Adding..." : "Add defaults"}
                     </button>
                   )}
-                  <button onClick={() => setShowAddType(true)} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+                  <button onClick={() => setShowAddType(true)} className="btn btn-secondary">
                     Add type
                   </button>
                 </div>
@@ -727,7 +727,7 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       {saveBtn(saveType, savingType, "Save", "Saving...")}
-                      <button onClick={() => setShowAddType(false)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      <button onClick={() => setShowAddType(false)} className="btn btn-secondary">Cancel</button>
                     </div>
                   </div>
                 )}
@@ -749,7 +749,7 @@ export default function SettingsPage() {
                             </div>
                             <div style={{ display: "flex", gap: "8px" }}>
                               <button onClick={() => updateType(type.id)} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
-                              <button onClick={() => setEditingType(null)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                              <button onClick={() => setEditingType(null)} className="btn btn-secondary btn-sm">Cancel</button>
                             </div>
                           </div>
                         ) : editingTemplate === type.id ? (
@@ -797,13 +797,13 @@ export default function SettingsPage() {
                                 </div>
                               ))}
                               <button onClick={() => setTemplateForm(tf => ({ ...tf, customFieldDefs: [...tf.customFieldDefs, { key: "", label: "", type: "text", required: false }] }))}
-                                style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                                className="btn btn-secondary btn-sm">
                                 + Add custom field
                               </button>
                             </div>
                             <div style={{ display: "flex", gap: "8px" }}>
                               <button onClick={() => saveTemplate(type.id)} disabled={savingTemplate} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingTemplate ? "Saving..." : "Save template"}</button>
-                              <button onClick={() => setEditingTemplate(null)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                              <button onClick={() => setEditingTemplate(null)} className="btn btn-secondary btn-sm">Cancel</button>
                             </div>
                           </div>
                         ) : (
@@ -969,7 +969,7 @@ export default function SettingsPage() {
                   <button
                     onClick={sendTestEmail}
                     disabled={sendingTestEmail}
-                    style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: sendingTestEmail ? "not-allowed" : "pointer", color: "var(--color-text-secondary)", opacity: sendingTestEmail ? 0.6 : 1 }}
+                    className="btn btn-secondary" style={{ opacity: sendingTestEmail ? 0.6 : 1 }}
                   >
                     {sendingTestEmail ? "Sending..." : "Send test email now"}
                   </button>
@@ -1083,7 +1083,7 @@ export default function SettingsPage() {
                   <button
                     onClick={sendTeamsTest}
                     disabled={sendingTeamsTest}
-                    style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: sendingTeamsTest ? "not-allowed" : "pointer", color: "var(--color-text-secondary)", opacity: sendingTeamsTest ? 0.6 : 1 }}
+                    className="btn btn-secondary" style={{ opacity: sendingTeamsTest ? 0.6 : 1 }}
                   >
                     {sendingTeamsTest ? "Sending..." : "Send test card"}
                   </button>
@@ -1131,7 +1131,7 @@ export default function SettingsPage() {
 
             {activeSection === "syncro" && (
               <SectionCard title="SyncroMSP" description="Sync all customers, assets, and contacts from Syncro. Existing records will be updated. Credentials are configured via environment variables.">
-                <button onClick={runSyncroSync} disabled={syncing} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: syncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: syncing ? 0.6 : 1 }}>
+                <button onClick={runSyncroSync} disabled={syncing} className="btn btn-secondary" style={{ opacity: syncing ? 0.6 : 1 }}>
                   {syncing ? "Syncing... this may take a minute" : "Run Syncro sync"}
                 </button>
                 <SyncResult result={syncResult} />
@@ -1174,7 +1174,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button onClick={loadUnifiSites} disabled={loadingUnifiSites} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: loadingUnifiSites ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: loadingUnifiSites ? 0.6 : 1 }}>
+                    <button onClick={loadUnifiSites} disabled={loadingUnifiSites} className="btn btn-secondary" style={{ opacity: loadingUnifiSites ? 0.6 : 1 }}>
                       {loadingUnifiSites ? "Connecting..." : "Load sites"}
                     </button>
                   </div>
@@ -1204,7 +1204,7 @@ export default function SettingsPage() {
                       <button onClick={saveUnifiMapping} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                         Save mapping
                       </button>
-                      <button onClick={runUnifiSync} disabled={unifiSyncing} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: unifiSyncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: unifiSyncing ? 0.6 : 1 }}>
+                      <button onClick={runUnifiSync} disabled={unifiSyncing} className="btn btn-secondary" style={{ opacity: unifiSyncing ? 0.6 : 1 }}>
                         {unifiSyncing ? "Syncing..." : "Run sync"}
                       </button>
                     </div>
@@ -1215,7 +1215,7 @@ export default function SettingsPage() {
                 {unifiSites.length === 0 && Object.keys(unifiSiteMap).length > 0 && (
                   <SectionCard title="Sync">
                     <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>Site mapping is saved. Click to sync devices from all mapped sites.</p>
-                    <button onClick={runUnifiSync} disabled={unifiSyncing} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: unifiSyncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: unifiSyncing ? 0.6 : 1 }}>
+                    <button onClick={runUnifiSync} disabled={unifiSyncing} className="btn btn-secondary" style={{ opacity: unifiSyncing ? 0.6 : 1 }}>
                       {unifiSyncing ? "Syncing..." : "Run Unifi sync"}
                     </button>
                     <SyncResult result={unifiSyncResult} />
@@ -1238,7 +1238,7 @@ export default function SettingsPage() {
                       <input value={cfg("integration:meraki:orgId")} onChange={e => setCfg("integration:meraki:orgId", e.target.value)} placeholder="auto-detect" style={inp} />
                     </div>
                   </div>
-                  <button onClick={loadMerakiNetworks} disabled={loadingMerakiNetworks} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: loadingMerakiNetworks ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: loadingMerakiNetworks ? 0.6 : 1 }}>
+                  <button onClick={loadMerakiNetworks} disabled={loadingMerakiNetworks} className="btn btn-secondary" style={{ opacity: loadingMerakiNetworks ? 0.6 : 1 }}>
                     {loadingMerakiNetworks ? "Connecting..." : "Load networks"}
                   </button>
                 </SectionCard>
@@ -1271,7 +1271,7 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={saveMerakiMapping} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save mapping</button>
-                      <button onClick={runMerakiSync} disabled={merakiSyncing} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: merakiSyncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: merakiSyncing ? 0.6 : 1 }}>
+                      <button onClick={runMerakiSync} disabled={merakiSyncing} className="btn btn-secondary" style={{ opacity: merakiSyncing ? 0.6 : 1 }}>
                         {merakiSyncing ? "Syncing..." : "Run sync"}
                       </button>
                     </div>
@@ -1282,7 +1282,7 @@ export default function SettingsPage() {
                 {merakiNetworks.length === 0 && Object.keys(merakiNetworkMap).length > 0 && (
                   <SectionCard title="Sync">
                     <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>Network mapping is saved.</p>
-                    <button onClick={runMerakiSync} disabled={merakiSyncing} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}>
+                    <button onClick={runMerakiSync} disabled={merakiSyncing} className="btn btn-secondary">
                       {merakiSyncing ? "Syncing..." : "Run Meraki sync"}
                     </button>
                     <SyncResult result={merakiSyncResult} />
@@ -1342,16 +1342,16 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={addSonicwallDevice} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Add device</button>
-                      <button onClick={() => setShowAddSonicwall(false)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      <button onClick={() => setShowAddSonicwall(false)} className="btn btn-secondary">Cancel</button>
                     </div>
                   </div>
                 ) : (
                   <div style={{ display: "flex", gap: "8px", marginBottom: sonicwallDevices.length ? "0" : "0" }}>
-                    <button onClick={() => setShowAddSonicwall(true)} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}>
+                    <button onClick={() => setShowAddSonicwall(true)} className="btn btn-secondary">
                       Add device
                     </button>
                     {sonicwallDevices.length > 0 && (
-                      <button onClick={runSonicwallSync} disabled={sonicwallSyncing} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: sonicwallSyncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: sonicwallSyncing ? 0.6 : 1 }}>
+                      <button onClick={runSonicwallSync} disabled={sonicwallSyncing} className="btn btn-secondary" style={{ opacity: sonicwallSyncing ? 0.6 : 1 }}>
                         {sonicwallSyncing ? "Syncing..." : "Run sync"}
                       </button>
                     )}
@@ -1395,11 +1395,11 @@ export default function SettingsPage() {
                         <button onClick={runMigration} disabled={runningMigration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--danger)", color: "white", cursor: "pointer" }}>
                           {runningMigration ? "Migrating..." : `Migrate ${migrationPreview.length} device(s)`}
                         </button>
-                        <button onClick={() => setMigrationPreview(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                        <button onClick={() => setMigrationPreview(null)} className="btn btn-secondary">Cancel</button>
                       </div>
                     </div>
                   ) : (
-                    <button onClick={loadMigrationPreview} disabled={loadingMigration} style={{ fontSize: "13px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+                    <button onClick={loadMigrationPreview} disabled={loadingMigration} className="btn btn-secondary">
                       {loadingMigration ? "Loading..." : "Preview migration"}
                     </button>
                   )}
@@ -1442,7 +1442,7 @@ export default function SettingsPage() {
                   <button
                     onClick={previewMerge}
                     disabled={!mergeSourceId || !mergeTargetId || mergePreviewing}
-                    style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)", opacity: (!mergeSourceId || !mergeTargetId) ? 0.4 : 1 }}
+                    className="btn btn-secondary" style={{ opacity: (!mergeSourceId || !mergeTargetId) ? 0.4 : 1 }}
                   >
                     {mergePreviewing ? "Checking..." : "Preview merge"}
                   </button>
@@ -1489,7 +1489,7 @@ export default function SettingsPage() {
                             </button>
                             <button
                               onClick={() => setMergeConfirm(false)}
-                              style={{ fontSize: "14px", padding: "7px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}
+                              className="btn btn-secondary"
                             >
                               Cancel
                             </button>
@@ -1530,7 +1530,7 @@ export default function SettingsPage() {
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
                     {saveBtn(() => saveIntegration(["integration:pax8:clientId", "integration:pax8:clientSecret"]), savingIntegration)}
-                    <button onClick={loadPax8Companies} disabled={loadingPax8Companies} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: loadingPax8Companies ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: loadingPax8Companies ? 0.6 : 1 }}>
+                    <button onClick={loadPax8Companies} disabled={loadingPax8Companies} className="btn btn-secondary" style={{ opacity: loadingPax8Companies ? 0.6 : 1 }}>
                       {loadingPax8Companies ? "Loading..." : "Load companies"}
                     </button>
                   </div>
@@ -1555,7 +1555,7 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={savePax8Mapping} disabled={savingIntegration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save mapping</button>
-                      <button onClick={runPax8Sync} disabled={pax8Syncing} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: pax8Syncing ? "not-allowed" : "pointer", color: "var(--color-text-primary)", opacity: pax8Syncing ? 0.6 : 1 }}>
+                      <button onClick={runPax8Sync} disabled={pax8Syncing} className="btn btn-secondary" style={{ opacity: pax8Syncing ? 0.6 : 1 }}>
                         {pax8Syncing ? "Syncing..." : "Run sync"}
                       </button>
                     </div>
@@ -1632,7 +1632,7 @@ export default function SettingsPage() {
                     <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", padding: "12px 14px", marginBottom: "16px" }}>
                       <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "6px" }}>Copy this key now — it will not be shown again.</div>
                       <div style={{ fontFamily: "monospace", fontSize: "13px", wordBreak: "break-all", userSelect: "all", color: "var(--color-text-primary)" }}>{createdKey}</div>
-                      <button onClick={() => { navigator.clipboard.writeText(createdKey); }} style={{ marginTop: "8px", fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}>Copy</button>
+                      <button onClick={() => { navigator.clipboard.writeText(createdKey); }} className="btn btn-secondary btn-sm" style={{ marginTop: "8px" }}>Copy</button>
                     </div>
                   )}
 
@@ -2230,20 +2230,6 @@ function MyVaultSection() {
     padding: "20px",
     marginBottom: "16px",
   }
-  const btnPrimary: React.CSSProperties = {
-    padding: "7px 14px", fontSize: "13px", fontWeight: 500, borderRadius: "7px",
-    background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer",
-  }
-  const btnSecondary: React.CSSProperties = {
-    padding: "7px 14px", fontSize: "13px", borderRadius: "7px",
-    background: "transparent", color: "var(--color-text-secondary)",
-    border: "0.5px solid var(--color-border-secondary)", cursor: "pointer",
-  }
-  const btnDanger: React.CSSProperties = {
-    padding: "5px 10px", fontSize: "12px", borderRadius: "6px",
-    background: "transparent", color: "var(--danger)",
-    border: "0.5px solid var(--danger)", cursor: "pointer",
-  }
 
   return (
     <>
@@ -2279,7 +2265,7 @@ function MyVaultSection() {
                 Last used: {pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : "Never"} · Added {new Date(pk.createdAt).toLocaleDateString()}
               </div>
             </div>
-            <button style={btnDanger} onClick={() => deletePasskey(pk.id)}>Remove</button>
+            <button className="btn btn-danger btn-sm" onClick={() => deletePasskey(pk.id)}>Remove</button>
           </div>
         ))}
 
@@ -2290,7 +2276,7 @@ function MyVaultSection() {
             placeholder='Passkey name (e.g. "MacBook Touch ID")'
             style={{ ...inp, flex: 1, maxWidth: 300 }}
           />
-          <button style={btnPrimary} onClick={registerPasskey} disabled={loadingRegister}>
+          <button className="btn btn-primary" onClick={registerPasskey} disabled={loadingRegister}>
             {loadingRegister ? "Registering…" : "Register Passkey"}
           </button>
         </div>
@@ -2309,11 +2295,11 @@ function MyVaultSection() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {!vaultUnlocked ? (
-              <button style={btnPrimary} onClick={unlockVault} disabled={loadingAuth || passkeys.length === 0}>
+              <button className="btn btn-primary" onClick={unlockVault} disabled={loadingAuth || passkeys.length === 0}>
                 {loadingAuth ? "Authenticating…" : passkeys.length === 0 ? "Register a passkey first" : "Unlock Vault"}
               </button>
             ) : (
-              <button style={btnSecondary} onClick={lockVault}>Lock</button>
+              <button className="btn btn-secondary" onClick={lockVault}>Lock</button>
             )}
           </div>
         </div>
@@ -2349,8 +2335,8 @@ function MyVaultSection() {
                     <input placeholder="URL" value={editForm.url} onChange={e => setEditForm(f => ({ ...f, url: e.target.value }))} style={inp} />
                     <textarea placeholder="Secure notes (encrypted)" value={editForm.secureNotes} onChange={e => setEditForm(f => ({ ...f, secureNotes: e.target.value }))} rows={4} style={{ ...inp, resize: "vertical", fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12 }} />
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button style={btnPrimary} onClick={() => saveEdit(item.id)}>Save</button>
-                      <button style={btnSecondary} onClick={() => setEditId(null)}>Cancel</button>
+                      <button className="btn btn-primary" onClick={() => saveEdit(item.id)}>Save</button>
+                      <button className="btn btn-secondary" onClick={() => setEditId(null)}>Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -2361,7 +2347,7 @@ function MyVaultSection() {
                         <div style={{ fontWeight: 500, fontSize: "14px" }}>{item.label}</div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button style={btnSecondary} onClick={async () => {
+                        <button className="btn btn-secondary" onClick={async () => {
                           // Pre-fetch existing secureNotes for editing
                           let existingNotes = ""
                           if (item.hasSecureNotes) {
@@ -2371,7 +2357,7 @@ function MyVaultSection() {
                           setEditId(item.id)
                           setEditForm({ label: item.label, username: item.username || "", password: "", totp: "", url: item.url || "", secureNotes: existingNotes })
                         }}>Edit</button>
-                        <button style={btnDanger} onClick={() => deleteItem(item.id)}>Delete</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => deleteItem(item.id)}>Delete</button>
                       </div>
                     </div>
                     {item.username && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: 2 }}>{item.username}</div>}
@@ -2379,13 +2365,13 @@ function MyVaultSection() {
                     {item.hasSecureNotes && <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 2, fontStyle: "italic" }}>has secure notes</div>}
                     <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                       {!revealed[item.id] ? (
-                        <button style={{ ...btnSecondary, fontSize: "12px", padding: "4px 10px" }} onClick={() => revealItem(item.id)}>Reveal</button>
+                        <button className="btn btn-secondary" style={{ fontSize: "12px", padding: "4px 10px" }} onClick={() => revealItem(item.id)}>Reveal</button>
                       ) : (
                         <>
                           {revealed[item.id].password && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <code style={{ fontSize: "12px", background: "var(--color-background-secondary)", padding: "2px 8px", borderRadius: 4 }}>{revealed[item.id].password}</code>
-                              <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].password!, "Password")}>Copy</button>
+                              <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].password!, "Password")}>Copy</button>
                             </div>
                           )}
                           {revealed[item.id].totpCode && (
@@ -2394,14 +2380,14 @@ function MyVaultSection() {
                                 {revealed[item.id].totpCode}
                               </code>
                               <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--color-text-secondary)" }}>{totpSecondsLeft}s</span>
-                              <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].totpCode!, "TOTP code")}>Copy</button>
+                              <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].totpCode!, "TOTP code")}>Copy</button>
                             </div>
                           )}
                           {revealed[item.id].secureNotes && (
                             <div style={{ width: "100%", marginTop: 6, padding: 8, background: "var(--color-background-secondary)", borderRadius: 4, fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12, whiteSpace: "pre-wrap" as const }}>
                               {revealed[item.id].secureNotes}
                               <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
-                                <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].secureNotes!, "Notes")}>Copy</button>
+                                <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealed[item.id].secureNotes!, "Notes")}>Copy</button>
                               </div>
                             </div>
                           )}
@@ -2426,8 +2412,8 @@ function MyVaultSection() {
                     <input placeholder="Tags (comma-separated)" value={editNoteForm.tags} onChange={e => setEditNoteForm(f => ({ ...f, tags: e.target.value }))} style={inp} />
                     <input type="date" placeholder="Expires" value={editNoteForm.expiryDate} onChange={e => setEditNoteForm(f => ({ ...f, expiryDate: e.target.value }))} style={inp} />
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button style={btnPrimary} onClick={() => saveNoteEdit(n.id)}>Save</button>
-                      <button style={btnSecondary} onClick={() => setEditNoteId(null)}>Cancel</button>
+                      <button className="btn btn-primary" onClick={() => saveNoteEdit(n.id)}>Save</button>
+                      <button className="btn btn-secondary" onClick={() => setEditNoteId(null)}>Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -2441,7 +2427,7 @@ function MyVaultSection() {
                         {!isExpired(n.expiryDate) && isExpiringSoon(n.expiryDate) && <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--color-background-warning, rgba(255,179,71,0.14))", color: "var(--color-text-warning, var(--warn))" }}>Expiring ≤30d</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button style={btnSecondary} onClick={() => {
+                        <button className="btn btn-secondary" onClick={() => {
                           setEditNoteId(n.id)
                           setEditNoteForm({
                             title: n.title,
@@ -2451,7 +2437,7 @@ function MyVaultSection() {
                             expiryDate: n.expiryDate ? n.expiryDate.slice(0, 10) : "",
                           })
                         }}>Edit</button>
-                        <button style={btnDanger} onClick={() => deleteNote(n.id)}>Delete</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => deleteNote(n.id)}>Delete</button>
                       </div>
                     </div>
                     {n.tags.length > 0 && (
@@ -2461,14 +2447,14 @@ function MyVaultSection() {
                     )}
                     <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                       {!revealedNotes[n.id] ? (
-                        <button style={{ ...btnSecondary, fontSize: "12px", padding: "4px 10px" }} onClick={() => revealNote(n.id)}>Reveal</button>
+                        <button className="btn btn-secondary" style={{ fontSize: "12px", padding: "4px 10px" }} onClick={() => revealNote(n.id)}>Reveal</button>
                       ) : (
                         <div style={{ width: "100%", padding: 8, background: "var(--color-background-secondary)", borderRadius: 4, fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12, whiteSpace: "pre-wrap" as const }}>
                           {revealedNotes[n.id]}
                           <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
-                            <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealedNotes[n.id], "Body")}>Copy body</button>
-                            <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => copyNoteAsMarkdown(n.title, revealedNotes[n.id])}>Copy as markdown</button>
-                            <button style={{ ...btnSecondary, fontSize: "11px", padding: "2px 8px" }} onClick={() => setRevealedNotes(prev => { const x = { ...prev }; delete x[n.id]; return x })}>Hide</button>
+                            <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "2px 8px" }} onClick={() => copyToClipboard(revealedNotes[n.id], "Body")}>Copy body</button>
+                            <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "2px 8px" }} onClick={() => copyNoteAsMarkdown(n.title, revealedNotes[n.id])}>Copy as markdown</button>
+                            <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "2px 8px" }} onClick={() => setRevealedNotes(prev => { const x = { ...prev }; delete x[n.id]; return x })}>Hide</button>
                           </div>
                         </div>
                       )}
@@ -2497,8 +2483,8 @@ function MyVaultSection() {
                   <input placeholder="URL" value={addForm.url} onChange={e => setAddForm(f => ({ ...f, url: e.target.value }))} style={inp} />
                   <textarea placeholder="Secure notes (encrypted)" value={addForm.secureNotes} onChange={e => setAddForm(f => ({ ...f, secureNotes: e.target.value }))} rows={4} style={{ ...inp, resize: "vertical", fontFamily: "var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: 12 }} />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button style={btnPrimary} onClick={addItem}>Add</button>
-                    <button style={btnSecondary} onClick={() => setShowAddForm(false)}>Cancel</button>
+                    <button className="btn btn-primary" onClick={addItem}>Add</button>
+                    <button className="btn btn-secondary" onClick={() => setShowAddForm(false)}>Cancel</button>
                   </div>
                 </div>
               </div>
@@ -2517,8 +2503,8 @@ function MyVaultSection() {
                   <input placeholder="Tags (comma-separated, optional)" value={addNoteForm.tags} onChange={e => setAddNoteForm(f => ({ ...f, tags: e.target.value }))} style={inp} />
                   <input type="date" value={addNoteForm.expiryDate} onChange={e => setAddNoteForm(f => ({ ...f, expiryDate: e.target.value }))} style={inp} />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button style={btnPrimary} onClick={addNote}>Add Note</button>
-                    <button style={btnSecondary} onClick={() => setShowAddNoteForm(false)}>Cancel</button>
+                    <button className="btn btn-primary" onClick={addNote}>Add Note</button>
+                    <button className="btn btn-secondary" onClick={() => setShowAddNoteForm(false)}>Cancel</button>
                   </div>
                 </div>
               </div>
@@ -2527,8 +2513,8 @@ function MyVaultSection() {
             {/* Add buttons */}
             {!showAddForm && !showAddNoteForm && (
               <div style={{ display: "flex", gap: 8 }}>
-                <button style={btnPrimary} onClick={() => setShowAddForm(true)}>+ Credential</button>
-                <button style={btnSecondary} onClick={() => setShowAddNoteForm(true)}>+ Note</button>
+                <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>+ Credential</button>
+                <button className="btn btn-secondary" onClick={() => setShowAddNoteForm(true)}>+ Note</button>
               </div>
             )}
           </>

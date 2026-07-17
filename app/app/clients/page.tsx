@@ -125,12 +125,7 @@ function ClientsPageInner() {
           </div>
           <button
             onClick={() => setShowAdd(true)}
-            style={{
-              fontSize: "14px", fontWeight: 500, padding: "8px 16px",
-              borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)",
-              background: "var(--color-background-primary)", cursor: "pointer",
-              color: "var(--color-text-primary)",
-            }}
+            className="btn btn-secondary"
           >
             Add client
           </button>
@@ -193,11 +188,7 @@ function ClientsPageInner() {
               </button>
               <button
                 onClick={() => { setShowAdd(false); setError(""); setNewName("") }}
-                style={{
-                  fontSize: "14px", padding: "8px 16px", borderRadius: "8px",
-                  border: "0.5px solid var(--color-border-secondary)",
-                  background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)",
-                }}
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
@@ -211,11 +202,8 @@ function ClientsPageInner() {
             placeholder="Search clients..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: "100%", padding: "8px 12px", fontSize: "14px",
-              border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px",
-              background: "var(--color-background-primary)", color: "var(--color-text-primary)",
-            }}
+            className="filter-input"
+            style={{ width: "100%" }}
           />
         </div>
 

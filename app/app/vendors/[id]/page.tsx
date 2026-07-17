@@ -233,21 +233,13 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={() => { setEditing(true); setEditForm(vendor) }}
-                style={{
-                  fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
-                  border: "0.5px solid var(--color-border-secondary)",
-                  background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)",
-                }}
+                className="btn btn-secondary"
               >
                 Edit
               </button>
               <button
                 onClick={deleteVendor}
-                style={{
-                  fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
-                  border: "0.5px solid var(--color-border-secondary)",
-                  background: "transparent", cursor: "pointer", color: "var(--color-text-danger)",
-                }}
+                className="btn btn-danger"
               >
                 Delete
               </button>
@@ -319,11 +311,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               }}>
                 {savingEdit ? "Saving..." : "Save"}
               </button>
-              <button onClick={() => setEditing(false)} style={{
-                fontSize: "14px", padding: "8px 16px", borderRadius: "8px",
-                border: "0.5px solid var(--color-border-secondary)",
-                background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)",
-              }}>
+              <button onClick={() => setEditing(false)} className="btn btn-ghost">
                 Cancel
               </button>
             </div>
@@ -366,11 +354,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               <option value="">Select a client to link...</option>
               {unlinkableClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <button onClick={linkClient} disabled={!linkClientId || linkingClient} style={{
-              fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
-              border: "0.5px solid var(--color-border-secondary)",
-              background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)",
-            }}>
+            <button onClick={linkClient} disabled={!linkClientId || linkingClient} className="btn btn-secondary">
               {linkingClient ? "Linking..." : "Link"}
             </button>
           </div>
@@ -404,11 +388,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
           <div style={{ fontSize: "16px", fontWeight: 500 }}>Contacts</div>
           <button
             onClick={() => setShowAddContact(true)}
-            style={{
-              fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
-              border: "0.5px solid var(--color-border-secondary)",
-              background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)",
-            }}
+            className="btn btn-secondary"
           >
             Add contact
           </button>
@@ -461,11 +441,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               }}>
                 {savingContact ? "Saving..." : "Add contact"}
               </button>
-              <button onClick={() => setShowAddContact(false)} style={{
-                fontSize: "14px", padding: "8px 16px", borderRadius: "8px",
-                border: "0.5px solid var(--color-border-secondary)",
-                background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)",
-              }}>
+              <button onClick={() => setShowAddContact(false)} className="btn btn-ghost">
                 Cancel
               </button>
             </div>
@@ -500,11 +476,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
                       border: "none", background: "var(--color-text-primary)",
                       color: "var(--color-background-primary)", cursor: "pointer",
                     }}>Save</button>
-                    <button onClick={() => setEditingContact(null)} style={{
-                      fontSize: "13px", padding: "6px 14px", borderRadius: "8px",
-                      border: "0.5px solid var(--color-border-secondary)",
-                      background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)",
-                    }}>Cancel</button>
+                    <button onClick={() => setEditingContact(null)} className="btn btn-ghost">Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -527,11 +499,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
                       border: "0.5px solid var(--color-border-secondary)",
                       background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)",
                     }}>Edit</button>
-                    <button onClick={() => deleteContact(contact.id)} style={{
-                      fontSize: "12px", padding: "4px 10px", borderRadius: "6px",
-                      border: "0.5px solid var(--color-border-secondary)",
-                      background: "transparent", cursor: "pointer", color: "var(--color-text-danger)",
-                    }}>Delete</button>
+                    <button onClick={() => deleteContact(contact.id)} className="btn btn-danger btn-sm">Delete</button>
                   </div>
                 </div>
               )}

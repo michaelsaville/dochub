@@ -122,7 +122,7 @@ function BuilderInner() {
         <button
           onClick={save}
           disabled={saving}
-          style={{ padding: "8px 20px", borderRadius: "7px", border: "none", cursor: "pointer", background: "var(--color-accent)", color: "#fff", fontSize: "13px", fontWeight: 500 }}
+          className="btn btn-primary"
         >
           {saving ? "Saving…" : (editId ? "Save & Run" : "Save & Run")}
         </button>
@@ -177,7 +177,7 @@ function BuilderInner() {
       <div style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
           <label style={{ ...labelStyle, marginBottom: 0 }}>Filters</label>
-          <button onClick={addFilter} style={{ padding: "3px 12px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", cursor: "pointer", background: "none", color: "var(--color-text-secondary)", fontSize: "12px" }}>+ Add filter</button>
+          <button onClick={addFilter} className="btn btn-ghost btn-sm">+ Add filter</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {filters.map((f, i) => {

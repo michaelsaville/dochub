@@ -128,13 +128,13 @@ export default function AlarmsPage() {
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={checkWarranties} disabled={checkingWarranties}
-              style={{ fontSize: "13px", padding: "8px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-secondary)" }}
+              className="btn btn-secondary"
             >
               {checkingWarranties ? "Checking..." : "Check warranties"}
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}
+              className="btn btn-secondary"
             >
               New alarm
             </button>
@@ -183,7 +183,7 @@ export default function AlarmsPage() {
               <button onClick={createAlarm} disabled={saving} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                 {saving ? "Saving..." : "Create alarm"}
               </button>
-              <button onClick={() => setShowCreate(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+              <button onClick={() => setShowCreate(false)} className="btn btn-ghost">Cancel</button>
             </div>
           </div>
         )}

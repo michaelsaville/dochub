@@ -451,7 +451,7 @@ export default function ImportPage() {
               <button onClick={proceedFromColumns} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 20px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                 Continue →
               </button>
-              <button onClick={() => setStage("upload")} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>← Back</button>
+              <button onClick={() => setStage("upload")} className="btn btn-ghost">← Back</button>
             </div>
           </div>
         )}
@@ -507,7 +507,7 @@ export default function ImportPage() {
               >
                 Preview import →
               </button>
-              <button onClick={() => setStage("columns")} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>← Back</button>
+              <button onClick={() => setStage("columns")} className="btn btn-ghost">← Back</button>
             </div>
           </div>
         )}
@@ -604,7 +604,7 @@ export default function ImportPage() {
               >
                 {importing ? "Importing..." : "Confirm & import"}
               </button>
-              <button onClick={() => setStage(config.needsClientMapping ? "companies" : "columns")} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>← Back</button>
+              <button onClick={() => setStage(config.needsClientMapping ? "companies" : "columns")} className="btn btn-ghost">← Back</button>
             </div>
           </div>
         )}

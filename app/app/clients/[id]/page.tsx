@@ -1864,10 +1864,7 @@ export default function ClientDetailPage() {
         {activeTab === "Locations" && (
           <div style={{ maxWidth: "700px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-              <button onClick={() => setShowAddLocation(true)} style={{
-                fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
-                border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer",
-              }}>Add location</button>
+              <button onClick={() => setShowAddLocation(true)} className="btn btn-secondary">Add location</button>
             </div>
 
             {showAddLocation && (
@@ -1890,7 +1887,7 @@ export default function ClientDetailPage() {
                   <button onClick={addLocation} disabled={savingLocation} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                     {savingLocation ? "Saving..." : "Add"}
                   </button>
-                  <button onClick={() => setShowAddLocation(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                  <button onClick={() => setShowAddLocation(false)} className="btn btn-ghost">Cancel</button>
                 </div>
               </div>
             )}
@@ -1926,7 +1923,7 @@ export default function ClientDetailPage() {
                       <button onClick={() => saveLocation(loc.id)} disabled={savingLocation} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                         {savingLocation ? "Saving..." : "Save"}
                       </button>
-                      <button onClick={() => setEditingLocation(null)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      <button onClick={() => setEditingLocation(null)} className="btn btn-ghost">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -1969,7 +1966,7 @@ export default function ClientDetailPage() {
                 </div>
                 <button
                   onClick={() => setShowAddPerson(v => !v)}
-                  style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}
+                  className="btn btn-ghost btn-sm"
                 >
                   {showAddPerson ? "Cancel" : "+ Add"}
                 </button>
@@ -2103,7 +2100,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div style={{ display: "flex", gap: "8px" }}>
                         <button onClick={() => updatePerson(person.id)} disabled={savingPersonEdit} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingPersonEdit ? "Saving..." : "Save"}</button>
-                        <button onClick={() => setEditingPersonId(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                        <button onClick={() => setEditingPersonId(null)} className="btn btn-ghost">Cancel</button>
                       </div>
                     </div>
                   )}
@@ -2186,7 +2183,7 @@ export default function ClientDetailPage() {
         {activeTab === "Assets" && (
           <div style={{ maxWidth: "960px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-              <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes(); if (subnets.length === 0) fetchSubnets() }} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
+              <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes(); if (subnets.length === 0) fetchSubnets() }} className="btn btn-secondary">
                 New asset
               </button>
             </div>
@@ -2314,7 +2311,7 @@ export default function ClientDetailPage() {
                   <button onClick={saveAsset} disabled={savingAsset} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                     {savingAsset ? "Saving..." : "Create asset"}
                   </button>
-                  <button onClick={() => setShowAddAsset(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                  <button onClick={() => setShowAddAsset(false)} className="btn btn-ghost">Cancel</button>
                 </div>
               </div>
             )}
@@ -2507,7 +2504,7 @@ export default function ClientDetailPage() {
                         </div>
                         <div style={{ display: "flex", gap: "8px" }}>
                           <button onClick={() => updateAsset(asset.id)} disabled={savingAssetEdit} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingAssetEdit ? "Saving..." : "Save"}</button>
-                          <button onClick={() => setEditingAsset(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                          <button onClick={() => setEditingAsset(null)} className="btn btn-ghost">Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -2629,11 +2626,7 @@ export default function ClientDetailPage() {
         {activeTab === "Credentials" && (
           <div style={{ maxWidth: "700px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-              <button onClick={() => setShowAddCred(true)} style={{
-                fontSize: "14px", fontWeight: 500, padding: "8px 16px",
-                borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)",
-                background: "var(--color-background-primary)", cursor: "pointer",
-              }}>Add credential</button>
+              <button onClick={() => setShowAddCred(true)} className="btn btn-secondary">Add credential</button>
             </div>
 
             {showAddCred && (
@@ -2692,11 +2685,7 @@ export default function ClientDetailPage() {
                     fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
                     border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer",
                   }}>{savingCred ? "Saving..." : "Save"}</button>
-                  <button onClick={() => setShowAddCred(false)} style={{
-                    fontSize: "14px", padding: "8px 16px", borderRadius: "8px",
-                    border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer",
-                    color: "var(--color-text-secondary)",
-                  }}>Cancel</button>
+                  <button onClick={() => setShowAddCred(false)} className="btn btn-ghost">Cancel</button>
                 </div>
               </div>
             )}
@@ -2817,7 +2806,7 @@ export default function ClientDetailPage() {
                               <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                 <input type={type} value={credEditForm[key] ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inpStyle} />
                                 {clearKey && hasStored && (
-                                  <button type="button" title="Remove the stored value on save" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey]: true, [key]: "" }))} style={{ fontSize: "11px", whiteSpace: "nowrap", padding: "6px 10px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--danger)", cursor: "pointer" }}>Remove</button>
+                                  <button type="button" title="Remove the stored value on save" onClick={() => setCredEditForm((f: any) => ({ ...f, [clearKey]: true, [key]: "" }))} className="btn btn-danger btn-sm">Remove</button>
                                 )}
                               </div>
                             )}
@@ -2841,7 +2830,7 @@ export default function ClientDetailPage() {
                         <button onClick={() => updateCred(cred.id)} disabled={savingCredEdit} style={{ fontSize: "13px", fontWeight: 500, padding: "7px 14px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                           {savingCredEdit ? "Saving..." : "Save"}
                         </button>
-                        <button onClick={() => setEditingCredId(null)} style={{ fontSize: "13px", padding: "7px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                        <button onClick={() => setEditingCredId(null)} className="btn btn-ghost">Cancel</button>
                       </div>
                     </div>
                   ) : (
@@ -2979,7 +2968,7 @@ export default function ClientDetailPage() {
               <button onClick={() => { const next = !showArchivedLicenses; setShowArchivedLicenses(next); fetchLicenses(next) }} style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: showArchivedLicenses ? "rgba(61,111,255,0.1)" : "transparent", cursor: "pointer", color: showArchivedLicenses ? "var(--accent)" : "var(--color-text-secondary)" }}>
                 {showArchivedLicenses ? "Hide archived" : "Show archived"}
               </button>
-              <button onClick={() => setShowAddLicense(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add license</button>
+              <button onClick={() => setShowAddLicense(true)} className="btn btn-secondary">Add license</button>
             </div>
             {showAddLicense && (
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
@@ -3049,7 +3038,7 @@ export default function ClientDetailPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveLicense} disabled={savingLicense} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingLicense ? "Saving..." : "Save"}</button>
-                  <button onClick={() => setShowAddLicense(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                  <button onClick={() => setShowAddLicense(false)} className="btn btn-ghost">Cancel</button>
                 </div>
               </div>
             )}
@@ -3117,7 +3106,7 @@ export default function ClientDetailPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={() => updateLicense(lic.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
-                      <button onClick={() => setEditingLicense(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      <button onClick={() => setEditingLicense(null)} className="btn btn-ghost">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -3259,7 +3248,7 @@ export default function ClientDetailPage() {
         {activeTab === "Applications" && (
           <div style={{ maxWidth: "800px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-              <button onClick={() => setShowAddApp(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>Add application</button>
+              <button onClick={() => setShowAddApp(true)} className="btn btn-secondary">Add application</button>
             </div>
             {showAddApp && (
               <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "10px", padding: "20px", marginBottom: "16px" }}>
@@ -3334,7 +3323,7 @@ export default function ClientDetailPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button onClick={saveApp} disabled={savingApp} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingApp ? "Saving..." : "Save"}</button>
-                  <button onClick={() => setShowAddApp(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                  <button onClick={() => setShowAddApp(false)} className="btn btn-ghost">Cancel</button>
                 </div>
               </div>
             )}
@@ -3391,7 +3380,7 @@ export default function ClientDetailPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={() => updateApp(app.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
-                      <button onClick={() => setEditingApp(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                      <button onClick={() => setEditingApp(null)} className="btn btn-ghost">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -3562,7 +3551,7 @@ export default function ClientDetailPage() {
         {activeTab === "Domains" && (
           <div style={{ maxWidth: "920px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-              <button onClick={() => setShowAddWebsite(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer", color: "var(--color-text-primary)" }}>
+              <button onClick={() => setShowAddWebsite(true)} className="btn btn-secondary">
                 Add domain
               </button>
             </div>
@@ -3645,7 +3634,7 @@ export default function ClientDetailPage() {
                   <button onClick={addWebsite} disabled={savingWebsite} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
                     {savingWebsite ? "Saving..." : "Add"}
                   </button>
-                  <button onClick={() => setShowAddWebsite(false)} style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                  <button onClick={() => setShowAddWebsite(false)} className="btn btn-ghost">Cancel</button>
                 </div>
               </div>
             )}
@@ -3702,7 +3691,7 @@ export default function ClientDetailPage() {
                           </div>
                           <div style={{ display: "flex", gap: "8px" }}>
                             <button onClick={() => updateWebsite(site.id)} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
-                            <button onClick={() => setEditingWebsite(null)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                            <button onClick={() => setEditingWebsite(null)} className="btn btn-ghost">Cancel</button>
                           </div>
                         </div>
                       ) : (
