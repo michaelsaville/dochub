@@ -64,6 +64,7 @@ export default function UnifiedAlertsPage() {
   const [category, setCategory] = useState<AlertCategory | "all">("all")
   const [urgencyFilter, setUrgencyFilter] = useState<AlertUrgency | "all">("all")
   const [creatingId, setCreatingId] = useState<string | null>(null)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // One-click alert -> pre-filled TicketHub ticket (wires the create-ticket API
@@ -94,6 +95,32 @@ export default function UnifiedAlertsPage() {
     } finally {
       setCreatingId(null)
       setTimeout(() => setToast(null), 4000)
+    }
+  }
+
+  // Resolve in-app for alarm-backed alerts (the unified queue's "resolve" verb),
+  // so you don't have to bounce to the separate /alarms page.
+  async function resolveAlarm(alert: UnifiedAlert) {
+    if (!alert.alarmId) return
+    setResolvingId(alert.id)
+    setToast(null)
+    try {
+      const res = await fetch(`/api/alarms/${alert.alarmId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resolve" }),
+      })
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== alert.id))
+        setToast({ type: "success", text: "Resolved" })
+      } else {
+        setToast({ type: "error", text: "Failed to resolve" })
+      }
+    } catch {
+      setToast({ type: "error", text: "Failed to resolve" })
+    } finally {
+      setResolvingId(null)
+      setTimeout(() => setToast(null), 3500)
     }
   }
 
@@ -236,6 +263,19 @@ export default function UnifiedAlertsPage() {
                     >
                       {creatingId === alert.id ? "Creating…" : "Create ticket"}
                     </button>
+                    {alert.alarmId && (
+                      <button
+                        onClick={() => resolveAlarm(alert)}
+                        disabled={resolvingId === alert.id}
+                        style={{
+                          fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
+                          border: "0.5px solid rgba(0,212,170,0.4)", background: "rgba(0,212,170,0.12)",
+                          color: "var(--accent2)", cursor: resolvingId === alert.id ? "wait" : "pointer",
+                        }}
+                      >
+                        {resolvingId === alert.id ? "…" : "Resolve"}
+                      </button>
+                    )}
                     {alert.linkPath && (
                       <a
                         href={alert.linkPath}
