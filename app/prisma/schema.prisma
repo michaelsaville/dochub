@@ -886,6 +886,19 @@ model DocumentVersion {
   @@index([documentId, savedAt])
 }
 
+model RunbookVersion {
+  id        String   @id @default(cuid())
+  runbookId String
+  title     String
+  summary   String?
+  content   String?
+  savedAt   DateTime @default(now())
+  savedBy   String?
+  runbook   Runbook  @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+
+  @@index([runbookId, savedAt])
+}
+
 /// Universal attachment model. clientId is required as the security
 /// boundary; everything else is an optional polymorphic link to whatever
 /// the file is attached *to*. Exactly one of documentId / assetId /
@@ -984,6 +997,7 @@ model Runbook {
   steps       RunbookStep[]
   tags        RunbookTagMap[]
   runs        RunbookRun[]
+  versions    RunbookVersion[]
 
   // Reverse sides for the Client lifecycle hooks.
   onboardingForClients   Client[] @relation("ClientOnboardingRunbook")

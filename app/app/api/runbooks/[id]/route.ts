@@ -29,12 +29,20 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth()
+  const { session, error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
     const body = await req.json()
     const { title, summary, content, categoryId, clientId, tagIds, steps } = body
+
+    // Snapshot the current version before overwriting (SOP/runbook change history)
+    const current = await prisma.runbook.findUnique({ where: { id }, select: { title: true, summary: true, content: true } })
+    if (current) {
+      await prisma.runbookVersion.create({
+        data: { runbookId: id, title: current.title, summary: current.summary, content: current.content, savedBy: session?.user?.name ?? "unknown" },
+      })
+    }
 
     // Replace tags
     await prisma.runbookTagMap.deleteMany({ where: { runbookId: id } })
