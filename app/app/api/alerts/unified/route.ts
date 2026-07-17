@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
+import { getRotationSettings, computeRotation, rotationUrgency } from "@/lib/rotation"
 
 export type AlertCategory = "ssl" | "domain" | "warranty" | "credential" | "license" | "contract" | "vpncert" | "circuit" | "operational"
 export type AlertUrgency = "expired" | "critical" | "warning" | "upcoming" | "info"
@@ -8,6 +10,7 @@ export type AlertUrgency = "expired" | "critical" | "warning" | "upcoming" | "in
 export interface UnifiedAlert {
   id: string
   category: AlertCategory
+  kind?: "expiry" | "rotation"   // distinguishes a hard expiry from a rotation-age policy
   label: string
   sublabel?: string
   message?: string
@@ -18,6 +21,7 @@ export interface UnifiedAlert {
   clientId: string
   clientName: string
   linkPath: string         // DocHub path to the source item
+  credentialId?: string    // source credential id (rotation items — enables inline Mark-rotated)
   alarmId?: string         // if this is an operational alarm, its DB ID
   createdAt?: string       // for operational alarms
 }
@@ -133,6 +137,7 @@ export async function GET(req: Request) {
     ...credentials.map(c => ({
       id: `credential-${c.id}`,
       category: "credential" as const,
+      kind: "expiry" as const,
       label: c.label,
       sublabel: c.username ?? undefined,
       urgency: computeUrgency(c.expiryDate!),
@@ -202,6 +207,52 @@ export async function GET(req: Request) {
       createdAt: a.createdAt.toISOString(),
     })),
   ]
+
+  // ─── Password rotation (compute-on-read, kind:"rotation") ─────────────────
+  // Separate from the expiryDate items above: rotation staleness is a policy
+  // computed from lastRotated (fallback createdAt) for ALL non-retired creds,
+  // not just those carrying a hard expiry date. Gated by rotation:enabled and
+  // scoped so a restricted tech only sees their own clients' creds.
+  const rotationSettings = await getRotationSettings()
+  if (rotationSettings.enabled && (!category || category === "credential")) {
+    const scope = await getClientScope()
+    if (!clientId || scopeAllows(scope, clientId)) {
+      const rotWhere: {
+        isRetired: boolean; rotationExempt: boolean; clientId?: string | { in: string[] }
+      } = { isRetired: false, rotationExempt: false }
+      if (clientId) rotWhere.clientId = clientId
+      else if (!scope.all) rotWhere.clientId = { in: scope.clientIds }
+
+      const rotationCreds = await prisma.credential.findMany({
+        where: rotWhere,
+        select: {
+          id: true, label: true, username: true, lastRotated: true, createdAt: true,
+          rotationIntervalDays: true, rotationSnoozedUntil: true,
+          client: { select: { id: true, name: true } },
+        },
+      })
+
+      for (const c of rotationCreds) {
+        const r = computeRotation(c, rotationSettings)
+        if (r.status !== "overdue" && r.status !== "dueSoon") continue
+        items.push({
+          id: `rotation-${c.id}`,
+          category: "credential",
+          kind: "rotation",
+          label: c.label,
+          sublabel: r.status === "overdue"
+            ? `Rotation overdue · ${r.daysOverdue}d`
+            : `Rotation due in ${r.daysUntilDue}d`,
+          urgency: rotationUrgency(r),
+          expiresAt: r.dueDate ? r.dueDate.toISOString() : null,
+          clientId: c.client.id,
+          clientName: c.client.name,
+          credentialId: c.id,
+          linkPath: `/clients/${c.client.id}?tab=Credentials`,
+        })
+      }
+    }
+  }
 
   // Sort: expired first, then critical, warning, upcoming, info
   const urgencyOrder = { expired: 0, critical: 1, warning: 2, upcoming: 3, info: 4 }

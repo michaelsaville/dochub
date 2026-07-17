@@ -33,6 +33,39 @@ import { statusColor } from "@/lib/asset-status"
 import LicenseSeats from "@/components/LicenseSeats"
 import AppSeats from "@/components/AppSeats"
 import CredentialPicker from "@/components/CredentialPicker"
+import Sheet from "@/components/Sheet"
+
+// Client-side mirror of lib/rotation.ts computeRotation (kept in-file so the
+// Prisma-backed getRotationSettings never enters the client bundle). Uses the
+// same defaults as the getSetting fallbacks; per-credential interval overrides
+// still apply. The authoritative computation for the alerts feed / digest runs
+// server-side with the live AppSetting policy.
+const ROTATION_DEFAULT_DAYS = 90
+const ROTATION_WARN_DAYS = 14
+function computeCredRotation(cred: any): {
+  status: "exempt" | "snoozed" | "ok" | "dueSoon" | "overdue"
+  text: string
+  tone: "danger" | "warn" | "muted"
+} {
+  if (cred?.rotationExempt) return { status: "exempt", text: "No rotation", tone: "muted" }
+  const interval = cred?.rotationIntervalDays && cred.rotationIntervalDays > 0 ? cred.rotationIntervalDays : ROTATION_DEFAULT_DAYS
+  const baseRaw = cred?.lastRotated ?? cred?.createdAt
+  if (!baseRaw) return { status: "ok", text: "", tone: "muted" }
+  const base = new Date(baseRaw)
+  if (Number.isNaN(base.getTime())) return { status: "ok", text: "", tone: "muted" }
+  const now = Date.now()
+  const snooze = cred?.rotationSnoozedUntil ? new Date(cred.rotationSnoozedUntil) : null
+  if (snooze && snooze.getTime() > now) {
+    return { status: "snoozed", text: `Snoozed ${Math.ceil((snooze.getTime() - now) / 86400000)}d`, tone: "muted" }
+  }
+  const due = base.getTime() + interval * 86400000
+  const remaining = due - now
+  if (remaining < 0) return { status: "overdue", text: `Rotate · ${Math.ceil(-remaining / 86400000)}d overdue`, tone: "danger" }
+  const days = Math.ceil(remaining / 86400000)
+  if (days <= ROTATION_WARN_DAYS) return { status: "dueSoon", text: `Rotate in ${days}d`, tone: "warn" }
+  const ago = Math.floor((now - base.getTime()) / 86400000)
+  return { status: "ok", text: cred?.lastRotated ? `Rotated ${ago}d ago` : `Set ${ago}d ago`, tone: "muted" }
+}
 
 type Person = {
   id: string
@@ -427,6 +460,8 @@ export default function ClientDetailPage() {
   const [editingCredId, setEditingCredId] = useState<string | null>(null)
   const [credEditForm, setCredEditForm] = useState<any>({})
   const [savingCredEdit, setSavingCredEdit] = useState(false)
+  const [rotateConfirmCred, setRotateConfirmCred] = useState<any>(null)
+  const [markingRotated, setMarkingRotated] = useState(false)
   const [expandedCredHistory, setExpandedCredHistory] = useState<Record<string, any[] | null>>({})
   const [loadingCredHistory, setLoadingCredHistory] = useState<Record<string, boolean>>({})
 
@@ -647,6 +682,34 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function markCredRotated(credId: string) {
+    setMarkingRotated(true)
+    try {
+      const res = await fetch(`/api/credentials/${credId}/mark-rotated`, { method: "POST" })
+      if (res.ok) {
+        const updated = await res.json()
+        setCredentials(prev => prev.map(c => c.id === credId ? { ...c, ...updated } : c))
+        setExpandedCredHistory(h => { const n = { ...h }; delete n[credId]; return n })
+        setRotateConfirmCred(null)
+      }
+    } catch {}
+    finally { setMarkingRotated(false) }
+  }
+
+  async function snoozeCredRotation(credId: string, days: number) {
+    try {
+      const res = await fetch(`/api/credentials/${credId}/rotation`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snoozeDays: days }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setCredentials(prev => prev.map(c => c.id === credId ? { ...c, ...updated } : c))
+      }
+    } catch {}
+  }
+
   async function revealDashPassword(credId: string) {
     try {
       const res = await fetch(`/api/credentials/${credId}/reveal`)
@@ -835,6 +898,23 @@ export default function ClientDetailPage() {
       if (res.ok) {
         const updated = await res.json()
         setCredentials(c => c.map(x => x.id === credId ? { ...x, ...updated } : x))
+        // Persist rotation-policy edits (interval / exempt) via the dedicated
+        // rotation subroute — the main PATCH doesn't own these fields.
+        const rotBody: Record<string, unknown> = {}
+        const rawInterval = credEditForm.rotationIntervalDays
+        rotBody.intervalDays = (rawInterval === "" || rawInterval == null) ? null : rawInterval
+        if (isAdmin) rotBody.exempt = !!credEditForm.rotationExempt
+        try {
+          const rotRes = await fetch(`/api/credentials/${credId}/rotation`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(rotBody),
+          })
+          if (rotRes.ok) {
+            const rotUpdated = await rotRes.json()
+            setCredentials(c => c.map(x => x.id === credId ? { ...x, ...rotUpdated } : x))
+          }
+        } catch {}
         setEditingCredId(null)
         // Invalidate cached history so it refreshes next time
         setExpandedCredHistory(h => { const n = { ...h }; delete n[credId]; return n })
@@ -2701,6 +2781,7 @@ export default function ClientDetailPage() {
               const historyOpen = cred.id in expandedCredHistory
               const credHistory = expandedCredHistory[cred.id] ?? []
               const inpStyle = { width: "100%", padding: "7px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
+              const rot = computeCredRotation(cred)
               return (
                 <div key={cred.id} style={{
                   background: "var(--color-background-secondary)",
@@ -2708,8 +2789,8 @@ export default function ClientDetailPage() {
                   borderRadius: "10px", padding: "16px", marginBottom: "10px",
                 }}>
                   {/* Header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px", gap: "10px", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
                       {boundSourceTag(cred.dataSource)}
                       {cred.user && (
@@ -2746,8 +2827,19 @@ export default function ClientDetailPage() {
                           ADMIN
                         </span>
                       )}
+                      {rot.text && (
+                        <span
+                          className={rot.tone === "danger" ? "badge-danger" : rot.tone === "warn" ? "badge-warn" : undefined}
+                          title={rot.status === "overdue" ? "Password is past its rotation policy" : rot.status === "dueSoon" ? "Password is due for rotation soon" : rot.status === "exempt" ? "Excluded from rotation reminders" : rot.status === "snoozed" ? "Rotation reminder snoozed" : "Rotation up to date"}
+                          style={rot.tone === "muted"
+                            ? { fontSize: "10px", fontWeight: 600, padding: "1px 6px", borderRadius: "4px", background: "rgba(148,163,184,0.14)", color: "var(--muted)" }
+                            : undefined}
+                        >
+                          {rot.text}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                       <button
                         onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
                         title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
@@ -2757,7 +2849,7 @@ export default function ClientDetailPage() {
                         <button
                           onClick={() => {
                             setEditingCredId(cred.id)
-                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", secureNotes: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "" })
+                            setCredEditForm({ label: cred.label, username: cred.username ?? "", password: "", totp: "", secureNotes: "", url: cred.url ?? "", notes: cred.notes ?? "", userId: cred.user?.id ?? "", expiryDate: cred.expiryDate ? new Date(cred.expiryDate).toISOString().split("T")[0] : "", rotationIntervalDays: cred.rotationIntervalDays ?? "", rotationExempt: !!cred.rotationExempt })
                           }}
                           style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Edit</button>
@@ -2769,6 +2861,20 @@ export default function ClientDetailPage() {
                           title={`Rotate ${cred.user.m365Upn} via Microsoft Graph`}
                           style={{ fontSize: "12px", color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Rotate ↻</button>
+                      )}
+                      {!isEditing && rot.status !== "exempt" && (
+                        <button
+                          onClick={() => setRotateConfirmCred(cred)}
+                          title="Record that this password was rotated out-of-band"
+                          style={{ fontSize: "12px", color: rot.status === "overdue" ? "var(--danger)" : rot.status === "dueSoon" ? "var(--warn)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: rot.status === "overdue" ? 600 : 400 }}
+                        >Mark rotated</button>
+                      )}
+                      {!isEditing && (rot.status === "overdue" || rot.status === "dueSoon") && (
+                        <button
+                          onClick={() => snoozeCredRotation(cred.id, 30)}
+                          title="Suppress the rotation reminder for 30 days"
+                          style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >Snooze 30d</button>
                       )}
                       <button onClick={() => deleteCred(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Retire</button>
                     </div>
@@ -2824,6 +2930,16 @@ export default function ClientDetailPage() {
                         <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Expiry date</label>
                         <input type="date" value={credEditForm.expiryDate ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, expiryDate: e.target.value }))} style={{ ...inpStyle, width: "auto" }} />
                       </div>
+                      <div style={{ marginBottom: "10px" }}>
+                        <label style={{ fontSize: "12px", color: "var(--color-text-secondary)", display: "block", marginBottom: "3px" }}>Rotation interval (days, blank = default {ROTATION_DEFAULT_DAYS})</label>
+                        <input type="number" min={1} max={365} placeholder={String(ROTATION_DEFAULT_DAYS)} value={credEditForm.rotationIntervalDays ?? ""} onChange={e => setCredEditForm((f: any) => ({ ...f, rotationIntervalDays: e.target.value }))} style={{ ...inpStyle, width: "auto" }} />
+                      </div>
+                      {isAdmin && (
+                        <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "12px", color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                          <input type="checkbox" checked={!!credEditForm.rotationExempt} onChange={e => setCredEditForm((f: any) => ({ ...f, rotationExempt: e.target.checked }))} />
+                          Exempt from rotation reminders (service / vendor-managed / break-glass)
+                        </label>
+                      )}
                       <div style={{ display: "flex", gap: "8px" }}>
                         <button onClick={() => updateCred(cred.id)} disabled={savingCredEdit} className="btn btn-primary">
                           {savingCredEdit ? "Saving..." : "Save"}
@@ -2945,6 +3061,8 @@ export default function ClientDetailPage() {
                                     ? `👁 revealed${h.newValue ? ` (${h.newValue})` : ""}`
                                     : h.field === "password"
                                     ? "password rotated"
+                                    : h.field === "rotation"
+                                    ? "marked rotated"
                                     : `${h.field}: ${h.oldValue ?? "—"} → ${h.newValue ?? "—"}`}
                                 </span>
                               </div>
@@ -2957,6 +3075,27 @@ export default function ClientDetailPage() {
                 </div>
               )
             })}
+            {/* Mark-rotated confirm — bottom sheet on mobile, centered modal on desktop */}
+            <Sheet
+              open={!!rotateConfirmCred}
+              onClose={() => { if (!markingRotated) setRotateConfirmCred(null) }}
+              title="Mark rotated"
+              footer={
+                <>
+                  <button className="btn btn-ghost" onClick={() => setRotateConfirmCred(null)} disabled={markingRotated}>Cancel</button>
+                  <button className="btn btn-primary" onClick={() => rotateConfirmCred && markCredRotated(rotateConfirmCred.id)} disabled={markingRotated}>
+                    {markingRotated ? "Saving..." : "Mark rotated"}
+                  </button>
+                </>
+              }
+            >
+              <div style={{ fontSize: "14px", color: "var(--color-text-primary)", lineHeight: 1.5 }}>
+                Record that <strong>{rotateConfirmCred?.label}</strong> was rotated just now?
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "10px", lineHeight: 1.5 }}>
+                This resets the rotation clock (stamps “last rotated” to today) and clears any snooze. It does not change the stored password — use it after you rotate a password out-of-band.
+              </div>
+            </Sheet>
           </div>
         )}
 

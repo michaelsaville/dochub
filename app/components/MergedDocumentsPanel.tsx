@@ -6,6 +6,7 @@ import { marked } from "marked"
 import ShareExternallyButton from "@/components/ShareExternallyButton"
 import AttachmentPreview, { FileThumb, canPreview, downloadHref, formatBytes, type PreviewFile } from "@/components/AttachmentPreview"
 import BuildAssetModal, { type BuildAssetFile } from "@/components/BuildAssetModal"
+import TemplatePicker from "@/components/TemplatePicker"
 
 // =============================================================================
 // MergedDocumentsPanel — single client document library that fuses the legacy
@@ -346,6 +347,7 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null)
   const [editingDoc, setEditingDoc] = useState<string | null>(null)
   const [showNewDoc, setShowNewDoc] = useState(false)
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [contentTab, setContentTab] = useState<Record<string, "write" | "preview">>({})
   const [newForm, setNewForm] = useState({ title: "", content: "", category: "", isPinned: false, folderId: null as string | null })
   const [editForm, setEditForm] = useState<any>({})
@@ -1337,6 +1339,7 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
             <option value="size">Size</option>
           </select>
           <button onClick={() => setShowNewDoc(true)} style={smallBtn}>+ New note</button>
+          <button onClick={() => setShowTemplatePicker(true)} style={smallBtn}>🧩 New from template</button>
           <button onClick={() => fileInputRef.current?.click()} style={{ ...smallBtn, fontWeight: 500 }}>📎 Upload</button>
           <input ref={fileInputRef} type="file" multiple style={{ display: "none" }} onChange={e => { if (e.target.files?.length) uploadMany(e.target.files); e.target.value = "" }} />
           <input ref={replaceRef} type="file" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) doReplace(f); e.target.value = "" }} />
@@ -1494,6 +1497,20 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
         onClose={() => setBuildAssetFile(null)}
         onBuilt={r => { if (buildAssetFile) onAssetBuilt(r, buildAssetFile.id) }}
       />
+
+      {/* New document from a template */}
+      {showTemplatePicker && (
+        <TemplatePicker
+          kind="DOCUMENT"
+          clientId={clientId}
+          onClose={() => setShowTemplatePicker(false)}
+          onInstantiated={async (result) => {
+            await fetchDocs()
+            setExpandedDoc(result.id)
+            setShowTemplatePicker(false)
+          }}
+        />
+      )}
 
       {/* Toast */}
       {toast && (

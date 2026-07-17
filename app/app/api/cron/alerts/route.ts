@@ -5,6 +5,7 @@ import { sendPush } from "@/lib/push"
 import { sendMessage } from "@/lib/messaging/send"
 import type { ExpirationDigestItem } from "@/lib/messaging/templates"
 import { requireCronSecret } from "@/lib/cron-auth"
+import { getRotationSettings, computeRotation } from "@/lib/rotation"
 
 // Called nightly by cron: GET /api/cron/alerts  (Bearer CRON_SECRET)
 export async function GET(req: Request) {
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
           "alerts:categories:ssl", "alerts:categories:domains", "alerts:categories:warranties",
           "alerts:categories:credentials", "alerts:categories:licenses",
           "alerts:categories:vpncerts", "alerts:categories:circuits",
-          "alerts:categories:contracts",
+          "alerts:categories:contracts", "alerts:categories:credentialrotation",
         ],
       },
     },
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
   const inclVpnCerts    = cfg["alerts:categories:vpncerts"]    !== "false"
   const inclCircuits    = cfg["alerts:categories:circuits"]    !== "false"
   const inclContracts   = cfg["alerts:categories:contracts"]   !== "false"
+  const inclRotation    = cfg["alerts:categories:credentialrotation"] !== "false"
 
   // Email is just one channel — a missing Resend config must NOT short-circuit
   // Teams/push (it used to early-return and skip every channel).
@@ -122,7 +124,30 @@ export async function GET(req: Request) {
     ...vpnCerts.map(a => ({ category: "VPN cert", label: `${a.person?.name ?? a.vendor?.name ?? a.staffUser?.name ?? a.thirdPartyName ?? "VPN access"} (${a.gateway.name})`, clientName: a.gateway.client.name, expiresAt: a.certExpiry! })),
     ...circuits.map(c => ({ category: "Circuit", label: c.label, clientName: c.client.name, expiresAt: c.contractEnd! })),
     ...contracts.map(v => ({ category: "Contract", label: [v.name, v.contractType].filter(Boolean).join(" · "), clientName: v.client?.name ?? v.vendor.name, expiresAt: new Date(Math.min(...[v.endDate, v.renewalDate].filter(Boolean).map(d => new Date(d!).getTime()))) })),
-  ].sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
+  ]
+
+  // Password rotation — computed staleness, folded into the SAME digest (one
+  // bell, one cron, one email/Teams/push). Gated by rotation:enabled and the
+  // alerts:categories:credentialrotation category toggle.
+  const rotationSettings = await getRotationSettings()
+  if (inclRotation && rotationSettings.enabled) {
+    const rotationCreds = await prisma.credential.findMany({
+      where: { isRetired: false, rotationExempt: false },
+      select: {
+        label: true, lastRotated: true, createdAt: true,
+        rotationIntervalDays: true, rotationSnoozedUntil: true,
+        client: { select: { name: true } },
+      },
+    })
+    for (const c of rotationCreds) {
+      const r = computeRotation(c, rotationSettings)
+      if ((r.status === "overdue" || r.status === "dueSoon") && r.dueDate) {
+        all.push({ category: "Password rotation", label: c.label, clientName: c.client.name, expiresAt: r.dueDate })
+      }
+    }
+  }
+
+  all.sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
 
   if (all.length === 0) {
     return NextResponse.json({ sent: false, reason: "Nothing expiring within 30 days" })

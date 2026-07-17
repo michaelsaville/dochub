@@ -450,6 +450,9 @@ model Credential {
   isRetired           Boolean          @default(false)
   isFavorite          Boolean          @default(false)
   lastRotated         DateTime?
+  rotationIntervalDays Int?
+  rotationExempt       Boolean          @default(false)
+  rotationSnoozedUntil DateTime?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   personId            String?
@@ -857,6 +860,46 @@ model AuditLog {
   @@index([actorId])
 }
 
+enum TemplateKind {
+  DOCUMENT
+  RUNBOOK
+}
+
+// Reusable starting points for client documents and SOPs/runbooks. Soft-linked
+// (sourceTemplateId, no FK) so archiving/deleting a template never cascades into
+// real client records.
+model TemplateCategory {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  color     String     @default("#3d6fff")
+  order     Int        @default(0)
+  templates Template[]
+}
+
+model Template {
+  id                  String            @id @default(cuid())
+  kind                TemplateKind
+  name                String
+  description         String?
+  categoryId          String?
+  titleTemplate       String? // for DOCUMENT/RUNBOOK title, supports {{client.name}} etc.
+  summary             String?
+  content             String? // markdown body
+  stepsJson           Json? // for RUNBOOK step templates
+  tagNames            String[]
+  defaultCategoryName String? // category to stamp on the instantiated doc
+  isSeed              Boolean           @default(false)
+  seedKey             String?           @unique // idempotent re-seed key
+  isArchived          Boolean           @default(false)
+  isPublished         Boolean           @default(true)
+  usageCount          Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  category            TemplateCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([kind, isArchived, isPublished])
+}
+
 model OutboundMessage {
   id           String   @id @default(cuid())
   templateKey  String
@@ -898,6 +941,7 @@ model ClientDocument {
   isPinned    Boolean            @default(false)
   portalVisible Boolean          @default(false) // shared to the customer portal (default deny)
   needsReview Boolean            @default(false)
+  sourceTemplateId String? // soft pointer to Template (no FK; archiving a template never touches real docs)
   reviewNote  String? // reason it was flagged
   flaggedAt   DateTime?
   flaggedBy   String? // staff user name who flagged
@@ -1048,6 +1092,7 @@ model Runbook {
   tags        RunbookTagMap[]
   runs        RunbookRun[]
   versions    RunbookVersion[]
+  sourceTemplateId String? // soft pointer to Template (no FK)
 
   // Reverse sides for the Client lifecycle hooks.
   onboardingForClients   Client[] @relation("ClientOnboardingRunbook")
