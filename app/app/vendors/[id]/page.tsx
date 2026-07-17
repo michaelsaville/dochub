@@ -304,11 +304,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={saveEdit} disabled={savingEdit} style={{
-                fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
-                border: "none", background: "var(--color-text-primary)",
-                color: "var(--color-background-primary)", cursor: "pointer",
-              }}>
+              <button onClick={saveEdit} disabled={savingEdit} className="btn btn-primary">
                 {savingEdit ? "Saving..." : "Save"}
               </button>
               <button onClick={() => setEditing(false)} className="btn btn-ghost">
@@ -434,11 +430,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={addContact} disabled={savingContact} style={{
-                fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
-                border: "none", background: "var(--color-text-primary)",
-                color: "var(--color-background-primary)", cursor: "pointer",
-              }}>
+              <button onClick={addContact} disabled={savingContact} className="btn btn-primary">
                 {savingContact ? "Saving..." : "Add contact"}
               </button>
               <button onClick={() => setShowAddContact(false)} className="btn btn-ghost">
@@ -471,11 +463,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button onClick={() => saveContactEdit(contact.id)} style={{
-                      fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px",
-                      border: "none", background: "var(--color-text-primary)",
-                      color: "var(--color-background-primary)", cursor: "pointer",
-                    }}>Save</button>
+                    <button onClick={() => saveContactEdit(contact.id)} className="btn btn-primary">Save</button>
                     <button onClick={() => setEditingContact(null)} className="btn btn-ghost">Cancel</button>
                   </div>
                 </div>

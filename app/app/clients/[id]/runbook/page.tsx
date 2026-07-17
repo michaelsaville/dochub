@@ -126,7 +126,7 @@ export default function RunbookPage() {
               <button
                 onClick={generate}
                 disabled={loading || selected.size === 0}
-                style={{ fontSize: "14px", fontWeight: 500, padding: "10px 24px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: loading || selected.size === 0 ? "not-allowed" : "pointer", opacity: loading || selected.size === 0 ? 0.6 : 1 }}
+                className="btn btn-primary"
               >
                 {loading ? "Generating..." : "Generate Report"}
               </button>

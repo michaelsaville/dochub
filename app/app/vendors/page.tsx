@@ -171,11 +171,7 @@ export default function VendorsPage() {
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={addVendor} disabled={saving}
-                style={{
-                  fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px",
-                  border: "none", background: "var(--color-text-primary)",
-                  color: "var(--color-background-primary)", cursor: "pointer",
-                }}
+                className="btn btn-primary"
               >
                 {saving ? "Saving..." : "Create vendor"}
               </button>

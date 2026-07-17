@@ -74,6 +74,9 @@ Load from Google Fonts:
 - **Content areas**: sit on `var(--surface)` or `var(--bg)`
 - **Border radius**: `4–6px` for buttons/inputs, `8px` for cards, `10px` for pills/badges, `12px` for modals/containers
 - **Borders**: `0.5px solid var(--border)` hairlines are the app-wide convention (crisp on HiDPI, floors to 1px on standard displays); `1px` for primary container edges. Heavier or colored only for semantic emphasis (`--accent`/`--danger`/etc.).
+- **Spacing scale**: use the `--space-1..12` tokens (4px base — 4/8/12/16/20/24/32/48) instead of ad-hoc px.
+- **Elevation**: `--shadow-sm/md/lg` for the rare raised surface (toasts, floating bars, modals); borders still do most of the separation.
+- **Type scale**: `--text-xs..3xl` (11→28px) plus `h1/h2/h3` element defaults. **Focus**: a `2px solid var(--accent)` ring via `:focus-visible` (keyboard nav only) on all interactive elements including form fields.
 
 ---
 
@@ -129,8 +132,8 @@ padding: 0 16px;
 .btn:disabled { opacity: 0.38; cursor: not-allowed; }
 
 /* Variants */
-.btn-primary   { background: var(--accent);  color: #fff; border-color: var(--accent); }
-.btn-primary:hover:not(:disabled) { background: #5580ff; }
+.btn-primary   { background: var(--text); color: var(--bg); border-color: var(--text); }  /* inverted fill = the single primary identity (15:1). Blue --accent is for links/tabs/focus, not the primary button. */
+.btn-primary:hover:not(:disabled) { opacity: 0.88; }
 
 .btn-secondary { background: var(--card); color: var(--text); border-color: var(--border); }
 .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }

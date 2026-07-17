@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { isIpv4, ipInCidr } from "@/lib/cidr"
 
 export async function GET(
@@ -29,6 +30,10 @@ export async function GET(
       },
     })
     if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    // RBAC: a scoped tech cannot view an asset for a client outside their set.
+    if (asset.location?.client?.id && !scopeAllows(await getClientScope(), asset.location.client.id))
+      return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
     // Reverse-lookup: which phone/camera systems is this asset linked to?
     // Also fetch NetworkDevice data (switch ports) and full camera data if applicable

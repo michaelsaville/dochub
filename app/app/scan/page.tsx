@@ -104,7 +104,7 @@ export default function ScanPage() {
             Scanned: <span style={{ fontFamily: "monospace" }}>{decoded}</span>
             {!/\/(assets|clients)\//.test(decoded) && (
               <div style={{ marginTop: "6px" }}>
-                <button onClick={() => goSearch(decoded)} style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Search for this</button>
+                <button onClick={() => goSearch(decoded)} className="btn btn-primary">Search for this</button>
               </div>
             )}
             {noMatch && <div style={{ marginTop: "6px", color: "var(--color-text-muted)" }}>No asset or client found for <span style={{ fontFamily: "monospace" }}>{noMatch}</span>.</div>}
@@ -117,7 +117,7 @@ export default function ScanPage() {
             {supported === false && <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>Live scanning isn&apos;t supported on this browser. Type the serial / asset tag to search.</p>}
             <form onSubmit={e => { e.preventDefault(); if (manual.trim()) goSearch(manual.trim()) }} style={{ display: "flex", gap: "8px" }}>
               <input value={manual} onChange={e => setManual(e.target.value)} placeholder="Serial or asset tag" style={{ flex: 1, padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }} />
-              <button type="submit" style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Search</button>
+              <button type="submit" className="btn btn-primary">Search</button>
             </form>
             {noMatch && <p style={{ fontSize: "13px", color: "var(--color-text-muted)", marginTop: "8px" }}>No asset or client found for <span style={{ fontFamily: "monospace" }}>{noMatch}</span>.</p>}
           </div>

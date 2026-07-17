@@ -448,7 +448,7 @@ export default function ImportPage() {
               ))}
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={proceedFromColumns} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 20px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+              <button onClick={proceedFromColumns} className="btn btn-primary">
                 Continue →
               </button>
               <button onClick={() => setStage("upload")} className="btn btn-ghost">← Back</button>
@@ -503,7 +503,7 @@ export default function ImportPage() {
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={() => setStage("preview")}
-                style={{ fontSize: "14px", fontWeight: 500, padding: "8px 20px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}
+                className="btn btn-primary"
               >
                 Preview import →
               </button>
@@ -640,7 +640,7 @@ export default function ImportPage() {
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={() => { setStage("type"); setEntityType(null); setImportResult(null) }}
-                style={{ fontSize: "14px", fontWeight: 500, padding: "8px 20px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}
+                className="btn btn-primary"
               >
                 Import another entity
               </button>

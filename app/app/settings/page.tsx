@@ -552,7 +552,7 @@ export default function SettingsPage() {
   }
 
   const saveBtn = (onClick: () => void, saving: boolean, label = "Save", savingLabel = "Saving...") => (
-    <button onClick={onClick} disabled={saving} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+    <button onClick={onClick} disabled={saving} className="btn btn-primary" style={{ opacity: saving ? 0.6 : 1 }}>
       {saving ? savingLabel : label}
     </button>
   )
@@ -748,7 +748,7 @@ export default function SettingsPage() {
                               <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Description</label><input value={typeEditForm.description ?? ""} onChange={e => setTypeEditForm((f: any) => ({ ...f, description: e.target.value }))} style={inp} /></div>
                             </div>
                             <div style={{ display: "flex", gap: "8px" }}>
-                              <button onClick={() => updateType(type.id)} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                              <button onClick={() => updateType(type.id)} className="btn btn-primary">Save</button>
                               <button onClick={() => setEditingType(null)} className="btn btn-secondary btn-sm">Cancel</button>
                             </div>
                           </div>
@@ -802,7 +802,7 @@ export default function SettingsPage() {
                               </button>
                             </div>
                             <div style={{ display: "flex", gap: "8px" }}>
-                              <button onClick={() => saveTemplate(type.id)} disabled={savingTemplate} style={{ fontSize: "12px", fontWeight: 500, padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>{savingTemplate ? "Saving..." : "Save template"}</button>
+                              <button onClick={() => saveTemplate(type.id)} disabled={savingTemplate} className="btn btn-primary">{savingTemplate ? "Saving..." : "Save template"}</button>
                               <button onClick={() => setEditingTemplate(null)} className="btn btn-secondary btn-sm">Cancel</button>
                             </div>
                           </div>
@@ -962,7 +962,7 @@ export default function SettingsPage() {
                       "alerts:categories:vpncerts", "alerts:categories:circuits",
                     ])}
                     disabled={savingIntegration}
-                    style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
+                    className="btn btn-primary" style={{ opacity: savingIntegration ? 0.6 : 1 }}
                   >
                     {savingIntegration ? "Saving..." : "Save"}
                   </button>
@@ -1033,7 +1033,7 @@ export default function SettingsPage() {
                       "push:pushover:appToken", "push:pushover:userKey",
                     ])}
                     disabled={savingIntegration}
-                    style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
+                    className="btn btn-primary" style={{ opacity: savingIntegration ? 0.6 : 1 }}
                   >
                     {savingIntegration ? "Saving..." : "Save"}
                   </button>
@@ -1076,7 +1076,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => saveIntegration(["teams:webhook_url", "teams:min_severity"])}
                     disabled={savingIntegration}
-                    style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", opacity: savingIntegration ? 0.6 : 1 }}
+                    className="btn btn-primary" style={{ opacity: savingIntegration ? 0.6 : 1 }}
                   >
                     {savingIntegration ? "Saving..." : "Save"}
                   </button>
@@ -1201,7 +1201,7 @@ export default function SettingsPage() {
                       ))}
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={saveUnifiMapping} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                      <button onClick={saveUnifiMapping} className="btn btn-primary">
                         Save mapping
                       </button>
                       <button onClick={runUnifiSync} disabled={unifiSyncing} className="btn btn-secondary" style={{ opacity: unifiSyncing ? 0.6 : 1 }}>
@@ -1270,7 +1270,7 @@ export default function SettingsPage() {
                       ))}
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={saveMerakiMapping} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save mapping</button>
+                      <button onClick={saveMerakiMapping} className="btn btn-primary">Save mapping</button>
                       <button onClick={runMerakiSync} disabled={merakiSyncing} className="btn btn-secondary" style={{ opacity: merakiSyncing ? 0.6 : 1 }}>
                         {merakiSyncing ? "Syncing..." : "Run sync"}
                       </button>
@@ -1341,7 +1341,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={addSonicwallDevice} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Add device</button>
+                      <button onClick={addSonicwallDevice} className="btn btn-primary">Add device</button>
                       <button onClick={() => setShowAddSonicwall(false)} className="btn btn-secondary">Cancel</button>
                     </div>
                   </div>
@@ -1554,7 +1554,7 @@ export default function SettingsPage() {
                       ))}
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={savePax8Mapping} disabled={savingIntegration} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save mapping</button>
+                      <button onClick={savePax8Mapping} disabled={savingIntegration} className="btn btn-primary">Save mapping</button>
                       <button onClick={runPax8Sync} disabled={pax8Syncing} className="btn btn-secondary" style={{ opacity: pax8Syncing ? 0.6 : 1 }}>
                         {pax8Syncing ? "Syncing..." : "Run sync"}
                       </button>
@@ -1567,7 +1567,7 @@ export default function SettingsPage() {
                   <SectionCard title="Sync">
                     <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>Company mapping is saved. Load companies above to modify, or run sync directly.</p>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={runPax8Sync} disabled={pax8Syncing} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: pax8Syncing ? "not-allowed" : "pointer", opacity: pax8Syncing ? 0.6 : 1 }}>
+                      <button onClick={runPax8Sync} disabled={pax8Syncing} className="btn btn-primary" style={{ opacity: pax8Syncing ? 0.6 : 1 }}>
                         {pax8Syncing ? "Syncing..." : "Run sync"}
                       </button>
                     </div>
@@ -1620,7 +1620,7 @@ export default function SettingsPage() {
                     <button
                       onClick={generateKey}
                       disabled={keyLoading || !newKeyName.trim()}
-                      style={{ fontSize: "13px", fontWeight: 500, padding: "6px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: keyLoading || !newKeyName.trim() ? "not-allowed" : "pointer", opacity: keyLoading || !newKeyName.trim() ? 0.5 : 1, whiteSpace: "nowrap" }}
+                      className="btn btn-primary" style={{ opacity: keyLoading || !newKeyName.trim() ? 0.5 : 1 }}
                     >
                       {keyLoading ? "Generating..." : "Generate key"}
                     </button>
@@ -1911,13 +1911,7 @@ function SecurityPanel() {
                 <button
                   onClick={() => saveAllowlist(s.id)}
                   disabled={savingId === s.id}
-                  style={{
-                    fontSize: 12, padding: "5px 12px", borderRadius: 6,
-                    border: "0.5px solid var(--color-border-secondary)",
-                    background: "var(--color-text-primary)",
-                    color: "var(--color-background-primary)",
-                    cursor: "pointer",
-                  }}
+                  className="btn btn-primary"
                 >
                   {savingId === s.id ? "Saving..." : "Save"}
                 </button>

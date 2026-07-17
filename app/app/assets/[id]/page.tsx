@@ -556,7 +556,7 @@ export default function AssetDetailPage() {
             <input value={newVlanForm.name} onChange={e => setNewVlanForm(f => ({ ...f, name: e.target.value }))} placeholder="Name (e.g. Servers)"
               style={{ ...fieldStyle, flex: 1 }} />
             <button type="button" onClick={() => createVlan(onChange)} disabled={savingVlan || !newVlanForm.vlanNumber || !newVlanForm.name.trim()}
-              style={{ fontSize: "11px", padding: "5px 8px", borderRadius: "5px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", whiteSpace: "nowrap" as const }}>{savingVlan ? "..." : "Add"}</button>
+              className="btn btn-primary">{savingVlan ? "..." : "Add"}</button>
             <button type="button" onClick={() => setShowNewVlan(null)}
               style={{ fontSize: "11px", padding: "5px 6px", borderRadius: "5px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>✕</button>
           </div>
@@ -639,7 +639,7 @@ export default function AssetDetailPage() {
             </div>
             <button
               onClick={printLabel}
-              style={{ fontSize: "13px", fontWeight: 500, padding: "8px 16px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer", flexShrink: 0 }}
+              className="btn btn-primary" style={{ flexShrink: 0 }}
             >
               Print label
             </button>
@@ -726,7 +726,7 @@ export default function AssetDetailPage() {
                       style={{ width: "100%", padding: "7px 10px", fontSize: "13px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box", marginBottom: "8px" }} />
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={() => saveDriverUrl(driverEditUrl)} disabled={driverSaving || !driverEditUrl.trim()}
-                        style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                        className="btn btn-primary">
                         {driverSaving ? "Saving…" : "Save"}
                       </button>
                       <button onClick={() => setDriverEditing(false)}
@@ -745,7 +745,7 @@ export default function AssetDetailPage() {
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button onClick={() => saveDriverUrl(driverLookup.url)} disabled={driverSaving}
-                        style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                        className="btn btn-primary">
                         {driverSaving ? "Saving…" : "Save link"}
                       </button>
                       <a href={driverLookup.url} target="_blank" rel="noopener noreferrer"
@@ -849,7 +849,7 @@ export default function AssetDetailPage() {
                       style={{ width: "100%", padding: "5px 8px", fontSize: "12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "6px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }} />
                   </div>
                   <button onClick={addInterface} disabled={savingIface || !ifaceForm.name.trim()}
-                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    className="btn btn-primary">
                     {savingIface ? "Saving..." : "Save"}
                   </button>
                 </div>
@@ -876,7 +876,7 @@ export default function AssetDetailPage() {
                     {iface.type !== "TAILSCALE" && renderVlanPicker(ifaceEditForm.vlanId ?? "", v => setIfaceEditForm((f: any) => ({ ...f, vlanId: v })), iface.id)}
                     <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
                       <button onClick={() => updateInterface(iface.id)} disabled={savingIface}
-                        style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "5px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>Save</button>
+                        className="btn btn-primary">Save</button>
                       <button onClick={() => setEditingIface(null)}
                         className="btn btn-ghost btn-sm">Cancel</button>
                     </div>
@@ -1051,7 +1051,7 @@ export default function AssetDetailPage() {
                         </label>
                       ))}
                     </div>
-                    <button onClick={saveSynology} disabled={savingSynology} style={{ fontSize: "13px", fontWeight: 500, padding: "6px 14px", borderRadius: "7px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    <button onClick={saveSynology} disabled={savingSynology} className="btn btn-primary">
                       {savingSynology ? "Saving…" : "Save"}
                     </button>
                   </div>
@@ -1225,7 +1225,7 @@ export default function AssetDetailPage() {
                     />
                   </div>
                   <button onClick={addAssetLink} disabled={savingLink || !linkForm.linkedAssetId}
-                    style={{ fontSize: "12px", fontWeight: 500, padding: "4px 12px", borderRadius: "6px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+                    className="btn btn-primary">
                     {savingLink ? "Saving..." : "Save"}
                   </button>
                 </div>

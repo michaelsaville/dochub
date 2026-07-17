@@ -180,7 +180,7 @@ export default function AlarmsPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={createAlarm} disabled={saving} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--color-text-primary)", color: "var(--color-background-primary)", cursor: "pointer" }}>
+              <button onClick={createAlarm} disabled={saving} className="btn btn-primary">
                 {saving ? "Saving..." : "Create alarm"}
               </button>
               <button onClick={() => setShowCreate(false)} className="btn btn-ghost">Cancel</button>
