@@ -19,6 +19,12 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
   runbook:    { label: "Runbook",    color: "#f59e0b" },
   document:   { label: "Document",   color: "#6366f1" },
   file:       { label: "File",       color: "#14b8a6" },
+  person:     { label: "Contact",    color: "#0ea5e9" },
+  vendor:     { label: "Vendor",     color: "#a855f7" },
+  license:    { label: "License",    color: "#f97316" },
+  location:   { label: "Location",   color: "#eab308" },
+  netdevice:  { label: "Network",    color: "#10b981" },
+  circuit:    { label: "Circuit",    color: "#f43f5e" },
 }
 
 function flattenResults(data: {
@@ -28,6 +34,12 @@ function flattenResults(data: {
   runbooks: { id: string; title: string; summary: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
   documents: { id: string; title: string; clientId: string; client: { id: string; name: string } }[]
   files: { id: string; originalName: string; mimeType: string | null; clientId: string | null; documentId: string | null; client: { id: string; name: string } | null }[]
+  people: { id: string; name: string; email: string | null; jobTitle: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
+  vendors: { id: string; name: string; website: string | null; category: string | null }[]
+  licenses: { id: string; name: string; vendor: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
+  locations: { id: string; name: string; city: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
+  netdevices: { id: string; name: string; ipAddress: string | null; type: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
+  circuits: { id: string; label: string; wanIp: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
 }): SearchResult[] {
   const results: SearchResult[] = []
 
@@ -78,6 +90,54 @@ function flattenResults(data: {
       label: f.originalName,
       sublabel: [f.client?.name, f.mimeType].filter(Boolean).join(" · "),
       href: f.clientId ? `/clients/${f.clientId}?tab=Documents` : "#",
+    })
+  }
+  for (const p of data.people) {
+    results.push({
+      id: p.id, category: "person", categoryColor: CATEGORY_META.person.color,
+      label: p.name,
+      sublabel: [p.jobTitle, p.email, p.client?.name].filter(Boolean).join(" · "),
+      href: p.clientId ? `/clients/${p.clientId}?tab=People` : "#",
+    })
+  }
+  for (const v of data.vendors) {
+    results.push({
+      id: v.id, category: "vendor", categoryColor: CATEGORY_META.vendor.color,
+      label: v.name,
+      sublabel: [v.category, v.website].filter(Boolean).join(" · "),
+      href: `/vendors/${v.id}`,
+    })
+  }
+  for (const l of data.licenses) {
+    results.push({
+      id: l.id, category: "license", categoryColor: CATEGORY_META.license.color,
+      label: l.name,
+      sublabel: [l.vendor, l.client?.name].filter(Boolean).join(" · "),
+      href: l.clientId ? `/clients/${l.clientId}?tab=Licenses` : "#",
+    })
+  }
+  for (const loc of data.locations) {
+    results.push({
+      id: loc.id, category: "location", categoryColor: CATEGORY_META.location.color,
+      label: loc.name,
+      sublabel: [loc.city, loc.client?.name].filter(Boolean).join(" · "),
+      href: loc.clientId ? `/clients/${loc.clientId}?tab=Locations` : "#",
+    })
+  }
+  for (const n of data.netdevices) {
+    results.push({
+      id: n.id, category: "netdevice", categoryColor: CATEGORY_META.netdevice.color,
+      label: n.name,
+      sublabel: [n.ipAddress, n.client?.name].filter(Boolean).join(" · "),
+      href: n.clientId ? `/clients/${n.clientId}?tab=Network` : "#",
+    })
+  }
+  for (const c of data.circuits) {
+    results.push({
+      id: c.id, category: "circuit", categoryColor: CATEGORY_META.circuit.color,
+      label: c.label,
+      sublabel: [c.wanIp, c.client?.name].filter(Boolean).join(" · "),
+      href: c.clientId ? `/clients/${c.clientId}?tab=Network` : "#",
     })
   }
 
@@ -198,7 +258,7 @@ export default function SearchModal({
             type="text"
             placeholder={scopeClientName
               ? `Search within ${scopeClientName}...`
-              : "Search clients, assets, credentials, runbooks..."}
+              : "Search clients, contacts, assets, credentials, licenses, network..."}
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{

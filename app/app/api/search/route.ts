@@ -8,12 +8,12 @@ export async function GET(req: NextRequest) {
 
   const q = req.nextUrl.searchParams.get("q")?.trim()
   const scopeClientId = req.nextUrl.searchParams.get("clientId")?.trim() || null
-  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [] })
+  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [] })
 
   const mode = "insensitive" as const
   const contains = (field: string) => ({ contains: q, mode })
 
-  const [clients, assets, credentials, runbooks, documents, files] = await Promise.all([
+  const [clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits] = await Promise.all([
     // When scoped to a client, never return other Client rows — the tech is
     // already on that client's page.
     scopeClientId ? Promise.resolve([] as any[]) : prisma.client.findMany({
@@ -117,7 +117,91 @@ export async function GET(req: NextRequest) {
       },
       take: 6,
     }),
+    // People / contacts
+    prisma.person.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: contains("name") },
+          { email: contains("email") },
+          { phone: contains("phone") },
+          { mobile: contains("mobile") },
+          { jobTitle: contains("jobTitle") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: { id: true, name: true, email: true, jobTitle: true, clientId: true, client: { select: { id: true, name: true } } },
+      take: 5,
+    }),
+    // Vendors are global — skip when scoped to a single client.
+    scopeClientId ? Promise.resolve([] as any[]) : prisma.vendor.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: contains("name") },
+          { website: contains("website") },
+          { supportEmail: contains("supportEmail") },
+          { accountNumber: contains("accountNumber") },
+        ],
+      },
+      select: { id: true, name: true, website: true, category: true },
+      take: 5,
+    }),
+    prisma.license.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: contains("name") },
+          { vendor: contains("vendor") },
+          { licenseKey: contains("licenseKey") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: { id: true, name: true, vendor: true, clientId: true, client: { select: { id: true, name: true } } },
+      take: 5,
+    }),
+    prisma.location.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: contains("name") },
+          { address: contains("address") },
+          { city: contains("city") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: { id: true, name: true, city: true, clientId: true, client: { select: { id: true, name: true } } },
+      take: 5,
+    }),
+    prisma.networkDevice.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: contains("name") },
+          { ipAddress: contains("ipAddress") },
+          { macAddress: contains("macAddress") },
+          { serial: contains("serial") },
+          { model: contains("model") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: { id: true, name: true, ipAddress: true, type: true, clientId: true, client: { select: { id: true, name: true } } },
+      take: 5,
+    }),
+    prisma.internetCircuit.findMany({
+      where: {
+        OR: [
+          { label: contains("label") },
+          { circuitId: contains("circuitId") },
+          { accountNumber: contains("accountNumber") },
+          { wanIp: contains("wanIp") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: { id: true, label: true, wanIp: true, clientId: true, client: { select: { id: true, name: true } } },
+      take: 5,
+    }),
   ])
 
-  return NextResponse.json({ clients, assets, credentials, runbooks, documents, files })
+  return NextResponse.json({ clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits })
 }
