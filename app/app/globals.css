@@ -32,9 +32,9 @@
   --accent-subtle: rgba(61, 111, 255, 0.12);
   /* Text color guaranteed >=4.5:1 on --accent (white fails on #3d6fff at 4.27:1).
      Overridden per-theme in ThemeProvider so on-accent fills stay WCAG AA. */
-  --on-accent: #081020;
+  --on-accent: #020408;   /* >=4.5:1 on --accent (#081020 was 4.45, a hair under); #020408 = ~4.79:1 */
   /* Radius scale — use these instead of ad-hoc px so corners are systematic. */
-  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-pill: 999px; --radius-round: 50%;
+  --radius-xs: 3px; --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-pill: 999px; --radius-round: 50%;
 
   /* DocHub variable aliases — all inline styles reference these */
   --color-background-primary:   var(--bg);
@@ -88,7 +88,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-xs); }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 /* ─── Data table headers — mono + uppercase ──────────────────────────────── */
@@ -358,7 +358,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 16px; border-radius: 5px;
+  padding: 7px 16px; border-radius: var(--radius-md);
   font-size: 12px; font-weight: 500; font-family: var(--sans);
   cursor: pointer; border: 1px solid transparent;
   transition: all 0.15s; white-space: nowrap;
@@ -383,7 +383,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 .filter-input {
   padding: 7px 12px;
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--text); font-size: 12px;
+  border-radius: var(--radius-md); color: var(--text); font-size: 12px;
   outline: none; transition: border-color 0.15s; font-family: var(--sans);
 }
 .filter-input:focus { border-color: var(--accent); }
@@ -404,9 +404,9 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 .data-table td.mono { font-family: var(--mono); font-size: 12px; }
 .data-table td.balance { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--warn); }
 
-.badge-danger  { display: inline-flex; align-items: center; background: rgba(255,77,109,0.15); color: var(--danger); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; font-family: var(--mono); }
-.badge-success { display: inline-flex; align-items: center; background: rgba(0,212,170,0.12); color: var(--accent2); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; font-family: var(--mono); }
-.badge-warn    { display: inline-flex; align-items: center; background: rgba(255,179,71,0.15); color: var(--warn); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; font-family: var(--mono); }
+.badge-danger  { display: inline-flex; align-items: center; background: rgba(255,77,109,0.15); color: var(--danger); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: var(--radius-xs); font-family: var(--mono); }
+.badge-success { display: inline-flex; align-items: center; background: rgba(0,212,170,0.12); color: var(--accent2); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: var(--radius-xs); font-family: var(--mono); }
+.badge-warn    { display: inline-flex; align-items: center; background: rgba(255,179,71,0.15); color: var(--warn); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: var(--radius-xs); font-family: var(--mono); }
 
 .state-box   { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 13px; padding: 48px; text-align: center; }
 .state-icon  { font-size: 36px; opacity: 0.35; }
@@ -427,7 +427,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 .field input, .field select, .field textarea {
   width: 100%; padding: 8px 12px;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--text); font-size: 13px;
+  border-radius: var(--radius-md); color: var(--text); font-size: 13px;
   outline: none; transition: border-color 0.15s; font-family: var(--sans);
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }

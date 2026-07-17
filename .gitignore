@@ -17,5 +17,8 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
-# Local DB + uploads backups (never commit)
-backups/
+# Local DB + uploads backups (never commit).
+# NOTE: leading slash anchors to the repo root ONLY — a bare 'backups/' also matched
+# source dirs like app/app/admin/backups and app/app/api/**/backups, silently
+# excluding the entire DR/backups feature from git + CI. Keep it anchored.
+/backups/

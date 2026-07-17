@@ -62,7 +62,7 @@ export default function InstallPrompt() {
       width: "calc(100% - 32px)",
     }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0", marginBottom: "2px" }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", marginBottom: "2px" }}>
           Install DocHub
         </div>
         <div style={{ fontSize: "11px", color: "var(--muted)" }}>
@@ -73,10 +73,10 @@ export default function InstallPrompt() {
         padding: "6px 14px",
         fontSize: "12px",
         fontWeight: 500,
-        background: "#3b82f6",
-        color: "#fff",
+        background: "var(--accent)",
+        color: "var(--on-accent)",
         border: "none",
-        borderRadius: "6px",
+        borderRadius: "var(--radius-md)",
         cursor: "pointer",
         whiteSpace: "nowrap",
       }}>
