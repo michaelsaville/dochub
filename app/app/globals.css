@@ -207,6 +207,27 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
   }
 }
 
+/* ─── Mobile touch contract (≤767px) ─────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* 44px minimum touch targets */
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 40px; }
+  /* 16px inputs = iOS no-zoom threshold (13-14px fields zoom-on-focus) */
+  .filter-input,
+  .field input, .field select, .field textarea { min-height: 44px; font-size: 16px; }
+  /* roomier rows */
+  .data-table td, .data-table th { padding-top: 12px; padding-bottom: 12px; }
+}
+
+/* ─── Offline / queued-write indicator ───────────────────────────────────── */
+.offline-pill {
+  position: fixed; bottom: calc(84px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  z-index: 250; display: none; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; font-family: var(--mono);
+  background: var(--card); border: 1px solid var(--warn); color: var(--warn); box-shadow: var(--shadow-md);
+}
+.offline-pill.show { display: inline-flex; }
+
 /* ─── Print / Report styles ──────────────────────────────────────────────── */
 @media print {
   /* Override theme variables — always print black on white */

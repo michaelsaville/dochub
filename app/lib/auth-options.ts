@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth"
 import AzureADProvider from "next-auth/providers/azure-ad"
 import { prisma } from "@/lib/prisma"
+import { writeAudit } from "@/lib/audit-log"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -20,6 +21,15 @@ export const authOptions: NextAuthOptions = {
         const allowed = await prisma.staffUser.findUnique({
           where: { email: user.email },
         })
+        if (allowed) {
+          await writeAudit({
+            action: "auth.login",
+            actorType: "STAFF",
+            actorId: allowed.id,
+            actorLabel: allowed.name || allowed.email,
+            summary: `Signed in (${allowed.role})`,
+          })
+        }
         return !!allowed
       } catch (e) {
         return false

@@ -821,6 +821,42 @@ model AppSetting {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
+enum AuditActorType {
+  STAFF
+  API_KEY
+  PORTAL
+  SYSTEM
+}
+
+// Append-only, hash-chained secure audit trail. No FKs: actor/client are
+// snapshotted (label + id) so a later rename/delete can never mutate history.
+// Each row's hash = HMAC over its payload + the previous row's hash; the chain
+// head lives in AppSetting (audit:head_seq / audit:head_hash).
+model AuditLog {
+  seq        BigInt         @id @default(autoincrement())
+  id         String         @unique @default(cuid())
+  at         DateTime       @default(now())
+  actorType  AuditActorType
+  actorId    String?
+  actorLabel String
+  action     String
+  entityType String?
+  entityId   String?
+  clientId   String?
+  summary    String
+  metadata   Json           @default("{}")
+  ip         String?
+  userAgent  String?
+  prevHash   String
+  hash       String         @unique
+
+  @@index([at])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([clientId])
+  @@index([actorId])
+}
+
 model OutboundMessage {
   id           String   @id @default(cuid())
   templateKey  String

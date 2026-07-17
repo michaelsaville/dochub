@@ -81,7 +81,11 @@ export async function GET(
     // Skip audit on the 30s TOTP auto-refresh (?refresh=1) — only the initial
     // user-initiated reveal is logged, so the trail isn't flooded with ticks.
     if (!new URL(req.url).searchParams.get("refresh")) {
-      await logReveal({ entityId: id, actor: session?.user?.name, source: "staff" })
+      await logReveal({
+        entityId: id, actor: session?.user?.name, actorId: (session?.user as { id?: string })?.id,
+        source: "staff", clientId: credential.clientId,
+        ip: req.headers.get("x-forwarded-for"), userAgent: req.headers.get("user-agent"),
+      })
     }
 
     return NextResponse.json({ password, totp, totpCode, secureNotes })
