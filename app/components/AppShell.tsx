@@ -29,6 +29,7 @@ function HamburgerIcon() {
 }
 
 const QUICK_LINKS: { label: string; href: string; icon: string; adminOnly?: boolean }[] = [
+  { label: "Flexible Assets", href: "/flex", icon: "🧬" },
   { label: "Reporting", href: "/reports", icon: "📊" },
   { label: "Global SOPs", href: "/runbooks", icon: "📋" },
   { label: "Templates", href: "/templates", icon: "🧩" },

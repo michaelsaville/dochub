@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { storeUploadedFile, isStoreError } from "@/lib/files/store"
 
-type EntityType = "asset" | "vendor" | "location" | "vendorContract" | "client"
+type EntityType = "asset" | "vendor" | "location" | "vendorContract" | "client" | "flexAsset"
 
 const ENTITY_TO_FK: Record<EntityType, string> = {
   asset: "assetId",
@@ -11,6 +11,7 @@ const ENTITY_TO_FK: Record<EntityType, string> = {
   location: "locationId",
   vendorContract: "vendorContractId",
   client: "clientId",
+  flexAsset: "flexAssetId",
 }
 
 // Fields surfaced to the UI so it can decide preview affordances without a
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
     const entityId = formData.get("entityId") as string | null
     const notes = ((formData.get("notes") as string) ?? "").trim() || null
     const folderId = ((formData.get("folderId") as string) ?? "").trim() || null
+    const flexFieldKey = ((formData.get("flexFieldKey") as string) ?? "").trim() || null
 
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 })
     if (!entityType || !entityId || !(entityType in ENTITY_TO_FK)) {
@@ -128,6 +130,12 @@ export async function POST(req: Request) {
         },
       })
       clientId = c?.clientId ?? c?.vendor?.clients?.[0]?.id ?? null
+    } else if (entityType === "flexAsset") {
+      const fa = await prisma.flexAsset.findUnique({
+        where: { id: entityId },
+        select: { clientId: true },
+      })
+      clientId = fa?.clientId ?? null
     }
     if (!clientId) {
       return NextResponse.json({ error: "Could not resolve client for entity" }, { status: 400 })
@@ -138,6 +146,8 @@ export async function POST(req: Request) {
     if (entityType !== "client") link[fk] = entityId
     // Folders only apply to loose client-library files.
     if (entityType === "client" && folderId) link.folderId = folderId
+    // Pin the upload to the specific flex field it belongs to.
+    if (entityType === "flexAsset" && flexFieldKey) link.flexFieldKey = flexFieldKey
 
     const result = await storeUploadedFile(file, link, notes)
     if (isStoreError(result)) {

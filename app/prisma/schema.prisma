@@ -134,6 +134,7 @@ model Client {
   networkDevices    NetworkDevice[]
   runbooks          Runbook[]
   staffAssignments  StaffClientAssignment[]
+  flexAssets        FlexAsset[]
   runbookRuns       RunbookRun[]
   subnets           Subnet[]
   vlans             Vlan[]
@@ -191,6 +192,7 @@ model Location {
   ptpSideB       PtpLink[]       @relation("PtpSideB")
   attachments    ClientAttachment[] @relation("LocationAttachments")
   internetCircuits InternetCircuit[]
+  flexAssets       FlexAsset[]
   /// Cross-app pointer to TicketHub's TH_Site.id. Populated lazily on
   /// first successful name-match resolve so subsequent cross-schema
   /// lookups are O(1). Null = no matching TH_Site yet (DocHub has 178
@@ -900,6 +902,82 @@ model Template {
   @@index([kind, isArchived, isPublished])
 }
 
+// ─── Flexible Assets (IT Glue "Flexible Assets" parity) ─────────────────────
+// User-defined documentation types with custom field schemas. PARALLEL to the
+// hard-coded Asset "Configurations" — never extends them. Additive-only.
+model FlexLayout {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  icon        String            @default("📄")
+  color       String            @default("#3d6fff")
+  description String?
+  sortOrder   Int               @default(0)
+  isActive    Boolean           @default(true)
+  showInNav   Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  fields      FlexLayoutField[]
+  assets      FlexAsset[]
+
+  @@index([isActive, sortOrder])
+}
+
+model FlexLayoutField {
+  id             String     @id @default(cuid())
+  layoutId       String
+  key            String // stable machine key, immutable once instances exist
+  label          String
+  type           String // text|textarea|number|date|select|multiselect|checkbox|tags|password|upload|relation|header|website
+  required       Boolean    @default(false)
+  showInList     Boolean    @default(false)
+  useForTitle    Boolean    @default(false)
+  hint           String?
+  position       Int        @default(0)
+  options        String[] // select/multiselect choices
+  relationTarget String? // "Person"|"Asset"|"Vendor"|"Client"|"FlexAsset" for relation type
+  expires        Boolean    @default(false) // date fields: drive expiry alerts
+  layout         FlexLayout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+
+  @@unique([layoutId, key])
+  @@index([layoutId, position])
+}
+
+model FlexAsset {
+  id          String              @id @default(cuid())
+  layoutId    String
+  clientId    String // REQUIRED — client-scoped like every other record
+  locationId  String?
+  title       String // derived from useForTitle fields
+  values      Json                @default("{}") // { [fieldKey]: scalar|string[]|bool }; password values ENCRYPTED
+  searchText  String? // denormalized flattened text for /api/search
+  archivedAt  DateTime?
+  createdBy   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  layout      FlexLayout          @relation(fields: [layoutId], references: [id])
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  location    Location?           @relation(fields: [locationId], references: [id])
+  relations   FlexAssetRelation[]
+  attachments ClientAttachment[]
+
+  @@index([clientId])
+  @@index([layoutId])
+  @@index([clientId, layoutId])
+}
+
+model FlexAssetRelation {
+  id          String    @id @default(cuid())
+  flexAssetId String
+  fieldKey    String
+  targetType  String // "Person"|"Asset"|"Vendor"|"Client"|"FlexAsset"
+  targetId    String
+  flexAsset   FlexAsset @relation(fields: [flexAssetId], references: [id], onDelete: Cascade)
+
+  @@index([flexAssetId])
+  @@index([targetType, targetId])
+}
+
 model OutboundMessage {
   id           String   @id @default(cuid())
   templateKey  String
@@ -1006,6 +1084,8 @@ model ClientAttachment {
   assetId          String?
   vendorId         String?
   locationId       String?
+  flexAssetId      String?
+  flexFieldKey     String?
   vendorContractId String?
   originalName     String
   storageName      String           @unique
@@ -1032,6 +1112,7 @@ model ClientAttachment {
   asset            Asset?           @relation("AssetAttachments", fields: [assetId], references: [id], onDelete: Cascade)
   vendor           Vendor?          @relation("VendorAttachments", fields: [vendorId], references: [id], onDelete: Cascade)
   location         Location?        @relation("LocationAttachments", fields: [locationId], references: [id], onDelete: Cascade)
+  flexAsset        FlexAsset?       @relation(fields: [flexAssetId], references: [id], onDelete: Cascade)
   vendorContract   VendorContract?  @relation("VendorContractAttachments", fields: [vendorContractId], references: [id], onDelete: Cascade)
   supersededBy     ClientAttachment? @relation("AttachmentVersion", fields: [supersededById], references: [id])
   supersedes       ClientAttachment? @relation("AttachmentVersion")
@@ -1040,6 +1121,7 @@ model ClientAttachment {
   @@index([assetId])
   @@index([vendorId])
   @@index([locationId])
+  @@index([flexAssetId])
   @@index([vendorContractId])
   @@index([clientId])
   @@index([folderId])

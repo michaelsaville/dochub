@@ -17,10 +17,14 @@ type Attachment = {
 }
 
 interface Props {
-  entityType: "asset" | "vendor" | "location" | "vendorContract"
+  entityType: "asset" | "vendor" | "location" | "vendorContract" | "flexAsset"
   entityId: string
   /** Compact = inline area on a detail page; full = bigger drop zone. */
   compact?: boolean
+  /** For flexAsset uploads: pins the file to a specific flex field. */
+  flexFieldKey?: string
+  /** Optional file-picker `accept` filter (e.g. "image/*,application/pdf"). */
+  accept?: string
 }
 
 function formatBytes(n: number): string {
@@ -44,7 +48,7 @@ function mimeIcon(mime: string): string {
  * uploads. Files stream via /api/attachments and download via
  * /api/attachments/[id]. 25MB cap matches the server.
  */
-export default function AttachmentsPanel({ entityType, entityId, compact }: Props) {
+export default function AttachmentsPanel({ entityType, entityId, compact, flexFieldKey, accept }: Props) {
   const [items, setItems] = useState<Attachment[]>([])
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -67,6 +71,7 @@ export default function AttachmentsPanel({ entityType, entityId, compact }: Prop
       fd.append("file", file)
       fd.append("entityType", entityType)
       fd.append("entityId", entityId)
+      if (flexFieldKey) fd.append("flexFieldKey", flexFieldKey)
       if (notes) fd.append("notes", notes)
       const res = await fetch("/api/attachments", { method: "POST", body: fd })
       if (!res.ok) {
@@ -115,6 +120,7 @@ export default function AttachmentsPanel({ entityType, entityId, compact }: Prop
         <input
           ref={inputRef}
           type="file"
+          {...(accept ? { accept } : {})}
           style={{ display: "none" }}
           onChange={(e) => {
             const f = e.target.files?.[0]

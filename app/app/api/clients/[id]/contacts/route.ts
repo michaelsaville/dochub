@@ -4,6 +4,34 @@ import { requireAuth } from "@/lib/auth"
 import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { maybeTriggerOnboardingRunbook } from "@/lib/runbook-triggers"
 
+// GET a client's contacts (optionally ?q= search) — backs the Flexible-Asset
+// relation picker for Person targets and any contact lookup.
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { error } = await requireAuth()
+  if (error) return error
+  try {
+    const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
+    const q = new URL(req.url).searchParams.get("q")?.trim() || ""
+    const people = await prisma.person.findMany({
+      where: {
+        clientId: id,
+        isActive: true,
+        ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {}),
+      },
+      select: { id: true, name: true, email: true, role: true, jobTitle: true },
+      orderBy: { name: "asc" },
+      take: 30,
+    })
+    return NextResponse.json(people)
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch contacts" }, { status: 500 })
+  }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

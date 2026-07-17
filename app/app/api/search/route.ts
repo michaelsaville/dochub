@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
 
   const q = req.nextUrl.searchParams.get("q")?.trim()
   const scopeClientId = req.nextUrl.searchParams.get("clientId")?.trim() || null
-  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [] })
+  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [], flexAssets: [] })
 
   const mode = "insensitive" as const
   const contains = (field: string) => ({ contains: q, mode })
 
-  const [clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits] = await Promise.all([
+  const [clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits, flexAssets] = await Promise.all([
     // When scoped to a client, never return other Client rows — the tech is
     // already on that client's page.
     scopeClientId ? Promise.resolve([] as any[]) : prisma.client.findMany({
@@ -202,6 +202,25 @@ export async function GET(req: NextRequest) {
       select: { id: true, label: true, wanIp: true, clientId: true, client: { select: { id: true, name: true } } },
       take: 5,
     }),
+    // Flexible Assets: match derived title or the denormalised searchText.
+    prisma.flexAsset.findMany({
+      where: {
+        archivedAt: null,
+        OR: [
+          { title: contains("title") },
+          { searchText: contains("searchText") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        clientId: true,
+        layout: { select: { id: true, name: true, slug: true, icon: true } },
+        client: { select: { id: true, name: true } },
+      },
+      take: 6,
+    }),
   ])
 
   // RBAC: a scoped tech (assigned to specific clients) must not see other
@@ -222,5 +241,6 @@ export async function GET(req: NextRequest) {
     locations:   locations.filter((l: any) => ok(l.clientId)),
     netdevices:  netdevices.filter((n: any) => ok(n.clientId)),
     circuits:    circuits.filter((c: any) => ok(c.clientId)),
+    flexAssets:  flexAssets.filter((f: any) => ok(f.clientId)),
   })
 }
