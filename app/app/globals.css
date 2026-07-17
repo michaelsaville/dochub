@@ -153,6 +153,76 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
   border-bottom-color: var(--accent);
 }
 
+/* ─── Client detail — grouped two-tier nav (Phase 5) ─────────────────── */
+.pcc-client-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 24px;
+  background: var(--color-background-primary);
+}
+.pcc-section-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 8px 0 8px;
+  background: var(--color-background-primary);
+}
+.pcc-section-row::-webkit-scrollbar { display: none; }
+.pcc-section-tab {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: var(--mono);
+  color: var(--muted);
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.pcc-section-tab:hover { color: var(--text); }
+.pcc-section-tab.has-active { color: var(--text); }
+.pcc-section-tab.open {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--color-background-primary);
+}
+.pcc-section-badge {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text);
+}
+.pcc-section-tab.open .pcc-section-badge {
+  background: var(--accent);
+  color: #fff;
+}
+.pcc-section-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.pcc-subtab-bar-wrap {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--color-background-primary);
+}
+
 /* ─── Mobile layout — hide sidebar, show bottom bar ──────────────────── */
 .dochub-bottombar {
   display: none;
@@ -200,6 +270,16 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
     scroll-snap-align: start;
     /* Bigger tap targets on mobile. */
     padding: 14px 18px;
+  }
+  /* Section-chip row (Row 1) is a scroll-snap strip too — 6 chips ≈ one
+     viewport — with 44px tap targets. */
+  .pcc-section-row {
+    scroll-snap-type: x mandatory;
+  }
+  .pcc-section-tab {
+    scroll-snap-align: start;
+    min-height: 44px;
+    padding: 10px 16px;
   }
   /* Hide the ‹ › tab scroll buttons — thumbs swipe directly. */
   .pcc-tab-scroll-btn {

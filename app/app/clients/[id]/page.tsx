@@ -163,6 +163,32 @@ type AssetType = { id: string; name: string; template: AssetTypeTemplate | null 
 
 const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Vendor Portal", "Audit Trail"]
 
+// Two-tier grouped nav (Phase 5). Every string in `tabs` MUST appear exactly
+// once across SECTIONS — the flatten is asserted equal to `tabs` in dev below.
+const SECTIONS: { label: string; tabs: string[] }[] = [
+  { label: "Overview", tabs: ["Dashboard", "Audit Trail"] },
+  { label: "Organization", tabs: ["Locations", "People", "Vendors"] },
+  { label: "Assets & Licensing", tabs: ["Assets", "Applications", "Licenses", "Subscriptions"] },
+  { label: "Network & Telecom", tabs: ["Network", "Domains", "Remote Access", "Phone System", "Cameras"] },
+  { label: "Credentials & Vault", tabs: ["Credentials", "Portal Vault"] },
+  { label: "Docs & Client Portal", tabs: ["Documents", "SOPs", "Portal", "Vendor Portal"] },
+]
+
+const sectionOf = (tab: string) => SECTIONS.find((s) => s.tabs.includes(tab))?.label ?? SECTIONS[0].label
+
+// Dev-only correctness gate: SECTIONS must partition `tabs` exactly (no missing,
+// no extra, no dupes). If `tabs` ever changes, this fires loudly in development.
+if (process.env.NODE_ENV !== "production") {
+  const flat = SECTIONS.flatMap((s) => s.tabs)
+  const missing = tabs.filter((t) => !flat.includes(t))
+  const extra = flat.filter((t) => !tabs.includes(t))
+  const dupes = flat.filter((t, i) => flat.indexOf(t) !== i)
+  if (missing.length || extra.length || dupes.length) {
+    // eslint-disable-next-line no-console
+    console.error("[ClientTabNav] SECTIONS must cover `tabs` exactly.", { missing, extra, dupes })
+  }
+}
+
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
   LAPTOP: "Laptop",
@@ -296,6 +322,115 @@ function vendorSupportChip(vendor?: { supportPhone?: string | null; supportEmail
       {supportPhone && <a href={`tel:${supportPhone}`} style={link}>☎ {supportPhone}</a>}
       {supportEmail && <a href={`mailto:${supportEmail}`} style={link}>✉ {supportEmail}</a>}
       {portalUrl && <a href={portalUrl} target="_blank" rel="noopener noreferrer" style={link}>↗ portal</a>}
+    </div>
+  )
+}
+
+// Two-tier grouped client nav. MUST live at module scope — an inline
+// sub-component remounts on every parent render and drops input focus
+// (a known DocHub gotcha). Row 1 = section chips; Row 2 = the open section's
+// child tabs. Content rendering + deep-links are untouched: this only chooses
+// which tab strip is visible via the same setActiveTab the page already uses.
+const CLIENT_NAV_SECTION_KEY = "dochub:client-nav-section"
+function ClientTabNav({
+  activeTab,
+  setActiveTab,
+  tabCounts,
+}: {
+  activeTab: string
+  setActiveTab: (tab: string) => void
+  tabCounts: Record<string, number>
+}) {
+  // Initialized to the active tab's section so a deep-link (?tab=Network) opens
+  // "Network & Telecom" on first paint. SSR-safe: no localStorage here.
+  const [openSection, setOpenSection] = useState<string>(() => sectionOf(activeTab))
+  const restoredRef = useRef(false)
+  const activeTabInit = useRef(false)
+
+  // Restore the last-opened section from localStorage on mount. A deep-link to a
+  // non-default tab wins (its section is already open), so only restore when the
+  // active tab is the default Dashboard. Touching localStorage in an effect keeps
+  // this SSR-safe.
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    if (activeTab !== "Dashboard") return
+    try {
+      const saved = localStorage.getItem(CLIENT_NAV_SECTION_KEY)
+      if (saved && SECTIONS.some((s) => s.label === saved)) setOpenSection(saved)
+    } catch {
+      /* localStorage unavailable — ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-open the section that owns the active tab whenever it changes. Skips the
+  // very first run so it doesn't clobber the localStorage restore above; the
+  // useState initializer already handled the mount case (incl. deep-links).
+  useEffect(() => {
+    if (!activeTabInit.current) {
+      activeTabInit.current = true
+      return
+    }
+    setOpenSection(sectionOf(activeTab))
+  }, [activeTab])
+
+  // Persist the last-opened section for the next visit.
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLIENT_NAV_SECTION_KEY, openSection)
+    } catch {
+      /* ignore */
+    }
+  }, [openSection])
+
+  const section = SECTIONS.find((s) => s.label === openSection) ?? SECTIONS[0]
+
+  return (
+    <div className="pcc-client-nav">
+      <div className="pcc-section-row">
+        {SECTIONS.map((s) => {
+          const agg = s.tabs.reduce((sum, t) => sum + (tabCounts[t] || 0), 0)
+          const hasLive = s.tabs.some((t) => (tabCounts[t] || 0) > 0)
+          const isOpen = s.label === openSection
+          const hasActive = s.tabs.includes(activeTab)
+          return (
+            <button
+              key={s.label}
+              type="button"
+              aria-expanded={isOpen}
+              onClick={() => setOpenSection(s.label)}
+              className={`pcc-section-tab${isOpen ? " open" : ""}${hasActive ? " has-active" : ""}`}
+            >
+              {s.label}
+              {agg > 0 && <span className="pcc-section-badge">{agg}</span>}
+              {hasLive && <span className="pcc-section-dot" aria-hidden="true" />}
+            </button>
+          )
+        })}
+      </div>
+      <div className="pcc-subtab-bar-wrap">
+        <div className="pcc-tab-bar">
+          {section.tabs.map((tab) => {
+            const count = tabCounts[tab]
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`pcc-tab${activeTab === tab ? " active" : ""}`}
+              >
+                {tab}
+                {count !== undefined && count > 0 && (
+                  <span style={{ marginLeft: 5, fontSize: 10, color: "var(--color-text-muted)" }}>
+                    ({count})
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1757,26 +1892,7 @@ export default function ClientDetailPage() {
           )}
         </div>
 
-        <div className="pcc-tab-bar-wrap">
-          <button className="pcc-tab-scroll-btn" onClick={() => { const el = document.querySelector('.pcc-tab-bar') as HTMLElement; if (el) el.scrollLeft -= 160 }}>‹</button>
-          <div className="pcc-tab-bar">
-            {tabs.map((tab) => {
-              const count = tabCounts[tab]
-              return (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`pcc-tab${activeTab === tab ? " active" : ""}`}>
-                  {tab}
-                  {count !== undefined && count > 0 && (
-                    <span style={{ marginLeft: 5, fontSize: 10, color: "var(--color-text-muted)" }}>
-                      ({count})
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-          <button className="pcc-tab-scroll-btn" onClick={() => { const el = document.querySelector('.pcc-tab-bar') as HTMLElement; if (el) el.scrollLeft += 160 }}>›</button>
-        </div>
+        <ClientTabNav activeTab={activeTab} setActiveTab={setActiveTab} tabCounts={tabCounts} />
 
         {activeTab === "Dashboard" && (
           <div style={{ maxWidth: "960px" }}>

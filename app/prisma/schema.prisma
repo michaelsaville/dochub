@@ -978,6 +978,54 @@ model FlexAssetRelation {
   @@index([targetType, targetId])
 }
 
+// ─── Platform backup / DR (namespaced Platform* to avoid the existing
+// client-facing BackupConfig/SynologyBackupJob which document CLIENTS' backups) ─
+model PlatformBackupSchedule {
+  id             String    @id @default("default") // singleton
+  enabled        Boolean   @default(false)
+  frequency      String    @default("daily") // daily|weekly
+  hourUtc        Int       @default(3)
+  weekday        Int? // 0-6 for weekly
+  retentionCount Int       @default(14)
+  maxAgeDays     Int?
+  includeUploads Boolean   @default(false)
+  secretsMode    String    @default("ciphertext") // ciphertext|decrypted
+  target         String    @default("local") // local|s3
+  s3Bucket       String?
+  s3Prefix       String?
+  s3Endpoint     String?
+  s3AccessKey    String?
+  s3SecretKeyEnc String? // encrypted with BACKUP_ENCRYPTION_KEY
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
+model PlatformBackupRun {
+  id             String    @id @default(cuid())
+  kind           String // scheduled|manual|export
+  status         String    @default("running") // running|success|failed
+  scope          String    @default("tenant") // tenant|client
+  clientId       String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  storagePath    String?
+  sizeBytes      BigInt?
+  sha256         String?
+  itemCounts     Json?
+  secretsMode    String    @default("ciphertext")
+  includeUploads Boolean   @default(false)
+  encrypted      Boolean   @default(true)
+  verifiedAt     DateTime?
+  verifyStatus   String?
+  error          String?
+  triggeredBy    String?
+
+  @@index([startedAt])
+  @@index([status])
+  @@index([kind])
+}
+
 model OutboundMessage {
   id           String   @id @default(cuid())
   templateKey  String
