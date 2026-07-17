@@ -25,6 +25,10 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
   location:   { label: "Location",   color: "#eab308" },
   netdevice:  { label: "Network",    color: "#10b981" },
   circuit:    { label: "Circuit",    color: "#f43f5e" },
+  flexAsset:  { label: "Flex Asset", color: "#8b5cf6" },
+  subnet:     { label: "Subnet",     color: "#06b6d4" },
+  ipAssignment: { label: "IP Address", color: "#84cc16" },
+  rack:       { label: "Rack",       color: "#64748b" },
 }
 
 function flattenResults(data: {
@@ -40,6 +44,10 @@ function flattenResults(data: {
   locations: { id: string; name: string; city: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
   netdevices: { id: string; name: string; ipAddress: string | null; type: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
   circuits: { id: string; label: string; wanIp: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
+  flexAssets: { id: string; title: string; layout: { name: string } | null; client: { id: string; name: string } | null }[]
+  subnets: { id: string; cidr: string; description: string | null; vlan: string | null; clientId: string; client: { id: string; name: string } | null }[]
+  ipAssignments: { id: string; ipAddress: string; hostname: string | null; subnet: { cidr: string; client: { id: string; name: string } | null } | null }[]
+  racks: { id: string; name: string; location: { client: { id: string; name: string } } | null }[]
 }): SearchResult[] {
   const results: SearchResult[] = []
 
@@ -138,6 +146,40 @@ function flattenResults(data: {
       label: c.label,
       sublabel: [c.wanIp, c.client?.name].filter(Boolean).join(" · "),
       href: c.clientId ? `/clients/${c.clientId}?tab=Network` : "#",
+    })
+  }
+  for (const fa of data.flexAssets) {
+    results.push({
+      id: fa.id, category: "flexAsset", categoryColor: CATEGORY_META.flexAsset.color,
+      label: fa.title,
+      sublabel: [fa.layout?.name, fa.client?.name].filter(Boolean).join(" · "),
+      href: `/flex/asset/${fa.id}`,
+    })
+  }
+  for (const s of data.subnets) {
+    results.push({
+      id: s.id, category: "subnet", categoryColor: CATEGORY_META.subnet.color,
+      label: s.cidr,
+      sublabel: [s.description, s.vlan ? `VLAN ${s.vlan}` : null, s.client?.name].filter(Boolean).join(" · "),
+      href: s.clientId ? `/clients/${s.clientId}?tab=Network` : "#",
+    })
+  }
+  for (const ip of data.ipAssignments) {
+    const clientId = ip.subnet?.client?.id
+    results.push({
+      id: ip.id, category: "ipAssignment", categoryColor: CATEGORY_META.ipAssignment.color,
+      label: ip.ipAddress,
+      sublabel: [ip.hostname, ip.subnet?.cidr, ip.subnet?.client?.name].filter(Boolean).join(" · "),
+      href: clientId ? `/clients/${clientId}?tab=Network` : "#",
+    })
+  }
+  for (const rk of data.racks) {
+    const clientId = rk.location?.client?.id
+    results.push({
+      id: rk.id, category: "rack", categoryColor: CATEGORY_META.rack.color,
+      label: rk.name,
+      sublabel: rk.location?.client?.name || "Rack",
+      href: clientId ? `/clients/${clientId}?tab=Network` : "#",
     })
   }
 

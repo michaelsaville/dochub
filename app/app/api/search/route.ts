@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
 
   const q = req.nextUrl.searchParams.get("q")?.trim()
   const scopeClientId = req.nextUrl.searchParams.get("clientId")?.trim() || null
-  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [], flexAssets: [] })
+  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [], flexAssets: [], subnets: [], ipAssignments: [], racks: [] })
 
   const mode = "insensitive" as const
   const contains = (field: string) => ({ contains: q, mode })
 
-  const [clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits, flexAssets] = await Promise.all([
+  const [clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits, flexAssets, subnets, ipAssignments, racks] = await Promise.all([
     // When scoped to a client, never return other Client rows — the tech is
     // already on that client's page.
     scopeClientId ? Promise.resolve([] as any[]) : prisma.client.findMany({
@@ -221,6 +221,40 @@ export async function GET(req: NextRequest) {
       },
       take: 6,
     }),
+    // IPAM subnets: match the CIDR, description, or VLAN tag.
+    prisma.subnet.findMany({
+      where: {
+        OR: [
+          { cidr: contains("cidr") },
+          { description: contains("description") },
+          { vlan: contains("vlan") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: { id: true, cidr: true, description: true, vlan: true, clientId: true, client: { select: { id: true, name: true } } },
+      take: 5,
+    }),
+    // IP assignments: match the address or hostname; client is via the subnet.
+    prisma.ipAssignment.findMany({
+      where: {
+        OR: [
+          { ipAddress: contains("ipAddress") },
+          { hostname: contains("hostname") },
+        ],
+        ...(scopeClientId ? { subnet: { clientId: scopeClientId } } : {}),
+      },
+      select: { id: true, ipAddress: true, hostname: true, subnet: { select: { clientId: true, cidr: true, client: { select: { id: true, name: true } } } } },
+      take: 5,
+    }),
+    // Racks are owned by a location; scope/RBAC resolve the client via location.
+    prisma.rack.findMany({
+      where: {
+        name: contains("name"),
+        ...(scopeClientId ? { location: { clientId: scopeClientId } } : {}),
+      },
+      select: { id: true, name: true, location: { select: { client: { select: { id: true, name: true } } } } },
+      take: 5,
+    }),
   ])
 
   // RBAC: a scoped tech (assigned to specific clients) must not see other
@@ -242,5 +276,8 @@ export async function GET(req: NextRequest) {
     netdevices:  netdevices.filter((n: any) => ok(n.clientId)),
     circuits:    circuits.filter((c: any) => ok(c.clientId)),
     flexAssets:  flexAssets.filter((f: any) => ok(f.clientId)),
+    subnets:       subnets.filter((s: any) => ok(s.clientId)),
+    ipAssignments: ipAssignments.filter((a: any) => ok(a.subnet?.clientId)),
+    racks:         racks.filter((r: any) => ok(r.location?.client?.id)),
   })
 }

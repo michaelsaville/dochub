@@ -146,7 +146,7 @@ export default function IdentityPanel({ clientName, role }: { clientName: string
     const colors = {
       ok:    { bg: "rgba(22,163,74,0.10)",  fg: "#16a34a" },
       warn:  { bg: "rgba(202,138,4,0.10)",  fg: "#ca8a04" },
-      muted: { bg: "rgba(100,116,139,0.10)", fg: "#64748b" },
+      muted: { bg: "rgba(100,116,139,0.10)", fg: "var(--color-text-muted)" },
     }[kind]
     return {
       display: "inline-flex",

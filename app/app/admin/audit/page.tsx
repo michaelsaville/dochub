@@ -46,24 +46,7 @@ type ApiResponse = {
   }
 }
 
-const thStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  fontSize: "11px",
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--muted)",
-  fontWeight: 600,
-}
-const tdStyle: React.CSSProperties = { padding: "8px 12px", fontSize: "13px", verticalAlign: "top" }
 const labelStyle: React.CSSProperties = { fontSize: "12px" }
-const inputStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  fontSize: "13px",
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  borderRadius: "6px",
-}
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString()
@@ -216,24 +199,19 @@ export default function AuditLogPage() {
         )}
 
         {/* tabs */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
-          {(["field", "activity", "secure"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                padding: "6px 14px",
-                fontSize: "13px",
-                borderRadius: "6px",
-                border: "1px solid var(--border)",
-                background: tab === t ? "var(--text)" : "var(--surface)",
-                color: tab === t ? "var(--surface)" : "var(--text)",
-                cursor: "pointer",
-              }}
-            >
-              {t === "field" ? "Field history & reveals" : t === "activity" ? "Activity events" : "Secure Log"}
-            </button>
-          ))}
+        <div style={{ marginBottom: "20px", borderBottom: "1px solid var(--border)" }}>
+          <div className="pcc-tab-bar">
+            {(["field", "activity", "secure"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`pcc-tab${tab === t ? " active" : ""}`}
+              >
+                {t === "field" ? "Field history & reveals" : t === "activity" ? "Activity events" : "Secure Log"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tab === "secure" && <SecureLogTab />}
@@ -250,7 +228,7 @@ export default function AuditLogPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={tab === "field" ? "actor / id / value" : "title / body / client"}
-              style={inputStyle}
+              className="filter-input"
             />
           </label>
 
@@ -258,7 +236,7 @@ export default function AuditLogPage() {
             <>
               <label style={labelStyle}>
                 <div style={{ color: "var(--muted)", marginBottom: "4px" }}>Entity</div>
-                <select value={entityType} onChange={(e) => setEntityType(e.target.value)} style={inputStyle}>
+                <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className="filter-input">
                   <option value="">any</option>
                   {facets.entityTypes?.map((f) => (
                     <option key={f.value} value={f.value}>
@@ -273,7 +251,8 @@ export default function AuditLogPage() {
                   value={fieldName}
                   onChange={(e) => setFieldName(e.target.value)}
                   disabled={revealsOnly || !!source}
-                  style={{ ...inputStyle, opacity: revealsOnly || source ? 0.5 : 1 }}
+                  className="filter-input"
+                  style={{ opacity: revealsOnly || source ? 0.5 : 1 }}
                 >
                   <option value="">any</option>
                   {facets.fields?.map((f) => (
@@ -285,7 +264,7 @@ export default function AuditLogPage() {
               </label>
               <label style={labelStyle}>
                 <div style={{ color: "var(--muted)", marginBottom: "4px" }}>Reveal source</div>
-                <select value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
+                <select value={source} onChange={(e) => setSource(e.target.value)} className="filter-input">
                   <option value="">any</option>
                   {facets.sources?.map((f) => (
                     <option key={f.value} value={f.value}>
@@ -302,7 +281,7 @@ export default function AuditLogPage() {
           ) : (
             <label style={labelStyle}>
               <div style={{ color: "var(--muted)", marginBottom: "4px" }}>Event type</div>
-              <select value={eventType} onChange={(e) => setEventType(e.target.value)} style={inputStyle}>
+              <select value={eventType} onChange={(e) => setEventType(e.target.value)} className="filter-input">
                 <option value="">any</option>
                 {facets.eventTypes?.map((f) => (
                   <option key={f.value} value={f.value}>
@@ -315,24 +294,17 @@ export default function AuditLogPage() {
 
           <label style={labelStyle}>
             <div style={{ color: "var(--muted)", marginBottom: "4px" }}>From</div>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="filter-input" />
           </label>
           <label style={labelStyle}>
             <div style={{ color: "var(--muted)", marginBottom: "4px" }}>To</div>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="filter-input" />
           </label>
 
-          <button
-            type="submit"
-            style={{ padding: "6px 14px", fontSize: "13px", background: "var(--text)", color: "var(--surface)", border: "none", borderRadius: "6px", cursor: "pointer" }}
-          >
+          <button type="submit" className="btn btn-primary">
             Filter
           </button>
-          <button
-            type="button"
-            onClick={clearFilters}
-            style={{ padding: "6px 10px", fontSize: "12px", background: "transparent", color: "var(--muted)", border: "none", cursor: "pointer" }}
-          >
+          <button type="button" className="btn btn-ghost" onClick={clearFilters}>
             clear
           </button>
         </form>
@@ -347,21 +319,21 @@ export default function AuditLogPage() {
           </div>
         ) : (
           <div style={{ border: "1px solid var(--border)", borderRadius: "8px", background: "var(--surface)", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <table className="data-table">
               <thead>
-                <tr style={{ background: "var(--bg)", textAlign: "left" }}>
-                  <th style={{ ...thStyle, width: "160px" }}>When</th>
+                <tr>
+                  <th style={{ width: "160px" }}>When</th>
                   {tab === "field" ? (
                     <>
-                      <th style={thStyle}>Entity</th>
-                      <th style={thStyle}>Change</th>
-                      <th style={{ ...thStyle, width: "220px" }}>Actor</th>
+                      <th>Entity</th>
+                      <th>Change</th>
+                      <th style={{ width: "220px" }}>Actor</th>
                     </>
                   ) : (
                     <>
-                      <th style={{ ...thStyle, width: "150px" }}>Type</th>
-                      <th style={thStyle}>Event</th>
-                      <th style={{ ...thStyle, width: "200px" }}>Client / Staff</th>
+                      <th style={{ width: "150px" }}>Type</th>
+                      <th>Event</th>
+                      <th style={{ width: "200px" }}>Client / Staff</th>
                     </>
                   )}
                 </tr>
@@ -369,13 +341,13 @@ export default function AuditLogPage() {
               <tbody>
                 {tab === "field"
                   ? fieldRows.map((r) => (
-                      <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
-                        <td style={{ ...tdStyle, color: "var(--muted)", whiteSpace: "nowrap", fontSize: "12px" }}>{formatWhen(r.changedAt)}</td>
-                        <td style={tdStyle}>
+                      <tr key={r.id}>
+                        <td style={{ color: "var(--muted)", whiteSpace: "nowrap", fontSize: "12px" }}>{formatWhen(r.changedAt)}</td>
+                        <td>
                           <div style={{ fontWeight: 500 }}>{r.entityType}</div>
                           <Mono>{r.entityId}</Mono>
                         </td>
-                        <td style={tdStyle}>
+                        <td>
                           {r.isReveal ? (
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <span style={{ fontWeight: 600, color: "var(--warn)" }}>REVEAL</span>
@@ -398,23 +370,23 @@ export default function AuditLogPage() {
                             </div>
                           )}
                         </td>
-                        <td style={tdStyle}>{r.changedBy ?? <span style={{ color: "var(--muted)" }}>unknown</span>}</td>
+                        <td>{r.changedBy ?? <span style={{ color: "var(--muted)" }}>unknown</span>}</td>
                       </tr>
                     ))
                   : activityRows.map((r) => (
-                      <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
-                        <td style={{ ...tdStyle, color: "var(--muted)", whiteSpace: "nowrap", fontSize: "12px" }}>{formatWhen(r.createdAt)}</td>
-                        <td style={tdStyle}>
+                      <tr key={r.id}>
+                        <td style={{ color: "var(--muted)", whiteSpace: "nowrap", fontSize: "12px" }}>{formatWhen(r.createdAt)}</td>
+                        <td>
                           <Mono>{r.eventType}</Mono>
                         </td>
-                        <td style={tdStyle}>
+                        <td>
                           <div style={{ fontWeight: 500 }}>{r.title}</div>
                           {r.body && <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{r.body}</div>}
                           {r.visibleToClient && (
                             <span style={{ fontSize: "10px", color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em" }}>client-visible</span>
                           )}
                         </td>
-                        <td style={tdStyle}>
+                        <td>
                           {r.clientName && (
                             <a href={`/clients/${r.clientId}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
                               {r.clientName}
@@ -433,19 +405,11 @@ export default function AuditLogPage() {
                 {data.total.toLocaleString()} total · {data.pageSize} per page
               </span>
               <span style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <button
-                  onClick={() => load(page - 1)}
-                  disabled={page === 0 || loading}
-                  style={{ padding: "4px 10px", fontSize: "12px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: page === 0 ? "var(--muted)" : "var(--text)", cursor: page === 0 ? "default" : "pointer" }}
-                >
+                <button className="btn btn-secondary btn-sm" onClick={() => load(page - 1)} disabled={page === 0 || loading}>
                   ← Prev
                 </button>
                 <span>Page {page + 1}</span>
-                <button
-                  onClick={() => load(page + 1)}
-                  disabled={!data.hasMore || loading}
-                  style={{ padding: "4px 10px", fontSize: "12px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: !data.hasMore ? "var(--muted)" : "var(--text)", cursor: !data.hasMore ? "default" : "pointer" }}
-                >
+                <button className="btn btn-secondary btn-sm" onClick={() => load(page + 1)} disabled={!data.hasMore || loading}>
                   Next →
                 </button>
               </span>
@@ -718,11 +682,11 @@ function SecureLogTab() {
       >
         <label style={labelStyle}>
           <div style={{ color: "var(--muted)", marginBottom: "4px" }}>Search</div>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="actor / action / summary / id" style={inputStyle} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="actor / action / summary / id" className="filter-input" />
         </label>
         <label style={labelStyle}>
           <div style={{ color: "var(--muted)", marginBottom: "4px" }}>Action</div>
-          <select value={action} onChange={(e) => setAction(e.target.value)} style={inputStyle}>
+          <select value={action} onChange={(e) => setAction(e.target.value)} className="filter-input">
             <option value="">any</option>
             {data?.facets.actions.map((f) => (
               <option key={f.value} value={f.value}>
@@ -733,7 +697,7 @@ function SecureLogTab() {
         </label>
         <label style={labelStyle}>
           <div style={{ color: "var(--muted)", marginBottom: "4px" }}>Actor type</div>
-          <select value={actorType} onChange={(e) => setActorType(e.target.value)} style={inputStyle}>
+          <select value={actorType} onChange={(e) => setActorType(e.target.value)} className="filter-input">
             <option value="">any</option>
             {data?.facets.actorTypes.map((f) => (
               <option key={f.value} value={f.value}>
@@ -744,11 +708,11 @@ function SecureLogTab() {
         </label>
         <label style={labelStyle}>
           <div style={{ color: "var(--muted)", marginBottom: "4px" }}>From</div>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="filter-input" />
         </label>
         <label style={labelStyle}>
           <div style={{ color: "var(--muted)", marginBottom: "4px" }}>To</div>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="filter-input" />
         </label>
         <button type="submit" className="btn btn-primary">
           Filter

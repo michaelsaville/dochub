@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import AppShell from "@/components/AppShell"
+import FlexLayoutPreview from "@/components/flex/FlexLayoutPreview"
 import {
   type FlexField,
   type FlexLayout,
@@ -33,6 +34,20 @@ function newUid(): string {
   return `f${Date.now().toString(36)}_${uidSeq}`
 }
 
+// Two-up (editor beside live preview) only when there's room; stacks below.
+function useMinWidth(px: number): boolean {
+  const [matches, setMatches] = useState(true)
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return
+    const mql = window.matchMedia(`(min-width: ${px}px)`)
+    const update = () => setMatches(mql.matches)
+    update()
+    mql.addEventListener("change", update)
+    return () => mql.removeEventListener("change", update)
+  }, [px])
+  return matches
+}
+
 const EMOJI_CHOICES = ["📄", "🔒", "🌐", "📧", "🛡️", "💳", "🔑", "🖨️", "📶", "🗄️", "☁️", "📞", "🧾", "🏢"]
 
 export default function FlexDesignerPage(): React.ReactElement {
@@ -48,6 +63,12 @@ export default function FlexDesignerPage(): React.ReactElement {
   const [savingFields, setSavingFields] = useState(false)
   const [savingMeta, setSavingMeta] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+
+  // Drag-and-drop reorder (enhancement over the ↑/↓ buttons, which stay for
+  // keyboard + touch). Native HTML5 DnD — no library.
+  const [dragUid, setDragUid] = useState<string | null>(null)
+  const [overUid, setOverUid] = useState<string | null>(null)
+  const wide = useMinWidth(1024)
 
   // New-layout form
   const [showNew, setShowNew] = useState(false)
@@ -211,6 +232,35 @@ export default function FlexDesignerPage(): React.ReactElement {
       ;[next[i], next[j]] = [next[j], next[i]]
       return next
     })
+  }
+
+  // ── drag reorder ────────────────────────────────────────────────────────────
+  // Reorders the same `fields` array the arrows mutate; order persists on the
+  // existing "Save field schema" PUT (position = array index). No new endpoint.
+  function onDragStartField(uid: string) {
+    setDragUid(uid)
+    setOverUid(uid)
+  }
+  function onDragOverField(uid: string) {
+    setOverUid(prev => (prev === uid ? prev : uid))
+  }
+  function onDropField(uid: string) {
+    setFields(prev => {
+      if (!dragUid || dragUid === uid) return prev
+      const from = prev.findIndex(f => f._uid === dragUid)
+      const to = prev.findIndex(f => f._uid === uid)
+      if (from < 0 || to < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+    setDragUid(null)
+    setOverUid(null)
+  }
+  function onDragEndField() {
+    setDragUid(null)
+    setOverUid(null)
   }
 
   async function saveFields() {
@@ -457,12 +507,28 @@ export default function FlexDesignerPage(): React.ReactElement {
                   </div>
                 </div>
 
-                {/* Fields */}
-                <div style={{ ...cardStyle, marginTop: "var(--space-4)" }}>
+                {/* Fields editor + live preview (two-up on wide screens, stacked below) */}
+                <div
+                  style={{
+                    marginTop: "var(--space-4)",
+                    display: "grid",
+                    gridTemplateColumns: wide ? "minmax(0, 1fr) minmax(0, 1fr)" : "1fr",
+                    gap: "var(--space-4)",
+                    alignItems: "start",
+                  }}
+                >
+                  {/* Fields */}
+                  <div style={cardStyle}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
                     <div style={{ fontSize: "var(--text-lg)", fontWeight: 600 }}>Fields</div>
                     <span style={{ fontSize: "var(--text-xs)", color: "var(--muted)" }}>{fields.length} total</span>
                   </div>
+
+                  {fields.length > 0 && (
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--muted)", marginBottom: "var(--space-3)" }}>
+                      Drag <span aria-hidden style={{ fontFamily: "var(--mono)" }}>⠿</span> to reorder, or use the ↑/↓ buttons.
+                    </div>
+                  )}
 
                   {fields.length === 0 && (
                     <div style={{ fontSize: "var(--text-sm)", color: "var(--muted)", marginBottom: 12 }}>
@@ -483,6 +549,14 @@ export default function FlexDesignerPage(): React.ReactElement {
                         onPatch={patchField}
                         onRemove={removeField}
                         onMove={move}
+                        dragActive={dragUid !== null}
+                        isDragging={dragUid === f._uid}
+                        isDropTarget={overUid === f._uid && dragUid !== null && dragUid !== f._uid}
+                        dropBelow={dragUid !== null && fields.findIndex(x => x._uid === dragUid) < i}
+                        onDragStartField={onDragStartField}
+                        onDragOverField={onDragOverField}
+                        onDropField={onDropField}
+                        onDragEndField={onDragEndField}
                       />
                     ))}
                   </div>
@@ -511,6 +585,24 @@ export default function FlexDesignerPage(): React.ReactElement {
                     <button className="btn btn-primary" onClick={saveFields} disabled={savingFields}>
                       {savingFields ? "Saving…" : "Save field schema"}
                     </button>
+                  </div>
+                  </div>
+
+                  {/* Live preview column */}
+                  <div
+                    style={{
+                      position: wide ? "sticky" : "static",
+                      top: wide ? "var(--space-4)" : undefined,
+                      maxHeight: wide ? "calc(100vh - var(--space-8))" : undefined,
+                      overflowY: wide ? "auto" : undefined,
+                    }}
+                  >
+                    <FlexLayoutPreview
+                      fields={fields}
+                      layoutName={meta.name}
+                      layoutIcon={meta.icon}
+                      layoutColor={meta.color}
+                    />
                   </div>
                 </div>
               </>
@@ -603,6 +695,14 @@ function FieldRow({
   onPatch,
   onRemove,
   onMove,
+  dragActive,
+  isDragging,
+  isDropTarget,
+  dropBelow,
+  onDragStartField,
+  onDragOverField,
+  onDropField,
+  onDragEndField,
 }: {
   field: DesignerField
   index: number
@@ -613,8 +713,17 @@ function FieldRow({
   onPatch: (uid: string, patch: Partial<DesignerField>) => void
   onRemove: (uid: string) => void
   onMove: (uid: string, dir: -1 | 1) => void
+  dragActive: boolean
+  isDragging: boolean
+  isDropTarget: boolean
+  dropBelow: boolean
+  onDragStartField: (uid: string) => void
+  onDragOverField: (uid: string) => void
+  onDropField: (uid: string) => void
+  onDragEndField: () => void
 }): React.ReactElement {
   const isHeader = field.type === "header"
+  const rowRef = useRef<HTMLDivElement>(null)
   const flag: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -625,21 +734,82 @@ function FieldRow({
   }
   return (
     <div
+      ref={rowRef}
+      onDragOver={e => {
+        if (!dragActive) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = "move"
+        onDragOverField(field._uid)
+      }}
+      onDrop={e => {
+        if (!dragActive) return
+        e.preventDefault()
+        onDropField(field._uid)
+      }}
       style={{
+        position: "relative",
         border: "1px solid var(--border)",
         borderLeft: isHeader ? "3px solid var(--accent)" : "1px solid var(--border)",
         borderRadius: 10,
         padding: "var(--space-3)",
         background: "var(--card)",
+        opacity: isDragging ? 0.5 : 1,
+        transition: "opacity 120ms ease",
       }}
     >
+      {/* drop indicator */}
+      {isDropTarget && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: 4,
+            right: 4,
+            height: 3,
+            borderRadius: 3,
+            background: "var(--accent)",
+            ...(dropBelow ? { bottom: -3 } : { top: -3 }),
+          }}
+        />
+      )}
       <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
         {/* reorder */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={index === 0} onClick={() => onMove(field._uid, -1)} title="Move up" style={{ padding: "2px 6px" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          <div
+            draggable
+            onDragStart={e => {
+              e.dataTransfer.effectAllowed = "move"
+              try { e.dataTransfer.setData("text/plain", field._uid) } catch { /* Safari */ }
+              if (rowRef.current) {
+                try { e.dataTransfer.setDragImage(rowRef.current, 24, 24) } catch { /* unsupported */ }
+              }
+              onDragStartField(field._uid)
+            }}
+            onDragEnd={onDragEndField}
+            role="button"
+            aria-hidden="true"
+            tabIndex={-1}
+            title="Drag to reorder"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: 44,
+              minHeight: 44,
+              cursor: isDragging ? "grabbing" : "grab",
+              color: "var(--muted)",
+              borderRadius: 8,
+              fontSize: 16,
+              lineHeight: 1,
+              userSelect: "none",
+            }}
+          >
+            ⠿
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={index === 0} onClick={() => onMove(field._uid, -1)} title="Move up" aria-label="Move field up" style={{ padding: "2px 6px" }}>
             ↑
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={index === total - 1} onClick={() => onMove(field._uid, 1)} title="Move down" style={{ padding: "2px 6px" }}>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={index === total - 1} onClick={() => onMove(field._uid, 1)} title="Move down" aria-label="Move field down" style={{ padding: "2px 6px" }}>
             ↓
           </button>
         </div>

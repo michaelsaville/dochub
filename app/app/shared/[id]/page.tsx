@@ -144,7 +144,7 @@ export default function SharedResourcePage() {
           onClick={() => reveal(passphrase)}
           style={{
             marginTop: 12, padding: "10px 20px", fontSize: 14, fontWeight: 500,
-            background: "var(--accent)", color: "#fff", border: "none", borderRadius: 8,
+            background: "var(--accent)", color: "var(--on-accent)", border: "none", borderRadius: "var(--radius-lg)",
             cursor: "pointer",
           }}
         >

@@ -50,8 +50,8 @@ export default function InstallPrompt() {
       left: "50%",
       transform: "translateX(-50%)",
       zIndex: 9998,
-      background: "#1e293b",
-      border: "1px solid #334155",
+      background: "var(--surface)",
+      border: "1px solid var(--border)",
       borderRadius: "12px",
       padding: "12px 16px",
       display: "flex",
@@ -65,7 +65,7 @@ export default function InstallPrompt() {
         <div style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0", marginBottom: "2px" }}>
           Install DocHub
         </div>
-        <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+        <div style={{ fontSize: "11px", color: "var(--muted)" }}>
           Add DocHub to your home screen for one-tap field access
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function InstallPrompt() {
         padding: "6px 8px",
         fontSize: "11px",
         background: "transparent",
-        color: "#64748b",
+        color: "var(--color-text-muted)",
         border: "none",
         cursor: "pointer",
       }}>

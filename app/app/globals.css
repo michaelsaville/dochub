@@ -30,6 +30,11 @@
   /* Accent ramp */
   --accent-hover:  #5580ff;
   --accent-subtle: rgba(61, 111, 255, 0.12);
+  /* Text color guaranteed >=4.5:1 on --accent (white fails on #3d6fff at 4.27:1).
+     Overridden per-theme in ThemeProvider so on-accent fills stay WCAG AA. */
+  --on-accent: #081020;
+  /* Radius scale — use these instead of ad-hoc px so corners are systematic. */
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-pill: 999px; --radius-round: 50%;
 
   /* DocHub variable aliases — all inline styles reference these */
   --color-background-primary:   var(--bg);
@@ -185,7 +190,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
   color: var(--muted);
   background: var(--color-background-secondary);
   border: 0.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.15s, background 0.15s, border-color 0.15s;
@@ -202,18 +207,18 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
   font-weight: 700;
   line-height: 1;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border);
   color: var(--text);
 }
 .pcc-section-tab.open .pcc-section-badge {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .pcc-section-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--accent);
 }
 .pcc-subtab-bar-wrap {
@@ -373,7 +378,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
 .btn-nuke      { background: linear-gradient(135deg, #3d6fff 0%, #00d4aa 100%); color: #fff; border: none; font-weight: 600; }
 .btn-nuke:hover:not(:disabled) { opacity: 0.88; }
-.btn-sm        { padding: 4px 10px; font-size: 11px; border-radius: 4px; }
+.btn-sm        { padding: 4px 10px; font-size: 11px; border-radius: var(--radius-sm); }
 
 .filter-input {
   padding: 7px 12px;
@@ -407,11 +412,11 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 .state-icon  { font-size: 36px; opacity: 0.35; }
 .state-title { font-weight: 500; color: var(--text); font-size: 15px; }
 
-.spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: var(--radius-round); animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
-.toast { padding: var(--space-3) var(--space-4); border-radius: 6px; font-size: 13px; font-weight: 500; min-width: 240px; max-width: 380px; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; }
+.toast { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; min-width: 240px; max-width: 380px; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; }
 .toast.success { background: rgba(0,212,170,0.15); border: 1px solid rgba(0,212,170,0.4); color: var(--accent2); }
 .toast.error   { background: rgba(255,77,109,0.15); border: 1px solid rgba(255,77,109,0.4); color: var(--danger); }
 .toast.info    { background: rgba(61,111,255,0.15); border: 1px solid rgba(61,111,255,0.4); color: var(--accent); }

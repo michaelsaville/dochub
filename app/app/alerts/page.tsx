@@ -57,6 +57,24 @@ function daysUntil(dateStr: string): string {
   return `${days}d`
 }
 
+// SSR-safe viewport check — matches the DataCards/Sheet idiom used across the
+// app. Starts `false` (desktop) so server + first client render agree, then the
+// effect flips it on mount / when the ≤767px query changes. Below 767px the
+// desktop 6-column grid collapses to stacked cards with 44px touch targets.
+const MOBILE_QUERY = "(max-width: 767px)"
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return
+    const mql = window.matchMedia(MOBILE_QUERY)
+    const update = () => setIsMobile(mql.matches)
+    update()
+    mql.addEventListener("change", update)
+    return () => mql.removeEventListener("change", update)
+  }, [])
+  return isMobile
+}
+
 export default function UnifiedAlertsPage() {
   const [alerts, setAlerts] = useState<UnifiedAlert[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, expired: 0, critical: 0, warning: 0, upcoming: 0 })
@@ -66,6 +84,7 @@ export default function UnifiedAlertsPage() {
   const [creatingId, setCreatingId] = useState<string | null>(null)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const isMobile = useIsMobile()
 
   // One-click alert -> pre-filled TicketHub ticket (wires the create-ticket API
   // that previously had no UI caller; replaces the old "open a generic inbox" link).
@@ -201,10 +220,80 @@ export default function UnifiedAlertsPage() {
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)", fontSize: "13px" }}>Loading...</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)", fontSize: "13px" }}>No alerts matching filters.</div>
+        ) : isMobile ? (
+          /* ── Mobile (≤767px): stacked cards with 44px touch-target actions ── */
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {filtered.map(alert => {
+              const urg = urgencyConfig[alert.urgency]
+              return (
+                <div
+                  key={alert.id}
+                  style={{
+                    background: "var(--color-background-secondary)",
+                    border: "0.5px solid var(--color-border-tertiary)",
+                    borderRadius: "10px",
+                    padding: "16px",
+                  }}
+                >
+                  {/* Heading: icon + label + urgency badge */}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "12px" }}>
+                    <span style={{ fontSize: "20px", lineHeight: 1, flexShrink: 0 }}>{categoryIcons[alert.category]}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <a href={alert.linkPath} style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent)", textDecoration: "none", wordBreak: "break-word" }}>
+                        {alert.label}
+                      </a>
+                      {alert.sublabel && <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px", wordBreak: "break-word" }}>{alert.sublabel}</div>}
+                      {alert.message && <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px", wordBreak: "break-word" }}>{alert.message}</div>}
+                    </div>
+                    <span style={{ flexShrink: 0, fontSize: "11px", fontWeight: 600, padding: "3px 8px", borderRadius: "4px", background: urg.bg, color: urg.color }}>
+                      {urg.label}
+                    </span>
+                  </div>
+
+                  {/* Meta: client + expiry */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: "14px" }}>
+                    <span style={{ minWidth: 0, fontSize: "13px", color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {alert.clientName}
+                    </span>
+                    <span style={{ flexShrink: 0, fontSize: "12px", fontFamily: "var(--mono)", color: alert.urgency === "expired" ? "var(--danger)" : "var(--muted)" }}>
+                      {alert.expiresAt ? daysUntil(alert.expiresAt) : "—"}
+                    </span>
+                  </div>
+
+                  {/* Actions: full-width .btn targets (≥44px tall on mobile via globals.css) */}
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => createTicket(alert)}
+                      disabled={creatingId === alert.id}
+                      className="btn btn-primary"
+                      style={{ flex: 1, justifyContent: "center", minWidth: "140px" }}
+                    >
+                      {creatingId === alert.id ? "Creating…" : "Create ticket"}
+                    </button>
+                    {alert.alarmId && (
+                      <button
+                        onClick={() => resolveAlarm(alert)}
+                        disabled={resolvingId === alert.id}
+                        className="btn btn-success"
+                        style={{ flex: 1, justifyContent: "center", minWidth: "100px" }}
+                      >
+                        {resolvingId === alert.id ? "…" : "Resolve"}
+                      </button>
+                    )}
+                    {alert.linkPath && (
+                      <a href={alert.linkPath} className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", minWidth: "100px" }}>
+                        View
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         ) : (
           <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
             {/* Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 100px", gap: "8px", padding: "8px 12px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: "10px", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 200px", gap: "8px", padding: "8px 12px", borderBottom: "0.5px solid var(--color-border-tertiary)", fontSize: "10px", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <div></div>
               <div>Alert</div>
               <div>Client</div>
@@ -217,7 +306,7 @@ export default function UnifiedAlertsPage() {
             {filtered.map((alert, i) => {
               const urg = urgencyConfig[alert.urgency]
               return (
-                <div key={alert.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 100px", gap: "8px", padding: "10px 12px", alignItems: "center", borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+                <div key={alert.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 100px 80px 200px", gap: "8px", padding: "10px 12px", alignItems: "center", borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
                   {/* Icon */}
                   <div style={{ fontSize: "16px", textAlign: "center" }}>
                     {categoryIcons[alert.category]}
@@ -254,12 +343,7 @@ export default function UnifiedAlertsPage() {
                     <button
                       onClick={() => createTicket(alert)}
                       disabled={creatingId === alert.id}
-                      style={{
-                        fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
-                        border: "none", background: "var(--accent)", color: "#fff",
-                        cursor: creatingId === alert.id ? "wait" : "pointer",
-                        opacity: creatingId === alert.id ? 0.7 : 1,
-                      }}
+                      className="btn btn-primary btn-sm"
                     >
                       {creatingId === alert.id ? "Creating…" : "Create ticket"}
                     </button>
@@ -267,24 +351,13 @@ export default function UnifiedAlertsPage() {
                       <button
                         onClick={() => resolveAlarm(alert)}
                         disabled={resolvingId === alert.id}
-                        style={{
-                          fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
-                          border: "0.5px solid rgba(0,212,170,0.4)", background: "rgba(0,212,170,0.12)",
-                          color: "var(--accent2)", cursor: resolvingId === alert.id ? "wait" : "pointer",
-                        }}
+                        className="btn btn-success btn-sm"
                       >
                         {resolvingId === alert.id ? "…" : "Resolve"}
                       </button>
                     )}
                     {alert.linkPath && (
-                      <a
-                        href={alert.linkPath}
-                        style={{
-                          fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
-                          border: "0.5px solid var(--color-border-secondary)",
-                          background: "transparent", color: "var(--muted)", textDecoration: "none",
-                        }}
-                      >
+                      <a href={alert.linkPath} className="btn btn-secondary btn-sm">
                         View
                       </a>
                     )}

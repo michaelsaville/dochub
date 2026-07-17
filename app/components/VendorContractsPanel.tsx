@@ -41,7 +41,7 @@ function formatCost(cents: number | null, period: string | null) {
 }
 
 function urgencyColor(endDate: string | null): { bg: string; fg: string } {
-  if (!endDate) return { bg: "rgba(148,163,184,0.14)", fg: "#64748b" }
+  if (!endDate) return { bg: "rgba(148,163,184,0.14)", fg: "var(--color-text-secondary)" }
   const days = Math.floor((new Date(endDate).getTime() - Date.now()) / 86_400_000)
   if (days < 0) return { bg: "rgba(239,68,68,0.14)", fg: "#dc2626" }
   if (days <= 30) return { bg: "rgba(245,158,11,0.14)", fg: "#b45309" }
