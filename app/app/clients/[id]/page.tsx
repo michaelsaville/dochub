@@ -3388,7 +3388,7 @@ export default function ClientDetailPage() {
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 500, display: "flex", alignItems: "center", gap: "6px" }}>
                         {app.name}
-                        {app.isLob && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(139,92,246,0.15)", color: "#8b5cf6", fontWeight: 600 }}>LOB</span>}
+                        {app.isLob && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", fontWeight: 600 }}>LOB</span>}
                       </div>
                       {app.notes && <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>{app.notes}</div>}
                       {app.isLob && (app.accessType === "url" ? app.appUrl : app.rdpHost) && (
@@ -4035,10 +4035,10 @@ export default function ClientDetailPage() {
               <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>No activity yet.</div>
             ) : activityEvents.map((event) => {
               const typeConfig: Record<string, { label: string; color: string }> = {
-                TECH_NOTE:           { label: "Tech note",    color: "#6366f1" },
+                TECH_NOTE:           { label: "Tech note",    color: "#818cf8" },
                 SITE_VISIT:          { label: "Site visit",   color: "#0ea5e9" },
                 KNOWN_ISSUE:         { label: "Known issue",  color: "var(--warn)" },
-                PLANNED_MAINTENANCE: { label: "Maintenance",  color: "#8b5cf6" },
+                PLANNED_MAINTENANCE: { label: "Maintenance",  color: "#a78bfa" },
                 CREDENTIAL_ROTATED:  { label: "Credential",   color: "var(--accent2)" },
                 LICENSE_CHANGED:     { label: "License",      color: "var(--accent2)" },
                 ASSET_ADDED:         { label: "Asset added",  color: "var(--accent2)" },

@@ -50,13 +50,11 @@ export default function QuickAddFab() {
         { label: "New SOP",         icon: "📋", onClick: () => router.push(`/clients/${clientId}?tab=SOPs&new=1`) },
         { label: "New license",     icon: "📜", onClick: () => router.push(`/clients/${clientId}?tab=Licenses&new=1`) },
         { label: "New contact",     icon: "👤", onClick: () => router.push(`/clients/${clientId}?tab=People&new=1`) },
-        { label: "New ephemeral note", icon: "📝", onClick: () => router.push("/notes/new") },
         { label: "New client",      icon: "🏢", onClick: () => router.push("/clients?new=1") },
       ]
     : [
         { label: "New client",      icon: "🏢", onClick: () => router.push("/clients?new=1") },
         { label: "New SOP",         icon: "📋", onClick: () => router.push("/runbooks?new=1") },
-        { label: "New ephemeral note", icon: "📝", onClick: () => router.push("/notes/new") },
       ]
 
   return (

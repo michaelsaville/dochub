@@ -192,7 +192,7 @@ export default function AssetDetailPage() {
   // Client VLANs — for the interface VLAN picker (relate, don't retype)
   const [vlans, setVlans] = useState<{ id: string; vlanNumber: number; name: string; color: string }[]>([])
   const [showNewVlan, setShowNewVlan] = useState<string | null>(null)
-  const [newVlanForm, setNewVlanForm] = useState({ vlanNumber: "", name: "", color: "#6366f1" })
+  const [newVlanForm, setNewVlanForm] = useState({ vlanNumber: "", name: "", color: "#818cf8" })
   const [savingVlan, setSavingVlan] = useState(false)
 
   // Asset links
@@ -368,7 +368,7 @@ export default function AssetDetailPage() {
         const v = await res.json()
         setVlans(prev => [...prev, v].sort((a, b) => a.vlanNumber - b.vlanNumber))
         onPicked(v.id)
-        setNewVlanForm({ vlanNumber: "", name: "", color: "#6366f1" })
+        setNewVlanForm({ vlanNumber: "", name: "", color: "#818cf8" })
         setShowNewVlan(null)
       } else {
         const e = await res.json().catch(() => ({}))
@@ -907,7 +907,7 @@ export default function AssetDetailPage() {
                     )}
                     {iface.type === "TAILSCALE" && (
                       <div style={{ marginTop: "3px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                        {iface.tailscaleIsExitNode && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(52,199,89,0.15)", color: "#34C759" }}>exit node</span>}
+                        {iface.tailscaleIsExitNode && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(0,212,170,0.15)", color: "var(--accent2)" }}>exit node</span>}
                         {iface.tailscaleIsSubnetRouter && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(255,159,10,0.15)", color: "#FF9F0A" }}>subnet router</span>}
                         {iface.tailscaleOs && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>{iface.tailscaleOs}</span>}
                         {iface.tailscaleVersion && <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--color-background-hover)", color: "var(--color-text-muted)" }}>v{iface.tailscaleVersion}</span>}
@@ -1463,7 +1463,7 @@ export default function AssetDetailPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>{cam.name}</span>
                           {cam.resolution && (
-                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(99,102,241,0.15)", color: "#6366f1" }}>
+                            <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>
                               {cam.resolution}
                             </span>
                           )}
@@ -1498,7 +1498,7 @@ export default function AssetDetailPage() {
                 {tickethubTickets.map((t: any, i: number) => {
                   const statusColors: Record<string, string> = {
                     NEW: "var(--accent)", OPEN: "#2563eb", IN_PROGRESS: "var(--warn)",
-                    WAITING_CUSTOMER: "#8b5cf6", WAITING_THIRD_PARTY: "#8b5cf6",
+                    WAITING_CUSTOMER: "#a78bfa", WAITING_THIRD_PARTY: "#a78bfa",
                     RESOLVED: "var(--accent2)", CLOSED: "#6b7280", CANCELLED: "#374151",
                   }
                   const priorityColors: Record<string, string> = {

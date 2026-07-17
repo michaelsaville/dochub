@@ -19,12 +19,12 @@ type ExpirationItem = {
 }
 
 const CATEGORY_META: Record<Category, { label: string; color: string; bg: string }> = {
-  ssl:        { label: "SSL",        color: "#6366f1", bg: "rgba(99,102,241,0.12)"  },
+  ssl:        { label: "SSL",        color: "#818cf8", bg: "rgba(99,102,241,0.12)"  },
   domain:     { label: "Domain",     color: "var(--accent2)", bg: "rgba(0,212,170,0.12)"  },
   warranty:   { label: "Warranty",   color: "var(--warn)", bg: "rgba(255,179,71,0.12)"  },
   credential: { label: "Credential", color: "#ec4899", bg: "rgba(236,72,153,0.12)"  },
   license:    { label: "License",    color: "var(--accent)", bg: "rgba(61,111,255,0.12)"  },
-  contract:   { label: "Contract",   color: "#8b5cf6", bg: "rgba(139,92,246,0.12)"  },
+  contract:   { label: "Contract",   color: "#a78bfa", bg: "rgba(139,92,246,0.12)"  },
   vpncert:    { label: "VPN cert",   color: "#14b8a6", bg: "rgba(20,184,166,0.12)"  },
   circuit:    { label: "Circuit",    color: "#0ea5e9", bg: "rgba(14,165,233,0.12)"  },
 }

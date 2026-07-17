@@ -19,7 +19,7 @@ All colors are defined as CSS custom properties on `:root`. Always reference var
   --danger:    #ff4d6d;   /* Errors, destructive actions, overdue flags */
   --warn:      #ffb347;   /* Warnings, outstanding balances, attention items */
   --text:      #e2e8f0;   /* Primary text */
-  --muted:     #64748b;   /* Secondary / placeholder text, inactive labels */
+  --muted:     #8b95a7;   /* Secondary / placeholder text, inactive labels (WCAG AA on all surfaces) */
   --mono:      'IBM Plex Mono', 'Courier New', monospace;
   --sans:      'IBM Plex Sans', system-ui, sans-serif;
 }
@@ -34,7 +34,7 @@ All colors are defined as CSS custom properties on `:root`. Always reference var
 | `--danger` | Error toasts, destructive buttons, overdue badges, disconnect/delete actions |
 | `--warn` | Outstanding balances, financial figures that need attention |
 | `--muted` | Placeholder text, inactive nav items, metadata, timestamps, secondary labels |
-| `--border` | Every border: `1px solid var(--border)` |
+| `--border` | Every border: `0.5px` hairline (1px for primary container edges), `var(--border)` |
 | `--card` | Table row hover background, raised card surfaces |
 | `--surface` | Toolbars, nav bar, panel backgrounds that sit above `--bg` |
 
@@ -72,8 +72,8 @@ Load from Google Fonts:
 - **Page background**: `var(--bg)` — never white, never pure black
 - **Window chrome**: dark titlebar (`#07090f`) with 1px `var(--border)` bottom edge
 - **Content areas**: sit on `var(--surface)` or `var(--bg)`
-- **Border radius**: `4–6px` for buttons/inputs, `8px` for cards, `12px` for modals/containers
-- **Borders**: always `1px solid var(--border)` — never heavier, never colored unless semantic
+- **Border radius**: `4–6px` for buttons/inputs, `8px` for cards, `10px` for pills/badges, `12px` for modals/containers
+- **Borders**: `0.5px solid var(--border)` hairlines are the app-wide convention (crisp on HiDPI, floors to 1px on standard displays); `1px` for primary container edges. Heavier or colored only for semantic emphasis (`--accent`/`--danger`/etc.).
 
 ---
 

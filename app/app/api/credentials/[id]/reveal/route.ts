@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { logReveal } from "@/lib/reveal-log"
 import crypto from "crypto"
 
@@ -42,6 +43,11 @@ export async function GET(
     const { id } = await params
     const credential = await prisma.credential.findUnique({ where: { id } })
     if (!credential) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    // RBAC: a scoped tech cannot reveal a credential for a client outside their set.
+    if (!scopeAllows(await getClientScope(), credential.clientId)) {
+      return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
+    }
 
     // RBAC: TECH users only get to reveal when the credential is explicitly
     // flagged allowTechReveal. ADMIN bypasses. CLIENT never reaches staff

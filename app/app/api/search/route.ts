@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getClientScope } from "@/lib/client-scope"
 
 export async function GET(req: NextRequest) {
   const { error } = await requireAuth()
@@ -203,5 +204,23 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  return NextResponse.json({ clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits })
+  // RBAC: a scoped tech (assigned to specific clients) must not see other
+  // clients' records in global search. Filter results to the allowed set.
+  // Global SOPs (runbook with no clientId) and vendors (not client-owned) stay.
+  const scope = await getClientScope()
+  const ok = (cid?: string | null) => scope.all || (!!cid && scope.clientIds.includes(cid))
+  return NextResponse.json({
+    clients:     clients.filter((c: any) => ok(c.id)),
+    assets:      assets.filter((a: any) => ok(a.location?.client?.id)),
+    credentials: credentials.filter((c: any) => ok(c.client?.id)),
+    runbooks:    runbooks.filter((r: any) => !r.clientId || ok(r.clientId)),
+    documents:   documents.filter((d: any) => ok(d.clientId)),
+    files:       files.filter((f: any) => ok(f.clientId)),
+    people:      people.filter((p: any) => ok(p.clientId)),
+    vendors,
+    licenses:    licenses.filter((l: any) => ok(l.clientId)),
+    locations:   locations.filter((l: any) => ok(l.clientId)),
+    netdevices:  netdevices.filter((n: any) => ok(n.clientId)),
+    circuits:    circuits.filter((c: any) => ok(c.clientId)),
+  })
 }
