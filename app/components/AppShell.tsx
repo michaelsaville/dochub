@@ -35,6 +35,7 @@ const QUICK_LINKS: { label: string; href: string; icon: string; adminOnly?: bool
   { label: "Client Portal", href: "/portal", icon: "🌐" },
   { label: "Portal Admin", href: "/portal-admin", icon: "🔧" },
   { label: "Audit Log", href: "/admin/audit", icon: "🪵", adminOnly: true },
+  { label: "Tech Access", href: "/admin/access", icon: "🔑", adminOnly: true },
   { label: "My Vault", href: "/settings?section=my-vault", icon: "🔐" },
   { label: "Aux Display", href: "/aux-display", icon: "📲" },
 ]

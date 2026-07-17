@@ -30,6 +30,7 @@ model StaffUser {
   personalCredentials PersonalCredential[]
   personalSecureNotes PersonalSecureNote[]
   passkeys            StaffUserPasskey[]
+  clientAssignments   StaffClientAssignment[]
   vaultSession        PersonalVaultSession?
 }
 
@@ -132,6 +133,7 @@ model Client {
   locations         Location[]
   networkDevices    NetworkDevice[]
   runbooks          Runbook[]
+  staffAssignments  StaffClientAssignment[]
   runbookRuns       RunbookRun[]
   subnets           Subnet[]
   vlans             Vlan[]
@@ -897,6 +899,18 @@ model RunbookVersion {
   runbook   Runbook  @relation(fields: [runbookId], references: [id], onDelete: Cascade)
 
   @@index([runbookId, savedAt])
+}
+
+model StaffClientAssignment {
+  id          String    @id @default(cuid())
+  staffUserId String
+  clientId    String
+  createdAt   DateTime  @default(now())
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([staffUserId, clientId])
+  @@index([staffUserId])
 }
 
 /// Universal attachment model. clientId is required as the security

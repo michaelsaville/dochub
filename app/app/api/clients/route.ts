@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { maybeTriggerNewClientRunbook } from "@/lib/runbook-triggers"
+import { getClientScope, scopeWhere } from "@/lib/client-scope"
 
 export async function GET(req: Request) {
   const { error } = await requireAuth()
@@ -10,9 +11,10 @@ export async function GET(req: Request) {
     // Archived/merged clients (isActive=false) are hidden from the list, search
     // and pickers by default; pass ?includeArchived=true to surface them. (MERGED)
     const includeArchived = new URL(req.url).searchParams.get("includeArchived") === "true"
+    const scope = await getClientScope()
     const [clients, assetCounts] = await Promise.all([
       prisma.client.findMany({
-        where: includeArchived ? {} : { isActive: true },
+        where: { ...(includeArchived ? {} : { isActive: true }), ...scopeWhere(scope) },
         orderBy: { name: "asc" },
         include: {
           _count: {
