@@ -63,7 +63,39 @@ export default function UnifiedAlertsPage() {
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<AlertCategory | "all">("all")
   const [urgencyFilter, setUrgencyFilter] = useState<AlertUrgency | "all">("all")
-  const tickethubInboxUrl = (process.env.NEXT_PUBLIC_TICKETHUB_URL || "https://tickethub.pcc2k.com") + "/inbox?filter=alerts"
+  const [creatingId, setCreatingId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // One-click alert -> pre-filled TicketHub ticket (wires the create-ticket API
+  // that previously had no UI caller; replaces the old "open a generic inbox" link).
+  async function createTicket(alert: UnifiedAlert) {
+    setCreatingId(alert.id)
+    setToast(null)
+    try {
+      const description = [alert.label, alert.sublabel, alert.message].filter(Boolean).join(" — ")
+        + (alert.expiresAt ? ` (${daysUntil(alert.expiresAt)})` : "")
+        + `\n\nCreated from DocHub ${alert.category} alert.`
+      const priority = alert.urgency === "expired" || alert.urgency === "critical" ? "HIGH"
+        : alert.urgency === "warning" ? "MEDIUM" : "LOW"
+      const res = await fetch("/api/alerts/create-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientName: alert.clientName, title: alert.label, description, priority }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setToast({ type: "error", text: data.error || "Failed to create ticket" })
+      } else {
+        setToast({ type: "success", text: "Ticket created — opening in TicketHub" })
+        window.open(data.url, "_blank", "noopener")
+      }
+    } catch {
+      setToast({ type: "error", text: "Failed to create ticket" })
+    } finally {
+      setCreatingId(null)
+      setTimeout(() => setToast(null), 4000)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -191,20 +223,31 @@ export default function UnifiedAlertsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div>
-                    <a
-                      href={tickethubInboxUrl}
-                      target="_blank"
-                      rel="noopener"
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <button
+                      onClick={() => createTicket(alert)}
+                      disabled={creatingId === alert.id}
                       style={{
                         fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
-                        border: "0.5px solid var(--color-border-secondary)",
-                        background: "transparent", cursor: "pointer",
-                        color: "var(--color-accent)", textDecoration: "none",
+                        border: "none", background: "var(--accent)", color: "#fff",
+                        cursor: creatingId === alert.id ? "wait" : "pointer",
+                        opacity: creatingId === alert.id ? 0.7 : 1,
                       }}
                     >
-                      Handle in TicketHub →
-                    </a>
+                      {creatingId === alert.id ? "Creating…" : "Create ticket"}
+                    </button>
+                    {alert.linkPath && (
+                      <a
+                        href={alert.linkPath}
+                        style={{
+                          fontSize: "11px", padding: "3px 8px", borderRadius: "5px",
+                          border: "0.5px solid var(--color-border-secondary)",
+                          background: "transparent", color: "var(--muted)", textDecoration: "none",
+                        }}
+                      >
+                        View
+                      </a>
+                    )}
                   </div>
                 </div>
               )
@@ -212,6 +255,11 @@ export default function UnifiedAlertsPage() {
           </div>
         )}
       </div>
+      {toast && (
+        <div className={`toast ${toast.type}`} style={{ position: "fixed", top: 20, right: 20, zIndex: 9999 }}>
+          {toast.text}
+        </div>
+      )}
     </AppShell>
   )
 }

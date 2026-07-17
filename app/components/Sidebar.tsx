@@ -9,6 +9,11 @@ import { useTheme } from "@/components/ThemeProvider"
 const nav = [
   { label: "Dashboard",   href: "/dashboard"      },
   { label: "Clients",     href: "/clients"        },
+  { label: "Alerts",      href: "/alerts"         },
+  { label: "Runbooks",    href: "/runbooks"       },
+  { label: "Licenses",    href: "/licenses"       },
+  { label: "Vendors",     href: "/vendors"        },
+  { label: "Reports",     href: "/reports"        },
   { label: "AI Intake",   href: "/intake"         },
   { label: "Settings",    href: "/settings"       },
 ]

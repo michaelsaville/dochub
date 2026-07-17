@@ -18,6 +18,7 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
   credential: { label: "Credential", color: "#ec4899" },
   runbook:    { label: "Runbook",    color: "#f59e0b" },
   document:   { label: "Document",   color: "#6366f1" },
+  file:       { label: "File",       color: "#14b8a6" },
 }
 
 function flattenResults(data: {
@@ -26,6 +27,7 @@ function flattenResults(data: {
   credentials: { id: string; label: string; username: string | null; url: string | null; client: { id: string; name: string } }[]
   runbooks: { id: string; title: string; summary: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
   documents: { id: string; title: string; clientId: string; client: { id: string; name: string } }[]
+  files: { id: string; originalName: string; mimeType: string | null; clientId: string | null; documentId: string | null; client: { id: string; name: string } | null }[]
 }): SearchResult[] {
   const results: SearchResult[] = []
 
@@ -68,6 +70,14 @@ function flattenResults(data: {
       label: d.title,
       sublabel: d.client.name,
       href: `/clients/${d.clientId}?tab=Documents`,
+    })
+  }
+  for (const f of data.files) {
+    results.push({
+      id: f.id, category: "file", categoryColor: CATEGORY_META.file.color,
+      label: f.originalName,
+      sublabel: [f.client?.name, f.mimeType].filter(Boolean).join(" · "),
+      href: f.clientId ? `/clients/${f.clientId}?tab=Documents` : "#",
     })
   }
 
