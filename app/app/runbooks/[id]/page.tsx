@@ -58,6 +58,31 @@ export default function RunbookViewPage() {
   const [pastRuns, setPastRuns] = useState<PastRun[]>([])
   const [showPastRuns, setShowPastRuns] = useState(false)
   const [loadingRuns, setLoadingRuns] = useState(false)
+  const [versions, setVersions] = useState<{ id: string; title: string; savedAt: string; savedBy: string | null }[]>([])
+  const [showVersions, setShowVersions] = useState(false)
+  const [loadingVersions, setLoadingVersions] = useState(false)
+  const [reverting, setReverting] = useState<string | null>(null)
+
+  async function toggleVersions() {
+    const next = !showVersions
+    setShowVersions(next)
+    if (next) {
+      setLoadingVersions(true)
+      try {
+        const res = await fetch(`/api/runbooks/${id}/versions`)
+        if (res.ok) setVersions(await res.json())
+      } finally { setLoadingVersions(false) }
+    }
+  }
+  async function revertTo(versionId: string) {
+    if (!confirm("Restore this version? The current version is saved to history first.")) return
+    setReverting(versionId)
+    try {
+      const res = await fetch(`/api/runbooks/${id}/versions/${versionId}/revert`, { method: "POST" })
+      if (res.ok) window.location.reload()
+      else setReverting(null)
+    } catch { setReverting(null) }
+  }
 
   useEffect(() => {
     fetch(`/api/runbooks/${id}`)
@@ -177,6 +202,7 @@ export default function RunbookViewPage() {
               </button>
             )}
             <button onClick={() => router.push(`/runbooks/${id}/edit`)} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Edit</button>
+            <button onClick={toggleVersions} style={{ fontSize: "13px", padding: "6px 14px", borderRadius: "7px", border: "0.5px solid var(--color-border-secondary)", background: showVersions ? "var(--card)" : "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>History</button>
           </div>
         </div>
 
@@ -393,6 +419,32 @@ export default function RunbookViewPage() {
 
         {!runbook.content && totalSteps === 0 && (
           <div style={{ color: "var(--color-text-muted)", fontSize: "14px" }}>This SOP has no content yet. <button onClick={() => router.push(`/runbooks/${id}/edit`)} style={{ color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: "14px", padding: 0 }}>Add some →</button></div>
+        )}
+
+        {/* Version history */}
+        {showVersions && (
+          <div style={{ marginTop: "28px", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "20px" }}>
+            <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>Version history</div>
+            {loadingVersions ? (
+              <div style={{ fontSize: "13px", color: "var(--muted)" }}>Loading…</div>
+            ) : versions.length === 0 ? (
+              <div style={{ fontSize: "13px", color: "var(--muted)" }}>No prior versions yet — history accrues each time this SOP is edited.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {versions.map(v => (
+                  <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "8px 12px", border: "0.5px solid var(--border)", borderRadius: "6px", background: "var(--surface)" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", color: "var(--text)" }}>{v.title}</div>
+                      <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--mono)" }}>{new Date(v.savedAt).toLocaleString()}{v.savedBy ? ` · ${v.savedBy}` : ""}</div>
+                    </div>
+                    <button onClick={() => revertTo(v.id)} disabled={reverting === v.id} className="btn btn-secondary btn-sm">
+                      {reverting === v.id ? "Restoring…" : "Restore"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Past runs */}

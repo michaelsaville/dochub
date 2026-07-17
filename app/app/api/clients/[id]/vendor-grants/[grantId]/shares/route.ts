@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -19,6 +20,7 @@ export async function POST(
   const { session, error } = await requireAuth("ADMIN")
   if (error) return error
   const { id, grantId } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const { itemType, itemId, note } = await req.json()
 
   if (!TYPES.includes(itemType) || !itemId) {

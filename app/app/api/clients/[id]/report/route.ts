@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/crypto"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function GET(
   req: Request,
@@ -11,6 +12,8 @@ export async function GET(
   if (error) return error
 
   const { id } = await params
+
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const isAdmin = session?.user?.role === "ADMIN"
   const url = new URL(req.url)
   const modules = url.searchParams.get("modules")?.split(",") ?? []

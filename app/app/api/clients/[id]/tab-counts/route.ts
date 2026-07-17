@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 /**
  * Per-tab counts for the client detail page tab bar. Fetched once on
@@ -14,6 +15,7 @@ export async function GET(
   const { error } = await requireAuth()
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const [client, assetCount] = await Promise.all([
     prisma.client.findUnique({

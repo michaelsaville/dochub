@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { prisma } from "@/lib/prisma"
 import { checkWebsite } from "@/lib/website-check"
 
@@ -7,6 +8,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { error } = await requireAuth()
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const websites = await prisma.website.findMany({
     where: { clientId: id },
     orderBy: { createdAt: "asc" },
@@ -18,6 +20,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { error } = await requireAuth()
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const body = await req.json()
   const rawDomain: string = body.domain ?? ""
   if (!rawDomain.trim()) return NextResponse.json({ error: "Domain required" }, { status: 400 })

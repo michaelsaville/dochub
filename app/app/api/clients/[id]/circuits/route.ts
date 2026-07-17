@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { parseCidr } from "@/lib/cidr"
 
 const CIRCUIT_INCLUDE = {
@@ -20,6 +21,7 @@ export async function GET(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const circuits = await prisma.internetCircuit.findMany({
       where: { clientId: id },
       include: CIRCUIT_INCLUDE,
@@ -39,6 +41,7 @@ export async function POST(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { label, locationId, role, status, serviceType, staticBlockCidr } = body
     if (!label?.trim()) return NextResponse.json({ error: "Label is required" }, { status: 400 })

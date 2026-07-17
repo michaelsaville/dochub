@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth()
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const vlans = await prisma.vlan.findMany({
       where: { clientId: id },
       orderBy: { vlanNumber: "asc" },
@@ -22,6 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { vlanNumber, name, color, description } = body
     if (!vlanNumber || !name?.trim()) {

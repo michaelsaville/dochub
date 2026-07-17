@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -12,6 +13,7 @@ export async function DELETE(
   const { error } = await requireAuth("ADMIN")
   if (error) return error
   const { id, grantId, shareId } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   // Scope the delete to this client + grant so an id alone can't reach across.
   const share = await prisma.vendorShare.findFirst({

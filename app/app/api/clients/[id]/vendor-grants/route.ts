@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { error } = await requireAuth()
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const grants = await prisma.vendorClientGrant.findMany({
     where: { clientId: id },
@@ -38,6 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { session, error } = await requireAuth("ADMIN")
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const { vendorId, label } = await req.json()
   if (!vendorId) return NextResponse.json({ error: "vendorId required" }, { status: 400 })
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function POST(
   req: Request,
@@ -10,6 +11,7 @@ export async function POST(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { name, address, city, state, zip, ispName, wanIp, notes } = body
 

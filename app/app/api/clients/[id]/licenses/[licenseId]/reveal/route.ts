@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { decrypt } from "@/lib/crypto"
 
 export async function GET(
@@ -12,7 +13,8 @@ export async function GET(
   const { error } = await requireAuth("ADMIN")
   if (error) return error
   try {
-    const { licenseId } = await params
+    const { id, licenseId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const license = await prisma.license.findUnique({
       where: { id: licenseId },
       select: { licenseKey: true },

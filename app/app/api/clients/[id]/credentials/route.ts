@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { encrypt, decrypt } from "@/lib/crypto"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { writeActivity } from "@/lib/activity"
 
 export async function GET(
@@ -12,6 +13,7 @@ export async function GET(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const credentials = await prisma.credential.findMany({
       where: { clientId: id, isRetired: false },
       orderBy: { label: "asc" },
@@ -47,6 +49,7 @@ export async function POST(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { label, username, password, totp, secureNotes, url, notes, personId, expiryDate } = body
     if (!label?.trim()) return NextResponse.json({ error: "Label is required" }, { status: 400 })

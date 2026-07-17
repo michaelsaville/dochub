@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function PATCH(
   req: Request,
@@ -9,7 +10,8 @@ export async function PATCH(
   const { session, error } = await requireAuth()
   if (error) return error
   try {
-    const { deviceId } = await params
+    const { id, deviceId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { name, type, make, model, ipAddress, macAddress, serial, firmwareVersion, managementUrl, locationId, notes, portCount, isActive } = body
 
@@ -71,7 +73,8 @@ export async function DELETE(
   const { session, error } = await requireAuth()
   if (error) return error
   try {
-    const { deviceId } = await params
+    const { id, deviceId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const changedBy = session?.user?.name ?? "unknown"
     await prisma.networkDevice.update({ where: { id: deviceId }, data: { isActive: false } })
     await prisma.fieldHistory.create({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 // portId here is the portNumber (integer), not the record id
 // We upsert by networkDeviceId + portNumber
@@ -8,7 +9,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { deviceId, portId } = await params
+    const { id, deviceId, portId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const portNumber = Number(portId)
     if (isNaN(portNumber)) return NextResponse.json({ error: "Invalid port number" }, { status: 400 })
 

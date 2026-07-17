@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { maybeTriggerOnboardingRunbook } from "@/lib/runbook-triggers"
 
 export async function GET(
@@ -10,6 +11,7 @@ export async function GET(
   const { error } = await requireAuth()
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const users = await prisma.person.findMany({
     where: { clientId: id },
@@ -31,6 +33,7 @@ export async function POST(
   const { session, error } = await requireAuth()
   if (error) return error
   const { id: clientId } = await params
+  if (!scopeAllows(await getClientScope(), clientId)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const body = await req.json()
   const { name, email, phone, mobile, jobTitle, m365Upn, role, isPrimary, isBilling, isEscalation, isActive, notes } = body

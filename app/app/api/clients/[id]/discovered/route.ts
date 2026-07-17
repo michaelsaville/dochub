@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 /**
  * GET /api/clients/:id/discovered
@@ -35,6 +36,7 @@ export async function GET(
   const { error } = await requireAuth()
   if (error) return error
   const { id } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const client = await prisma.client.findUnique({ where: { id }, select: { name: true } })
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 })

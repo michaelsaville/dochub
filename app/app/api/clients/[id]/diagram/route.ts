@@ -2,12 +2,15 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth-options"
 import { prisma } from "@/lib/prisma"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
+
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const diagram = await prisma.networkDiagram.findUnique({ where: { clientId: id } })
   return NextResponse.json({ xml: diagram?.xml ?? null })
@@ -18,6 +21,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
+
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const { xml } = await req.json()
 
   if (!xml || typeof xml !== "string") {

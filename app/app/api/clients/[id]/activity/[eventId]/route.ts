@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function PATCH(
   req: Request,
@@ -9,7 +10,8 @@ export async function PATCH(
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { eventId } = await params
+    const { id, eventId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const event = await prisma.activityEvent.update({
       where: { id: eventId },

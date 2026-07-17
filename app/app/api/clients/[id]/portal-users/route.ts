@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { hashPassword, DEFAULT_PERMISSIONS } from "@/lib/portal-auth"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -8,6 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const users = await prisma.portalUser.findMany({
       where: { clientId: id },
       select: {
@@ -29,6 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const { name, email, password, permissions, isPortalOwner, personId } = await req.json()
     if (!name?.trim() || !email?.trim()) {
       return NextResponse.json({ error: "Name and email required" }, { status: 400 })

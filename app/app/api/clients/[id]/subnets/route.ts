@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { parseCidr } from "@/lib/cidr"
 
 export async function GET(
@@ -11,6 +12,7 @@ export async function GET(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const subnets = await prisma.subnet.findMany({
       where: { clientId: id },
       include: {
@@ -39,6 +41,7 @@ export async function POST(
   if (error) return error
   try {
     const { id } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { cidr, locationId, gateway, dns1, dns2, vlan, vlanRefId, description, notes } = body
     if (!cidr?.trim()) return NextResponse.json({ error: "CIDR is required" }, { status: 400 })

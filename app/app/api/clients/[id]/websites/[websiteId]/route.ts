@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { prisma } from "@/lib/prisma"
 
 export async function PATCH(
@@ -9,6 +10,7 @@ export async function PATCH(
   const { error } = await requireAuth()
   if (error) return error
   const { id, websiteId } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   const body = await req.json()
   const { label, registrar, registrarVendorId, registrarUrl, accountNumber, credentialId, autoRenew, uptimeEnabled, notes } = body
   const updated = await prisma.website.update({
@@ -35,6 +37,7 @@ export async function DELETE(
   const { error } = await requireAuth()
   if (error) return error
   const { id, websiteId } = await params
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
   await prisma.website.deleteMany({ where: { id: websiteId, clientId: id } })
   return NextResponse.json({ ok: true })
 }

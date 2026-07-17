@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; vlanId: string }> }) {
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { vlanId } = await params
+    const { id, vlanId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { vlanNumber, name, color, description } = body
     const vlan = await prisma.vlan.update({
@@ -31,7 +33,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { vlanId } = await params
+    const { id, vlanId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     await prisma.vlan.delete({ where: { id: vlanId } })
     return NextResponse.json({ success: true })
   } catch {

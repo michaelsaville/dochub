@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { maybeTriggerOnboardingRunbook, maybeTriggerOffboardingRunbook } from "@/lib/runbook-triggers"
 
 // Edit a person. (The People-tab edit form PATCHes here — previously a silent
@@ -12,6 +13,7 @@ export async function PATCH(
   const { session, error } = await requireAuth()
   if (error) return error
   const { id: clientId, userId } = await params
+  if (!scopeAllows(await getClientScope(), clientId)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const existing = await prisma.person.findFirst({
     where: { id: userId, clientId },
@@ -53,6 +55,7 @@ export async function DELETE(
   const { error } = await requireAuth()
   if (error) return error
   const { id: clientId, userId } = await params
+  if (!scopeAllows(await getClientScope(), clientId)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const existing = await prisma.person.findFirst({ where: { id: userId, clientId }, select: { id: true } })
   if (!existing) return NextResponse.json({ error: "Person not found" }, { status: 404 })

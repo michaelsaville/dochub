@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { parseCidr } from "@/lib/cidr"
 
 const CIRCUIT_INCLUDE = {
@@ -19,7 +20,8 @@ export async function GET(
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { circuitId } = await params
+    const { id, circuitId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const circuit = await prisma.internetCircuit.findUnique({ where: { id: circuitId }, include: CIRCUIT_INCLUDE })
     if (!circuit) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json(circuit)
@@ -35,7 +37,8 @@ export async function PATCH(
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { circuitId } = await params
+    const { id, circuitId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const current = await prisma.internetCircuit.findUnique({
       where: { id: circuitId },
@@ -99,7 +102,8 @@ export async function DELETE(
   const { error } = await requireAuth()
   if (error) return error
   try {
-    const { circuitId } = await params
+    const { id, circuitId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     await prisma.internetCircuit.delete({ where: { id: circuitId } })
     return NextResponse.json({ success: true })
   } catch (e) {

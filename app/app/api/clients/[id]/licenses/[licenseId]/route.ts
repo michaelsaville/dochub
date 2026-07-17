@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { encrypt } from "@/lib/crypto"
 
 export async function PATCH(
@@ -10,7 +11,8 @@ export async function PATCH(
   const { session, error } = await requireAuth()
   if (error) return error
   try {
-    const { licenseId } = await params
+    const { id, licenseId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const body = await req.json()
     const { name, vendor, vendorId, licenseKey, seats, purchaseDate, expiryDate, renewalDate, cost, pax8Id, notes, personId, isActive } = body
 
@@ -75,7 +77,8 @@ export async function DELETE(
   const { session, error } = await requireAuth()
   if (error) return error
   try {
-    const { licenseId } = await params
+    const { id, licenseId } = await params
+    if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
     const changedBy = session?.user?.name ?? "unknown"
     await prisma.license.update({ where: { id: licenseId }, data: { isActive: false } })
     await prisma.fieldHistory.create({

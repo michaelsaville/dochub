@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 
 type Check = { label: string; met: boolean; weight: number }
 
@@ -12,6 +13,8 @@ export async function GET(
   if (error) return error
 
   const { id } = await params
+
+  if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const [
     contacts, assets, credentials, documents, locations,

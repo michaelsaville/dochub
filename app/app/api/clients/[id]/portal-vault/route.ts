@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { encrypt, decrypt } from "@/lib/crypto"
 import { generateTotp } from "@/lib/portal-vault"
 
@@ -11,6 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { error } = await requireAuth()
   if (error) return error
   const { id: clientId } = await params
+  if (!scopeAllows(await getClientScope(), clientId)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const items = await prisma.portalCredential.findMany({
     where: { clientId, visibility: "MSP_SHARED" },
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { session, error } = await requireAuth()
   if (error) return error
   const { id: clientId } = await params
+  if (!scopeAllows(await getClientScope(), clientId)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
 
   const { label, username, password, totp, url, notes } = await req.json()
   if (!label) return NextResponse.json({ error: "label is required" }, { status: 400 })
