@@ -74,9 +74,13 @@ async function mergeExisting(
     const data: any = {}
     const u = takeBlank(c.username, f.username, "username"); if (u !== undefined) data.username = u
     const url = takeBlank(c.url, f.url, "url"); if (url !== undefined) data.url = url
-    // Never overwrite an existing encrypted secret, and never store the note's
-    // plaintext password in a notes field.
-    if (f.password) noteLines.push("source note contained a password (existing kept)")
+    // Fill a blank TOTP (e.g. importing an Authy seed onto an existing login);
+    // never overwrite an existing secret, and never log a plaintext secret.
+    if (f.totp) {
+      if (!c.encryptedTotp) data.encryptedTotp = encrypt(String(f.totp))
+      else noteLines.push("a TOTP secret was present in the source (existing kept)")
+    }
+    if (f.password) noteLines.push("source contained a password (existing kept)")
     if (f.notes) noteLines.push(String(f.notes))
     if (noteLines.length) data.notes = (c.notes ? c.notes + "\n" : "") + "[Notes Intake] " + noteLines.join("; ")
     if (Object.keys(data).length) await prisma.credential.update({ where: { id: c.id }, data })

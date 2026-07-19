@@ -34,6 +34,26 @@ function ratio(a: string, b: string): number {
   return max === 0 ? 1 : 1 - lev(a, b) / max
 }
 
+// Best-effort client resolution from free text (a CSV folder/name/url) using an
+// alias map + fuzzy name match. Returns null when nothing is confident enough.
+export function matchClientText(
+  text: string | null | undefined,
+  clients: { id: string; name: string }[],
+  aliasMap: Record<string, { id: string; name: string }>,
+): { id: string; name: string; conf: number } | null {
+  const t = nameNorm(text)
+  if (!t) return null
+  if (aliasMap[t]) return { ...aliasMap[t], conf: 0.97 }
+  const exact = clients.find((c) => nameNorm(c.name) === t)
+  if (exact) return { id: exact.id, name: exact.name, conf: 0.95 }
+  let best: any = null, bestR = 0
+  for (const c of clients) { const r = ratio(t, nameNorm(c.name)); if (r > bestR) { bestR = r; best = c } }
+  if (best && bestR >= 0.85) return { id: best.id, name: best.name, conf: bestR }
+  const sub = clients.find((c) => nameNorm(c.name).length >= 4 && t.includes(nameNorm(c.name)))
+  if (sub) return { id: sub.id, name: sub.name, conf: 0.7 }
+  return null
+}
+
 export async function findMatches(clientId: string, entities: any[]): Promise<MatchCandidate[]> {
   const out: MatchCandidate[] = []
   if (!clientId || !Array.isArray(entities) || entities.length === 0) return out

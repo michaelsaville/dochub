@@ -71,12 +71,14 @@ const PdfIcon = () => (<svg {...svg}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0
 const ScreenshotIcon = () => (<svg {...svg}><rect x="2" y="4" width="20" height="13" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>)
 const HandwrittenIcon = () => (<svg {...svg}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>)
 const UploadIcon = () => (<svg {...svg}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>)
+const CsvIcon = () => (<svg {...svg}><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="9" y1="4" x2="9" y2="20" /></svg>)
 const SOURCE_META: Record<string, { label: string; color: string; Icon: () => any }> = {
   obsidian: { label: "Obsidian", color: "#b47cff", Icon: ObsidianIcon },
   "apple-notes": { label: "Apple Notes", color: "#e0a458", Icon: AppleNotesIcon },
   "pdf-scan": { label: "PDF scan", color: "#e05a5a", Icon: PdfIcon },
   screenshot: { label: "Screenshot", color: "#3d6fff", Icon: ScreenshotIcon },
   handwritten: { label: "Handwritten", color: "#43b581", Icon: HandwrittenIcon },
+  csv: { label: "CSV", color: "#2fb3a3", Icon: CsvIcon },
   other: { label: "Upload", color: "#8a8f98", Icon: UploadIcon },
 }
 function SourceBadge({ source, showLabel = false }: { source: string | null; showLabel?: boolean }) {
@@ -111,19 +113,34 @@ function UploadDropzone({ onUploaded }: { onUploaded: () => void }) {
 
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length || busy) return
-    const name = files.length === 1 ? files[0].name : `${files.length} files`
+    const arr = Array.from(files)
+    const csvs = arr.filter((f) => /\.csv$/i.test(f.name) || f.type === "text/csv")
+    const others = arr.filter((f) => !csvs.includes(f))
+    const name = arr.length === 1 ? arr[0].name : `${arr.length} files`
     try {
       setPhase({ kind: "uploading", name })
-      const fd = new FormData(); Array.from(files).forEach((f) => fd.append("files", f))
-      const r = await fetch("/api/notes-intake/upload", { method: "POST", body: fd })
-      setPhase({ kind: "analyzing", name })
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(d.error || "Upload failed")
-      const errs = (d.errors || []).length
-      setPhase({ kind: "done", count: d.created ?? 0 })
+      let created = 0
+      // CSVs → deterministic credential import (no AI, no credits needed)
+      for (const f of csvs) {
+        const fd = new FormData(); fd.append("file", f)
+        const r = await fetch("/api/notes-intake/import-csv", { method: "POST", body: fd })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(d.error || "CSV import failed")
+        created += d.created ?? 0
+      }
+      // Everything else → AI upload/vision pipeline
+      if (others.length) {
+        setPhase({ kind: "analyzing", name })
+        const fd = new FormData(); others.forEach((f) => fd.append("files", f))
+        const r = await fetch("/api/notes-intake/upload", { method: "POST", body: fd })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(d.error || "Upload failed")
+        created += d.created ?? 0
+      }
+      setPhase({ kind: "done", count: created })
       onUploaded()
-      setTimeout(() => setPhase({ kind: "idle" }), errs ? 4000 : 2500)
-    } catch (e: any) { setPhase({ kind: "error", msg: e.message || "Upload failed" }) }
+      setTimeout(() => setPhase({ kind: "idle" }), 2600)
+    } catch (e: any) { setPhase({ kind: "error", msg: e.message || "Failed" }) }
   }
 
   const active = phase.kind === "drag"
@@ -161,7 +178,7 @@ function UploadDropzone({ onUploaded }: { onUploaded: () => void }) {
           <button onClick={(e) => { e.stopPropagation(); setPhase({ kind: "idle" }) }} style={{ ...ghostBtn, color: "var(--text)" }}>Try again</button>
         </>)}
       </div>
-      <input ref={inputRef} type="file" multiple hidden accept="image/*,application/pdf,text/plain,.md,.txt,.heic" onChange={(e) => handleFiles(e.target.files)} />
+      <input ref={inputRef} type="file" multiple hidden accept="image/*,application/pdf,text/plain,text/csv,.md,.txt,.heic,.csv" onChange={(e) => handleFiles(e.target.files)} />
     </div>
   )
 }
