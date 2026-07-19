@@ -15,6 +15,7 @@ import path from "node:path"
 import crypto from "node:crypto"
 import Anthropic from "@anthropic-ai/sdk"
 import { PrismaClient } from "@prisma/client"
+import { sealEntities, sealValue } from "../lib/notes-intake-secrets.mjs"
 
 // ---------- args ----------
 function arg(name, def = undefined) {
@@ -159,7 +160,7 @@ for (const file of files) {
       if (dup) {
         skippedDup++
       } else {
-        const entities = (parsed.entities || []).map((e) => ({ ...e, include: true }))
+        const entities = sealEntities((parsed.entities || []).map((e) => ({ ...e, include: true })))
         await prisma.noteSuggestion.create({
           data: {
             batchId: batch.id,
@@ -170,7 +171,7 @@ for (const file of files) {
             sourceFolder: folder,
             noteTitle: title,
             noteHash: hash,
-            rawText: body,
+            rawText: sealValue(body),
             status: parsed.isRelevant ? "PENDING" : "SKIPPED",
             isRelevant: !!parsed.isRelevant,
             relevanceReason: parsed.relevanceReason || null,

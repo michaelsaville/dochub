@@ -20,6 +20,7 @@ export default function MobileBottomBar({ onOpenSearch }: Props) {
     { label: "Clients", icon: "🏢", onClick: () => router.push("/clients"),   match: "/clients" },
     { label: "Scan",    icon: "📷", onClick: () => router.push("/scan"),       match: "/scan" },
     { label: "Search",  icon: "🔍", onClick: () => onOpenSearch?.(),           match: "" },
+    { label: "Intake",  icon: "📝", onClick: () => router.push("/notes-intake"), match: "/notes-intake" },
     { label: "Vault",   icon: "🔐", onClick: () => router.push("/settings?section=my-vault"), match: "/settings" },
   ]
 

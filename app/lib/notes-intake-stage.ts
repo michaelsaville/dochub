@@ -1,6 +1,7 @@
 import crypto from "crypto"
 import { prisma } from "@/lib/prisma"
 import { matchClientText } from "@/lib/notes-intake-match"
+import { sealEntities } from "@/lib/notes-intake-secrets"
 import type { CsvCred } from "@/lib/notes-intake-csv"
 
 // Stage a batch of structured credential rows (from a CSV or an otpauth paste)
@@ -21,8 +22,10 @@ export async function stageCredentialSuggestions(
 
   let created = 0, matched = 0, unmatched = 0, dup = 0, withTotp = 0
   for (const row of rows) {
-    const hash = crypto.createHash("sha256").update(`${row.name}|${row.username || ""}|${row.url || ""}`).digest("hex").slice(0, 16)
-    if (await prisma.noteSuggestion.findFirst({ where: { noteHash: hash }, select: { id: true } })) { dup++; continue }
+    const hash = crypto.createHash("sha256").update(`${row.name}|${row.username || ""}|${row.url || ""}|${row.password || ""}|${row.totp || ""}`).digest("hex").slice(0, 16)
+    // Only skip if an identical row is still awaiting review (a corrected re-import,
+    // or re-adding after reject/commit, should go through).
+    if (await prisma.noteSuggestion.findFirst({ where: { noteHash: hash, status: "PENDING" }, select: { id: true } })) { dup++; continue }
 
     let m: { id: string; name: string; conf: number } | null = null
     let on = ""
@@ -49,7 +52,7 @@ export async function stageCredentialSuggestions(
         matchedClientId: m ? m.id : null, matchedClientName: m ? m.name : null,
         clientConfidence: m ? m.conf : null,
         clientReasoning: m ? `${opts.source} ${on} match` : "No client match — assign manually",
-        entitiesJson: [entity],
+        entitiesJson: sealEntities([entity]),
       },
     })
     created++

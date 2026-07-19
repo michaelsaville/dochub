@@ -37,6 +37,7 @@ const QUICK_LINKS: { label: string; href: string; icon: string; adminOnly?: bool
   { label: "Review Queue", href: "/docs/review", icon: "🚩" },
   { label: "Client Portal", href: "/portal", icon: "🌐" },
   { label: "Portal Admin", href: "/portal-admin", icon: "🔧" },
+  { label: "Merge Clients", href: "/clients/merge", icon: "🔗", adminOnly: true },
   { label: "Audit Log", href: "/admin/audit", icon: "🪵", adminOnly: true },
   { label: "Platform Backups", href: "/admin/backups", icon: "💾", adminOnly: true },
   { label: "Tech Access", href: "/admin/access", icon: "🔑", adminOnly: true },

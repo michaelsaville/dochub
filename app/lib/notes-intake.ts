@@ -91,6 +91,22 @@ async function mergeExisting(
     const data: any = {}
     const dn = takeBlank(x.displayName, f.displayName, "displayName"); if (dn !== undefined) data.displayName = dn
     const did = takeBlank(x.did, f.did, "did"); if (did !== undefined) data.did = did
+    // Don't lose the SIP credential on Update: vault it and link if the extension has none.
+    if (f.sipPassword && !x.credentialId) {
+      const sc = await prisma.credential.create({
+        data: {
+          clientId,
+          label: `SIP ${f.extension || x.extension || ""}`.trim().slice(0, 200) || "SIP credential",
+          username: f.sipUsername || x.extension || null,
+          encryptedPassword: encrypt(String(f.sipPassword)),
+          dataSource: "NOTES_INTAKE",
+        },
+      })
+      data.credentialId = sc.id
+      summary.credentials.push(sc.id)
+    } else if (f.sipPassword) {
+      noteLines.push("a SIP password was present in the source (existing extension credential kept)")
+    }
     if (f.notes) noteLines.push(String(f.notes))
     if (noteLines.length) data.notes = (x.notes ? x.notes + "\n" : "") + "[Notes Intake] " + noteLines.join("; ")
     if (Object.keys(data).length) await prisma.phoneExtension.update({ where: { id: x.id }, data })

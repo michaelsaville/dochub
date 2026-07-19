@@ -17,7 +17,8 @@ export async function renderPdfToImages(buffer: Buffer, maxPages = 5): Promise<R
     const inPath = path.join(dir, "in.pdf")
     await writeFile(inPath, buffer)
     await execFileP("pdftoppm", ["-png", "-r", "200", "-f", "1", "-l", String(maxPages), inPath, path.join(dir, "pg")], { maxBuffer: 64 * 1024 * 1024 })
-    const files = (await readdir(dir)).filter((f) => f.startsWith("pg") && f.endsWith(".png")).sort()
+    const numOf = (f: string) => parseInt(f.match(/(\d+)\.png$/)?.[1] || "0", 10)
+    const files = (await readdir(dir)).filter((f) => f.startsWith("pg") && f.endsWith(".png")).sort((a, b) => numOf(a) - numOf(b))
     const sharp = (await import("sharp")).default
     const out: RenderedImage[] = []
     for (const f of files) {

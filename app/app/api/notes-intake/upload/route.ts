@@ -12,6 +12,7 @@ import { scanBuffer } from "@/lib/files/clamav"
 import { detectMime } from "@/lib/files/ingest"
 import { classifyNote } from "@/lib/ai/notes-classify"
 import { renderPdfToImages } from "@/lib/files/pdf-render"
+import { sealEntities, sealValue } from "@/lib/notes-intake-secrets"
 
 const UPLOAD_DIR = "/uploads"
 const MAX_SIZE = 25 * 1024 * 1024 // 25MB
@@ -58,8 +59,8 @@ export async function POST(req: Request) {
       const title = file.name.replace(/\.[^.]+$/, "")
       const hash = crypto.createHash("sha256").update(buffer).digest("hex").slice(0, 16)
 
-      // Dedupe: skip if this exact file is already staged.
-      const dup = await prisma.noteSuggestion.findFirst({ where: { noteHash: hash }, select: { id: true } })
+      // Dedupe only against notes still awaiting review (re-upload after reject/commit is allowed).
+      const dup = await prisma.noteSuggestion.findFirst({ where: { noteHash: hash, status: "PENDING" }, select: { id: true } })
       if (dup) { errors.push({ name: file.name, error: "already in queue" }); continue }
 
       // Persist the original bytes.
@@ -85,9 +86,14 @@ export async function POST(req: Request) {
           } catch { extracted = textEx }
         }
       } else if (detectedMime.startsWith("image/") && (!CLAUDE_IMAGE_MIMES.includes(detectedMime) || buffer.length > 4_500_000)) {
-        let jpg: Buffer = buffer
-        try { const sharp = (await import("sharp")).default; jpg = await sharp(buffer).resize(1568, 1568, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer() } catch { /* keep original */ }
-        extracted = await extractForAI(jpg, jpg === buffer ? detectedMime : "image/jpeg", file.name)
+        let jpg: Buffer = buffer, converted = false
+        try { const sharp = (await import("sharp")).default; jpg = await sharp(buffer).resize(1568, 1568, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer(); converted = true } catch { /* keep original */ }
+        if (!converted && !CLAUDE_IMAGE_MIMES.includes(detectedMime)) {
+          // e.g. HEIC without libheif — don't send a mislabeled image to vision.
+          extracted = { kind: "unsupported", summary: `${detectedMime} could not be decoded — re-upload as JPEG/PNG` }
+        } else {
+          extracted = await extractForAI(converted ? jpg : buffer, converted ? "image/jpeg" : detectedMime, file.name)
+        }
       } else {
         extracted = await extractForAI(buffer, detectedMime, file.name)
       }
@@ -100,7 +106,7 @@ export async function POST(req: Request) {
           sourceFolder: "Uploads",
           noteTitle: title,
           noteHash: hash,
-          rawText: extracted.kind === "text" ? extracted.text.slice(0, 12000) : `[${extracted.summary}]`,
+          rawText: extracted.kind === "text" ? sealValue(extracted.text.slice(0, 12000)) : `[${extracted.summary}]`,
           status: "PENDING",
           sourceType: sourceTypeFromMime(detectedMime),
           uploadStorageName: storageName,
@@ -127,7 +133,7 @@ export async function POST(req: Request) {
             clientConfidence: typeof parsed.clientConfidence === "number" ? parsed.clientConfidence : null,
             clientReasoning: parsed.clientReasoning || null,
             clientCandidatesJson: parsed.clientAlternatives || [],
-            entitiesJson: entities,
+            entitiesJson: sealEntities(entities),
             sourceType: refinedType,
             aiModel: model,
             aiTokensIn: usage.inTokens,

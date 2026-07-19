@@ -15,6 +15,7 @@ import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import Anthropic from "@anthropic-ai/sdk"
 import { PrismaClient } from "@prisma/client"
+import { sealEntities } from "../lib/notes-intake-secrets.mjs"
 
 const execFileP = promisify(execFile)
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : d }
@@ -70,7 +71,8 @@ async function pdfToImages(absPath, maxPages = 5) {
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "nif-"))
   try {
     await execFileP("pdftoppm", ["-png", "-r", "200", "-f", "1", "-l", String(maxPages), absPath, path.join(dir, "pg")], { maxBuffer: 64 * 1024 * 1024 })
-    const files = (await fsp.readdir(dir)).filter((f) => f.endsWith(".png")).sort()
+    const numOf = (f) => parseInt(f.match(/(\d+)\.png$/)?.[1] || "0", 10)
+    const files = (await fsp.readdir(dir)).filter((f) => f.endsWith(".png")).sort((a, b) => numOf(a) - numOf(b))
     const out = []
     for (const f of files) out.push({ base64: await toJpegB64(await fsp.readFile(path.join(dir, f))), mediaType: "image/jpeg" })
     return out
@@ -121,7 +123,7 @@ for (const file of files) {
   try {
     const resp = await anthropic.messages.create({ model: MODEL, max_tokens: 4000, system: SYSTEM, messages: [{ role: "user", content: userContent }] })
     const parsed = parseJson(resp.content.find((b) => b.type === "text").text)
-    const entities = (parsed.entities || []).map((e) => ({ ...e, include: true }))
+    const entities = sealEntities((parsed.entities || []).map((e) => ({ ...e, include: true })))
     if (parsed.isRelevant) relevant++
     await prisma.noteSuggestion.create({
       data: {
