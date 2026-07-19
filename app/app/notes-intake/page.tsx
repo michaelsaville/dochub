@@ -183,6 +183,40 @@ function UploadDropzone({ onUploaded }: { onUploaded: () => void }) {
   )
 }
 
+// ── Paste otpauth:// TOTP lines (Authy / 2FA extractor output) ──
+function OtpauthPaste({ onUploaded }: { onUploaded: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  async function submit() {
+    if (!text.trim() || busy) return
+    setBusy(true); setMsg(null)
+    const r = await fetch("/api/notes-intake/import-otpauth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) })
+    const d = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (r.ok) { setMsg(`Imported ${d.created} TOTP token(s) — ${d.matched} matched a client, ${d.unmatched} to assign${d.dup ? `, ${d.dup} dup` : ""}`); setText(""); onUploaded() }
+    else setMsg(d.error || "Import failed")
+  }
+  return (
+    <div style={{ margin: "0 0 16px" }}>
+      <button onClick={() => setOpen((o) => !o)} style={{ ...ghostBtn, fontFamily: "var(--mono)", fontSize: 11, color: "var(--muted)" }}>{open ? "▾" : "▸"} paste otpauth:// TOTP lines (Authy / 2FA export)</button>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5}
+            placeholder={"otpauth://totp/Piedmont:admin?secret=JBSWY3DPEHPK3PXP&issuer=Piedmont\notpauth://totp/Braddock:mfrye?secret=KRSXG5CTMVRXEZLU&issuer=Braddock"}
+            style={{ ...inp, minHeight: 96, resize: "vertical", whiteSpace: "pre" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+            <button onClick={submit} disabled={busy || !text.trim()} style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 6, border: "none", cursor: busy ? "default" : "pointer", background: "var(--accent)", color: "#fff", opacity: !text.trim() ? 0.5 : 1 }}>{busy ? "Importing…" : "Import TOTP"}</button>
+            {msg && <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{msg}</span>}
+          </div>
+          <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 6, fontStyle: "italic" }}>Each token matches an existing credential by name/user → Update attaches the TOTP (blank ones only), or creates a new credential.</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Detail panel ──
 function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Suggestion; clients: Client[]; onDone: (msg: string, keepSelected: boolean) => void; toast: (m: string) => void }) {
   const [draft, setDraft] = useState<Suggestion>(() => JSON.parse(JSON.stringify(suggestion)))
@@ -464,6 +498,7 @@ export default function NotesIntakePage() {
         </div>
 
         {uploadOpen && <UploadDropzone onUploaded={() => { setUploadOpen(true); setLoading(true); setReloadKey((k) => k + 1) }} />}
+        {uploadOpen && <OtpauthPaste onUploaded={() => { setLoading(true); setReloadKey((k) => k + 1) }} />}
 
         <div className="ni-grid" style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 18, alignItems: "start" }}>
           <div>

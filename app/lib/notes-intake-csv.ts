@@ -42,6 +42,29 @@ export function extractTotpSecret(val?: string | null): string | null {
   return null
 }
 
+// Parse a block of pasted otpauth:// lines (what Authy/2FA extractors emit) into
+// credential rows: issuer → name/folder, account → username, secret → totp.
+export function parseOtpauthText(text: string): CsvCred[] {
+  const out: CsvCred[] = []
+  for (const raw of text.split(/[\r\n]+/)) {
+    const line = raw.trim()
+    if (!/^otpauth:\/\//i.test(line)) continue
+    const secret = extractTotpSecret(line)
+    if (!secret) continue
+    let issuer = "", account = ""
+    try {
+      const u = new URL(line.replace(/^otpauth:\/\//i, "https://otpauth/"))
+      issuer = (u.searchParams.get("issuer") || "").trim()
+      const label = decodeURIComponent(u.pathname.replace(/^\/(totp|hotp)\//i, ""))
+      if (label.includes(":")) { const [a, b] = label.split(":"); if (!issuer) issuer = a.trim(); account = b.trim() }
+      else account = label.trim()
+    } catch { /* keep defaults */ }
+    const name = issuer && account ? `${issuer} (${account})` : issuer || account || "TOTP token"
+    out.push({ name, username: account || undefined, totp: secret, folder: issuer || undefined })
+  }
+  return out
+}
+
 export function parseCsvCreds(text: string): { rows: CsvCred[]; headers: string[]; mapped: Record<string, string> } {
   const records: string[][] = parse(text, { columns: false, skip_empty_lines: true, relax_column_count: true, bom: true, trim: true })
   if (records.length < 2) return { rows: [], headers: records[0] || [], mapped: {} }

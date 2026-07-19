@@ -57,6 +57,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
+  // ── Structured imports (csv / otpauth) have no on-disk source file ──
+  if (!s.sourceAbsPath) {
+    const updated = await prisma.noteSuggestion.update({ where: { id }, data: { sourceState: action === "trash" ? "GONE" : "PRESENT", sourcePendingOp: null } })
+    return NextResponse.json({ suggestion: updated, mode: "no-source" })
+  }
+
   // ── Ingested files: queue for the host reaper ──
   if (action === "trash") {
     // Already trashed and asking to trash again → no-op.
