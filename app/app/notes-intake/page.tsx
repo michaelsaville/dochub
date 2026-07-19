@@ -159,7 +159,7 @@ function UploadDropzone({ onUploaded }: { onUploaded: () => void }) {
           <button onClick={(e) => { e.stopPropagation(); setPhase({ kind: "idle" }) }} style={{ ...ghostBtn, color: "var(--text)" }}>Try again</button>
         </>)}
       </div>
-      <input ref={inputRef} type="file" multiple hidden accept="image/png,image/jpeg,image/heic,application/pdf,text/plain,.md,.txt" onChange={(e) => handleFiles(e.target.files)} />
+      <input ref={inputRef} type="file" multiple hidden accept="image/*,application/pdf,text/plain,.md,.txt,.heic" onChange={(e) => handleFiles(e.target.files)} />
     </div>
   )
 }
