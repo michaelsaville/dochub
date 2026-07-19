@@ -2314,3 +2314,84 @@ enum CircuitStatus {
   CANCELLED
   RETIRED
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notes Intake — AI-assisted import of legacy Apple Notes into DocHub.
+// Relation-free staging tables (plain string IDs, no FKs) so the migration is
+// purely additive and cannot affect live data. Rows are reviewed in the app,
+// then committed to real DocHub records. See scripts/notes-ingest.mjs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model NoteIntakeBatch {
+  id            String   @id @default(cuid())
+  source        String // "export" | "vault" | "reconciled"
+  createdBy     String? // staff email
+  model         String? // AI model used
+  notesTotal    Int      @default(0)
+  notesRelevant Int      @default(0)
+  status        String   @default("RUNNING") // RUNNING | DONE | FAILED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model NoteSuggestion {
+  id       String @id @default(cuid())
+  batchId  String?
+
+  // provenance
+  sourcePath   String // relative path within the notes tree
+  sourceFolder String? // top-level folder (client hint)
+  noteTitle    String
+  noteHash     String // sha256 prefix of body — dedupe/reconcile
+  rawText      String // note markdown (may be truncated)
+
+  status String @default("PENDING") // PENDING | CONFIRMED | COMMITTED | REJECTED | SKIPPED | FAILED
+
+  // relevance gate
+  isRelevant      Boolean @default(true)
+  relevanceReason String?
+
+  // client match (AI proposal + human correction)
+  matchedClientId    String? // resolved client id (AI or corrected)
+  matchedClientName  String? // denormalized for display
+  clientConfidence   Float?
+  clientReasoning    String?
+  clientCandidatesJson Json? // alternatives [{clientId, name}]
+  clientCorrected    Boolean @default(false)
+
+  // extracted entities (editable): [{kind, confidence, summary, sourceSnippet, fields, include}]
+  entitiesJson Json?
+
+  // AI bookkeeping
+  aiModel     String?
+  aiTokensIn  Int?
+  aiTokensOut Int?
+  aiError     String?
+
+  // commit bookkeeping
+  committedSummaryJson Json? // what was written {credentials:[ids], assets:[ids], ...}
+  reviewedBy  String?
+  committedBy String?
+  committedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([matchedClientId, status])
+  @@index([noteHash])
+}
+
+model ClientAlias {
+  id        String   @id @default(cuid())
+  alias     String // normalized token/folder/domain seen in notes (lowercased)
+  clientId  String // target DocHub client id
+  clientName String? // denormalized for display
+  kind      String   @default("LEARNED") // LEARNED | FOLDER | DOMAIN | MANUAL
+  weight    Int      @default(1)
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@unique([alias, clientId])
+  @@index([alias])
+}

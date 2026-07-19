@@ -15,6 +15,7 @@ const nav = [
   { label: "Vendors",     href: "/vendors"        },
   { label: "Reports",     href: "/reports"        },
   { label: "AI Intake",   href: "/intake"         },
+  { label: "Notes Intake", href: "/notes-intake"   },
   { label: "Settings",    href: "/settings"       },
 ]
 
