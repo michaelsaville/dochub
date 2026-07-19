@@ -11,6 +11,8 @@ type Entity = {
   summary?: string
   sourceSnippet?: string
   include?: boolean
+  mode?: string // create | update | skip
+  targetId?: string
   fields?: Record<string, string | null>
 }
 type Suggestion = {
@@ -166,6 +168,30 @@ function UploadDropzone({ onUploaded }: { onUploaded: () => void }) {
 function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Suggestion; clients: Client[]; onDone: (msg: string, keepSelected: boolean) => void; toast: (m: string) => void }) {
   const [draft, setDraft] = useState<Suggestion>(() => JSON.parse(JSON.stringify(suggestion)))
   const [busy, setBusy] = useState(false)
+  const [matches, setMatches] = useState<Record<number, any>>({})
+
+  // Duplicate detection: find existing DocHub records for the matched client so
+  // the reviewer can Update instead of duplicating. Re-runs when the client changes.
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const r = await fetch(`/api/notes-intake/${draft.id}/matches`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: draft.matchedClientId, entities: draft.entitiesJson }) })
+      const d = await r.json().catch(() => ({ matches: [] }))
+      if (!alive) return
+      const map: Record<number, any> = {}
+      for (const m of (d.matches || [])) map[m.entityIndex] = m
+      setMatches(map)
+      setDraft((cur) => ({ ...cur, entitiesJson: (cur.entitiesJson || []).map((e: any, idx: number) => {
+        const m = map[idx]
+        if (!m) return e.mode === "skip" ? e : { ...e, mode: "create", targetId: undefined }
+        if (e.mode === "skip") return e
+        return { ...e, mode: m.strong ? "update" : "create", targetId: m.targetId }
+      }) }))
+    })()
+    return () => { alive = false }
+    // Intentionally only re-run on client/note change, not on every field edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.matchedClientId, draft.id])
 
   const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c.name])), [clients])
   const clientByName = useMemo(() => Object.fromEntries(clients.map((c) => [c.name.toLowerCase(), c.id])), [clients])
@@ -189,12 +215,13 @@ function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Sugge
   }
   async function commit() {
     if (!draft.matchedClientId) { toast("Pick a client first"); return }
-    const n = (draft.entitiesJson || []).filter((e: Entity) => e.include !== false).length
-    if (!confirm(`Push ${n} item(s) into ${draft.matchedClientName}?\nThis writes real records to DocHub (credentials encrypted). The source note is kept unless you trash it.`)) return
+    const active = (draft.entitiesJson || []).filter((e: Entity) => e.include !== false && e.mode !== "skip")
+    const upd = active.filter((e: Entity) => e.mode === "update").length
+    if (!confirm(`Push ${active.length} item(s) into ${draft.matchedClientName}?\n${upd ? `${upd} will UPDATE an existing record (non-destructive), the rest create new. ` : ""}Credentials are encrypted. The source note is kept unless you trash it.`)) return
     setBusy(true)
     const r = await fetch(`/api/notes-intake/${draft.id}/commit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: draft.matchedClientId, entities: draft.entitiesJson }) })
     const d = await r.json(); setBusy(false)
-    if (r.ok) { const s = d.summary; onDone(`Pushed: ${s.credentials.length} cred, ${s.assets.length} asset, ${s.phoneExtensions.length} ext${s.locationUpdated ? ", location" : ""}${s.skipped.length ? ` · ${s.skipped.length} skipped` : ""}`, false) } else toast(d.error || "Commit failed")
+    if (r.ok) { const s = d.summary; onDone(`Pushed: ${s.credentials.length} new cred, ${s.assets.length} new asset, ${s.phoneExtensions.length} ext${s.updated?.length ? ` · ${s.updated.length} updated` : ""}${s.locationUpdated ? ", location" : ""}${s.skipped?.length ? ` · ${s.skipped.length} skipped` : ""}`, false) } else toast(d.error || "Commit failed")
   }
   function trashConfirmCopy(): string {
     if (draft.origin === "upload") return "Move this uploaded file to trash? Recoverable."
@@ -284,7 +311,18 @@ function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Sugge
                 <input value={e.summary || ""} onChange={(ev) => setEntity(idx, { summary: ev.target.value })} style={{ ...inp, fontFamily: "var(--sans)", fontSize: 12.5, fontWeight: 500, border: "none", background: "transparent", padding: "2px 0" }} />
                 <span style={{ fontSize: 10, color: confColor(e.confidence), fontFamily: "var(--mono)", flexShrink: 0 }}>{e.confidence != null ? Math.round(e.confidence * 100) + "%" : ""}</span>
               </div>
-              <div className="ni-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {matches[idx] && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", margin: "0 0 8px", padding: "6px 8px", borderRadius: 6, background: matches[idx].strong ? "rgba(224,90,90,0.10)" : "rgba(224,164,88,0.10)", border: "0.5px solid " + (matches[idx].strong ? "#e05a5a55" : "#e0a45855") }}>
+                  <span style={{ fontSize: 11, color: "var(--text)" }}>⚠ May already exist: <b>{matches[idx].targetLabel}</b> <span style={{ color: "var(--muted)" }}>· {matches[idx].reason}</span></span>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {([["update", "Update"], ["create", "New"], ["skip", "Skip"]] as const).map(([mode, labtxt]) => {
+                      const on = (e.mode || "create") === mode
+                      return <button key={mode} onClick={() => setEntity(idx, mode === "update" ? { mode, targetId: matches[idx].targetId } : { mode, targetId: undefined })} style={{ fontSize: 10.5, padding: "3px 9px", borderRadius: 4, cursor: "pointer", fontFamily: "var(--mono)", border: "0.5px solid var(--color-border-tertiary)", background: on ? "var(--accent)" : "transparent", color: on ? "#fff" : "var(--muted)" }}>{labtxt}</button>
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="ni-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, opacity: e.mode === "skip" ? 0.45 : 1 }}>
                 {keys.map((k) => (<div key={k}><label style={lbl}>{k}</label><input value={(e.fields?.[k] as string) || ""} onChange={(ev) => setEntityField(idx, k, ev.target.value)} style={inp} /></div>))}
               </div>
               {e.sourceSnippet && (<details style={{ marginTop: 8 }}><summary style={{ fontSize: 10.5, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--mono)" }}>source snippet</summary><pre style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 4, fontFamily: "var(--mono)" }}>{e.sourceSnippet}</pre></details>)}
