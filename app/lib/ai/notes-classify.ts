@@ -65,9 +65,12 @@ export function parseModelJson(text: string): any {
   return JSON.parse(t)
 }
 
+// A rendered multi-page document (e.g. an image-based PDF) for vision.
+export type MultiImageContent = { kind: "images"; images: { base64: string; mediaType: string }[]; summary: string }
+
 export async function classifyNote(opts: {
   title: string
-  extracted: ExtractedContent
+  extracted: ExtractedContent | MultiImageContent
   clients: { id: string; name: string }[]
   model?: string
 }): Promise<{ parsed: any; usage: { inTokens: number; outTokens: number }; model: string }> {
@@ -83,6 +86,10 @@ export async function classifyNote(opts: {
     userContent.push({ type: "text", text: header })
     userContent.push({ type: "image", source: { type: "base64", media_type: extracted.mediaType, data: extracted.base64 } })
     userContent.push({ type: "text", text: "Transcribe and extract from the image above." })
+  } else if (extracted.kind === "images") {
+    userContent.push({ type: "text", text: `${header}\n\nThe ${extracted.images.length} image(s) below are the pages of a document (scan / Freeform board / photo).` })
+    extracted.images.forEach((im) => userContent.push({ type: "image", source: { type: "base64", media_type: im.mediaType, data: im.base64 } }))
+    userContent.push({ type: "text", text: "Transcribe all text (including handwriting and Post-it notes) and extract from the images above." })
   } else {
     userContent.push({ type: "text", text: `${header}\n\nThe file contents could not be extracted. Reason from the filename alone; if insufficient, set isRelevant=false with empty entities.` })
   }

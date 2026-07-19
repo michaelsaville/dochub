@@ -11,6 +11,7 @@ import { extractForAI } from "@/lib/ai/extract"
 import { scanBuffer } from "@/lib/files/clamav"
 import { detectMime } from "@/lib/files/ingest"
 import { classifyNote } from "@/lib/ai/notes-classify"
+import { renderPdfToImages } from "@/lib/files/pdf-render"
 
 const UPLOAD_DIR = "/uploads"
 const MAX_SIZE = 25 * 1024 * 1024 // 25MB
@@ -66,18 +67,30 @@ export async function POST(req: Request) {
       const storageName = `${crypto.randomUUID()}${ext}`
       await writeFile(path.join(UPLOAD_DIR, storageName), buffer)
 
-      // Normalize images Claude can't read (HEIC, oversized) to bounded JPEG.
-      let extractBuffer: Buffer = buffer
-      let extractMime = detectedMime
-      if (detectedMime.startsWith("image/") && (!CLAUDE_IMAGE_MIMES.includes(detectedMime) || buffer.length > 4_500_000)) {
-        try {
-          const sharp = (await import("sharp")).default
-          extractBuffer = await sharp(buffer).resize(1568, 1568, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer()
-          extractMime = "image/jpeg"
-        } catch { /* fall through with original; extract may mark unsupported */ }
+      // Extract content for the AI:
+      //  - born-digital PDF → text (pdftotext)
+      //  - image-based PDF (scan / Freeform board) → render pages to images for vision
+      //  - image (HEIC/oversized normalized) → single image for vision
+      //  - text/CSV → text
+      let extracted: any
+      if (detectedMime === "application/pdf") {
+        const textEx = await extractForAI(buffer, detectedMime, file.name)
+        const textLen = textEx.kind === "text" ? textEx.text.replace(/\s/g, "").length : 0
+        if (textLen >= 150) {
+          extracted = textEx
+        } else {
+          try {
+            const images = await renderPdfToImages(buffer, 5)
+            extracted = images.length ? { kind: "images", images, summary: `PDF rendered to ${images.length} page image(s) for vision` } : textEx
+          } catch { extracted = textEx }
+        }
+      } else if (detectedMime.startsWith("image/") && (!CLAUDE_IMAGE_MIMES.includes(detectedMime) || buffer.length > 4_500_000)) {
+        let jpg: Buffer = buffer
+        try { const sharp = (await import("sharp")).default; jpg = await sharp(buffer).resize(1568, 1568, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer() } catch { /* keep original */ }
+        extracted = await extractForAI(jpg, jpg === buffer ? detectedMime : "image/jpeg", file.name)
+      } else {
+        extracted = await extractForAI(buffer, detectedMime, file.name)
       }
-
-      const extracted = await extractForAI(extractBuffer, extractMime, file.name)
 
       // Create the row up front so a classify failure still leaves a reviewable/retryable row.
       const row = await prisma.noteSuggestion.create({
