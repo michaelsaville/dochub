@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element */
 "use client"
 
 import AppShell from "@/components/AppShell"
@@ -19,6 +19,7 @@ type Suggestion = {
   id: string
   origin: string
   sourceType: string | null
+  uploadDetectedMime?: string | null
   sourceState: string
   sourcePendingOp: string | null
   sourceDeletedAt: string | null
@@ -279,6 +280,18 @@ function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Sugge
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 12px", fontSize: 11, color: "var(--muted)", fontFamily: "var(--mono)" }}>
         <span>{srcLine.text}</span>{srcLine.action}
       </div>
+
+      {/* source file preview (uploaded photos / scans / PDFs) */}
+      {draft.origin === "upload" && (
+        <details open style={{ margin: "0 0 12px" }}>
+          <summary style={{ fontSize: 11, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--mono)" }}>source file</summary>
+          <div style={{ marginTop: 6 }}>
+            {String(draft.uploadDetectedMime || "").includes("pdf")
+              ? <object data={`/api/notes-intake/${draft.id}/file`} type="application/pdf" style={{ width: "100%", height: 460, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)" }}><a href={`/api/notes-intake/${draft.id}/file`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open file</a></object>
+              : <img src={`/api/notes-intake/${draft.id}/file`} alt="source" style={{ maxWidth: "100%", maxHeight: 520, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", display: "block" }} />}
+          </div>
+        </details>
+      )}
 
       {draft.relevanceReason && <div style={{ fontSize: 11.5, color: "var(--muted)", margin: "0 0 12px", fontStyle: "italic" }}>{draft.relevanceReason}</div>}
 
