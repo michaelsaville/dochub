@@ -2377,9 +2377,25 @@ model NoteSuggestion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ── Notes Intake v2: origin, source-type, upload provenance, source lifecycle ──
+  origin            String   @default("ingest") // "ingest" | "upload"
+  sourceType        String? // obsidian | apple-notes | pdf-scan | screenshot | handwritten | other
+  sourceAbsPath     String? // absolute host path (host reaper resolves/trashes)
+  sourceState       String   @default("PRESENT") // PRESENT | TRASHED | GONE
+  sourcePendingOp   String? // reaper queue for ingest sources: TRASH | RESTORE
+  sourceTrashPath   String?
+  sourceDeletedAt   DateTime?
+  sourceDeleteError String?
+  uploadStorageName  String?
+  uploadOriginalName String?
+  uploadMimeType     String?
+  uploadDetectedMime String?
+  uploadSize         Int?
+
   @@index([status, createdAt])
   @@index([matchedClientId, status])
   @@index([noteHash])
+  @@index([sourcePendingOp])
 }
 
 model ClientAlias {

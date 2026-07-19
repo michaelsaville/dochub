@@ -163,6 +163,9 @@ for (const file of files) {
         await prisma.noteSuggestion.create({
           data: {
             batchId: batch.id,
+            origin: "ingest",
+            sourceType: SOURCE === "vault" ? "obsidian" : "apple-notes",
+            sourceAbsPath: path.resolve(file),
             sourcePath: rel,
             sourceFolder: folder,
             noteTitle: title,

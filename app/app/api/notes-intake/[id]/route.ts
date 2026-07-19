@@ -44,6 +44,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if (body.entities !== undefined) data.entitiesJson = body.entities
+  if (body.sourceType !== undefined) data.sourceType = body.sourceType || null
   if (body.status !== undefined) {
     data.status = body.status
     data.reviewedBy = session?.user?.email ?? null

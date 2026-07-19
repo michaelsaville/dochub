@@ -33,6 +33,7 @@ const QUICK_LINKS: { label: string; href: string; icon: string; adminOnly?: bool
   { label: "Reporting", href: "/reports", icon: "📊" },
   { label: "Global SOPs", href: "/runbooks", icon: "📋" },
   { label: "Templates", href: "/templates", icon: "🧩" },
+  { label: "Notes Intake", href: "/notes-intake", icon: "📝" },
   { label: "Review Queue", href: "/docs/review", icon: "🚩" },
   { label: "Client Portal", href: "/portal", icon: "🌐" },
   { label: "Portal Admin", href: "/portal-admin", icon: "🔧" },
