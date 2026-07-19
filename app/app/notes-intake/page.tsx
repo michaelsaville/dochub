@@ -38,7 +38,8 @@ type Suggestion = {
   committedSummaryJson: any
 }
 
-const TABS = ["PENDING", "COMMITTED", "REJECTED", "SKIPPED", "PURGED", "ALL"]
+const TABS = ["PENDING", "COMMITTED", "SKIPPED", "REJECTED", "PURGED", "FAILED", "ALL"]
+const ENTITY_KINDS: Entity["kind"][] = ["credential", "asset", "location_network", "phone_extension", "other"]
 const KIND_FIELDS: Record<string, string[]> = {
   credential: ["label", "username", "password", "totp", "url", "notes"],
   asset: ["name", "category", "make", "model", "serial", "ipAddress", "macAddress", "room", "managementUrl", "os", "notes"],
@@ -199,6 +200,8 @@ function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Sugge
   function patchDraft(p: Partial<Suggestion>) { setDraft((d) => ({ ...d, ...p })) }
   function setEntity(idx: number, p: Partial<Entity>) { setDraft((d) => { const e = [...(d.entitiesJson || [])]; e[idx] = { ...e[idx], ...p }; return { ...d, entitiesJson: e } }) }
   function setEntityField(idx: number, key: string, val: string) { setDraft((d) => { const e = [...(d.entitiesJson || [])]; e[idx] = { ...e[idx], fields: { ...(e[idx].fields || {}), [key]: val } }; return { ...d, entitiesJson: e } }) }
+  function addEntity(kind: Entity["kind"]) { setDraft((d) => ({ ...d, entitiesJson: [...(d.entitiesJson || []), { kind, summary: "", include: true, mode: "create", fields: {} }] })) }
+  function removeEntity(idx: number) { setDraft((d) => ({ ...d, entitiesJson: (d.entitiesJson || []).filter((_: any, i: number) => i !== idx) })) }
 
   async function save() {
     setBusy(true)
@@ -308,8 +311,9 @@ function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Sugge
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <input type="checkbox" checked={included} onChange={(ev) => setEntity(idx, { include: ev.target.checked })} />
                 {chip(e.kind.replace("_", " "), KIND_COLOR[e.kind] || "#888")}
-                <input value={e.summary || ""} onChange={(ev) => setEntity(idx, { summary: ev.target.value })} style={{ ...inp, fontFamily: "var(--sans)", fontSize: 12.5, fontWeight: 500, border: "none", background: "transparent", padding: "2px 0" }} />
+                <input value={e.summary || ""} placeholder="describe this item…" onChange={(ev) => setEntity(idx, { summary: ev.target.value })} style={{ ...inp, fontFamily: "var(--sans)", fontSize: 12.5, fontWeight: 500, border: "none", background: "transparent", padding: "2px 0" }} />
                 <span style={{ fontSize: 10, color: confColor(e.confidence), fontFamily: "var(--mono)", flexShrink: 0 }}>{e.confidence != null ? Math.round(e.confidence * 100) + "%" : ""}</span>
+                <button onClick={() => removeEntity(idx)} title="Remove item" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 15, lineHeight: 1, flexShrink: 0, padding: "0 2px" }}>×</button>
               </div>
               {matches[idx] && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", margin: "0 0 8px", padding: "6px 8px", borderRadius: 6, background: matches[idx].strong ? "rgba(224,90,90,0.10)" : "rgba(224,164,88,0.10)", border: "0.5px solid " + (matches[idx].strong ? "#e05a5a55" : "#e0a45855") }}>
@@ -330,6 +334,18 @@ function DetailPanel({ suggestion, clients, onDone, toast }: { suggestion: Sugge
           )
         })}
       </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 10.5, color: "var(--muted)", fontFamily: "var(--mono)" }}>+ add item:</span>
+        {ENTITY_KINDS.map((k) => (
+          <button key={k} onClick={() => addEntity(k)} style={{ fontSize: 10.5, padding: "3px 9px", borderRadius: 4, cursor: "pointer", fontFamily: "var(--mono)", border: "0.5px solid " + (KIND_COLOR[k] || "#888") + "66", background: "transparent", color: KIND_COLOR[k] || "#888" }}>{k.replace("_", " ")}</button>
+        ))}
+      </div>
+      {(draft.entitiesJson || []).length === 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8, fontStyle: "italic" }}>
+          Nothing extracted{draft.isRelevant ? "" : " — AI marked this not relevant"}. Pick a client above, add items by hand, then Confirm &amp; Push — or Purge if it&apos;s worthless.
+        </div>
+      )}
 
       {draft.committedSummaryJson && (<pre style={{ fontSize: 11, color: "#43b581", marginTop: 12, fontFamily: "var(--mono)", whiteSpace: "pre-wrap" }}>{JSON.stringify(draft.committedSummaryJson, null, 2)}</pre>)}
 
