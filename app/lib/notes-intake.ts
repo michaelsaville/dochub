@@ -26,10 +26,16 @@ function mapCategory(c: string | null | undefined): string {
 
 export type NoteEntity = {
   kind: "credential" | "asset" | "location_network" | "phone_extension" | "vendor" | "other"
+  eid?: string
   summary?: string
   include?: boolean
   mode?: "create" | "update" | "skip" // "update" merges into targetId; default "create"
   targetId?: string // existing DocHub record id when mode === "update"
+  // Relationship link: this credential/extension belongs to an asset. Reference
+  // it by the eid of an asset entity in the same note (linkAssetEid) or by an
+  // existing DocHub asset id (linkAssetId). Resolved to Credential.assetId on commit.
+  linkAssetEid?: string | null
+  linkAssetId?: string | null
   fields?: Record<string, string | null | undefined>
 }
 
@@ -38,6 +44,7 @@ export type CommitSummary = {
   assets: string[]
   phoneExtensions: string[]
   vendors: string[]
+  links: number // credential → asset relationships formed
   updated: { type: string; id: string; label?: string }[]
   locationUpdated: boolean
   skipped: { kind: string; summary?: string; reason: string }[]
@@ -47,6 +54,7 @@ export type CommitSummary = {
 // fields; where both differ, keep existing and record the note's value in notes.
 async function mergeExisting(
   kind: string, targetId: string, clientId: string, f: Record<string, any>, summary: CommitSummary,
+  linkedAssetId?: string | null,
 ) {
   const noteLines: string[] = []
   const takeBlank = (existing: any, val: any, fieldLabel: string) => {
@@ -75,6 +83,7 @@ async function mergeExisting(
     const data: any = {}
     const u = takeBlank(c.username, f.username, "username"); if (u !== undefined) data.username = u
     const url = takeBlank(c.url, f.url, "url"); if (url !== undefined) data.url = url
+    if (linkedAssetId && !c.assetId) { data.assetId = linkedAssetId; summary.links++ } // link login → its device (fill only)
     // Fill a blank TOTP (e.g. importing an Authy seed onto an existing login);
     // never overwrite an existing secret, and never log a plaintext secret.
     if (f.totp) {
@@ -138,19 +147,59 @@ export async function commitSuggestion(opts: {
   })
 
   const summary: CommitSummary = {
-    credentials: [], assets: [], phoneExtensions: [], vendors: [], updated: [], locationUpdated: false, skipped: [],
+    credentials: [], assets: [], phoneExtensions: [], vendors: [], links: 0, updated: [], locationUpdated: false, skipped: [],
   }
 
-  for (const e of entities) {
-    if (e.include === false) continue
+  // Two passes so a credential can link to an asset created in the same note.
+  // Pass 1 creates/updates the asset entities and records their resulting ids by
+  // eid + index; pass 2 handles the rest and resolves credential → asset links.
+  const assetIdByEid: Record<string, string> = {}
+  const assetIdByIndex: Record<number, string> = {}
+  const resolveLink = (e: NoteEntity): string | null =>
+    e.linkAssetId || (e.linkAssetEid ? assetIdByEid[e.linkAssetEid] : undefined) || null
+
+  for (let idx = 0; idx < entities.length; idx++) {
+    const e = entities[idx]
+    if (e.include === false || e.kind !== "asset") continue
+    const f = e.fields || {}
+    const mode = e.mode || "create"
+    if (mode === "skip") { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "skipped in review" }); continue }
+    if (mode === "update" && e.targetId) {
+      try { await mergeExisting(e.kind, e.targetId, clientId, f, summary); assetIdByIndex[idx] = e.targetId; if (e.eid) assetIdByEid[e.eid] = e.targetId }
+      catch (err: any) { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: `update failed: ${err?.message || err}` }) }
+      continue
+    }
+    try {
+      if (!location) { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "client has no active location — add one first" }); continue }
+      const a = await prisma.asset.create({
+        data: {
+          locationId: location.id,
+          name: (f.name || e.summary || "Imported asset").toString().slice(0, 200),
+          category: mapCategory(f.category) as any,
+          make: f.make || null, model: f.model || null, serial: f.serial || null,
+          ipAddress: f.ipAddress || null, macAddress: f.macAddress || null,
+          managementUrl: f.managementUrl || null, room: f.room || null, os: f.os || null,
+          notes: f.notes || null, dataSource: "NOTES_INTAKE",
+        },
+      })
+      summary.assets.push(a.id); assetIdByIndex[idx] = a.id; if (e.eid) assetIdByEid[e.eid] = a.id
+    } catch (err: any) {
+      summary.skipped.push({ kind: e.kind, summary: e.summary, reason: `write error: ${err?.message || err}` })
+    }
+  }
+
+  for (let idx = 0; idx < entities.length; idx++) {
+    const e = entities[idx]
+    if (e.include === false || e.kind === "asset") continue
     const f = e.fields || {}
     const label = (f.label || e.summary || "Imported").toString().slice(0, 200)
+    const linkedAssetId = resolveLink(e)
 
     // Dedup review decision: skip, or merge into an existing record.
     const mode = e.mode || "create"
     if (mode === "skip") { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "skipped in review" }); continue }
     if (mode === "update" && e.targetId) {
-      try { await mergeExisting(e.kind, e.targetId, clientId, f, summary) }
+      try { await mergeExisting(e.kind, e.targetId, clientId, f, summary, linkedAssetId) }
       catch (err: any) { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: `update failed: ${err?.message || err}` }) }
       continue
     }
@@ -166,24 +215,12 @@ export async function commitSuggestion(opts: {
             encryptedTotp: f.totp ? encrypt(String(f.totp)) : null,
             url: f.url || null,
             notes: f.notes || null,
+            assetId: linkedAssetId, // relate the login to the device it opens
             dataSource: "NOTES_INTAKE",
           },
         })
         summary.credentials.push(c.id)
-      } else if (e.kind === "asset") {
-        if (!location) { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "client has no active location — add one first" }); continue }
-        const a = await prisma.asset.create({
-          data: {
-            locationId: location.id,
-            name: (f.name || e.summary || "Imported asset").toString().slice(0, 200),
-            category: mapCategory(f.category) as any,
-            make: f.make || null, model: f.model || null, serial: f.serial || null,
-            ipAddress: f.ipAddress || null, macAddress: f.macAddress || null,
-            managementUrl: f.managementUrl || null, room: f.room || null, os: f.os || null,
-            notes: f.notes || null, dataSource: "NOTES_INTAKE",
-          },
-        })
-        summary.assets.push(a.id)
+        if (linkedAssetId) summary.links++
       } else if (e.kind === "location_network") {
         if (!location) { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "client has no active location" }); continue }
         const upd: any = {}
@@ -270,7 +307,7 @@ export async function commitSuggestion(opts: {
     staffUserId: staffUserId ?? null,
     eventType: "TECH_NOTE",
     title: "Imported from Apple Notes intake",
-    body: `From note "${noteTitle}": created ${summary.credentials.length} credential(s), ${summary.assets.length} asset(s), ${summary.phoneExtensions.length} phone extension(s), linked ${summary.vendors.length} vendor(s); updated ${summary.updated.length} existing record(s)${summary.locationUpdated ? "; location updated" : ""}.`,
+    body: `From note "${noteTitle}": created ${summary.credentials.length} credential(s), ${summary.assets.length} asset(s), ${summary.phoneExtensions.length} phone extension(s), linked ${summary.vendors.length} vendor(s)${summary.links ? `, related ${summary.links} login(s) to devices` : ""}; updated ${summary.updated.length} existing record(s)${summary.locationUpdated ? "; location updated" : ""}.`,
   })
 
   return summary

@@ -60,7 +60,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!scopeAllows(scope, cid)) return NextResponse.json({ error: "A target client is outside your access scope" }, { status: 403 })
   }
 
-  const summary: any = { credentials: [], assets: [], phoneExtensions: [], vendors: [], updated: [], locationUpdated: false, skipped: [] }
+  const summary: any = { credentials: [], assets: [], phoneExtensions: [], vendors: [], links: 0, updated: [], locationUpdated: false, skipped: [] }
   const staffUserId = (session?.user as any)?.id ?? null
   try {
     for (const [cid, ents] of groups) {
@@ -69,6 +69,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       summary.assets.push(...s.assets)
       summary.phoneExtensions.push(...s.phoneExtensions)
       summary.vendors.push(...s.vendors)
+      summary.links += s.links || 0
       summary.updated.push(...s.updated)
       summary.locationUpdated = summary.locationUpdated || s.locationUpdated
       summary.skipped.push(...s.skipped)

@@ -16,6 +16,8 @@ type Entity = {
   targetId?: string
   targetClientId?: string
   targetClientName?: string
+  linkAssetEid?: string | null
+  linkAssetId?: string | null
   _sealed?: Record<string, boolean>
   fields?: Record<string, string | null>
 }
@@ -50,6 +52,7 @@ const KIND_FIELDS: Record<string, string[]> = {
 }
 const KIND_COLOR: Record<string, string> = { credential: "#e0a458", asset: "#3d6fff", location_network: "#43b581", phone_extension: "#b47cff", vendor: "#2fb3a3", other: "#8a8f98" }
 const OK = "var(--color-text-success)", BAD = "var(--color-text-danger)", WARN = "var(--color-text-warning)"
+const mkEid = () => { try { return crypto.randomUUID().slice(0, 8) } catch { return Math.random().toString(36).slice(2, 10) } }
 
 function confColor(c: number | null | undefined) { if (c == null) return "var(--muted)"; if (c >= 0.85) return OK; if (c >= 0.6) return WARN; return BAD }
 function statusColor(s: string) { return s === "COMMITTED" ? OK : s === "REJECTED" || s === "PURGED" ? BAD : s === "FAILED" ? WARN : "var(--accent)" }
@@ -153,22 +156,64 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
   suggestion: Suggestion; clients: { id: string; name: string }[]; clientById: Record<string, string>
   onDone: (msg: string, opts?: { type?: string; undo?: () => void; advance?: boolean }) => void; toast: (m: string, type?: string) => void; isMobile: boolean; onBack: () => void
 }) {
-  const [draft, setDraft] = useState<Suggestion>(() => JSON.parse(JSON.stringify(suggestion)))
+  const [draft, setDraft] = useState<Suggestion>(() => {
+    const d = JSON.parse(JSON.stringify(suggestion))
+    // ensure every entity has a stable eid so intra-note links resolve on commit
+    d.entitiesJson = (d.entitiesJson || []).map((e: any) => ({ ...e, eid: e.eid || mkEid() }))
+    return d
+  })
   const [busy, setBusy] = useState(false)
   const [matches, setMatches] = useState<Record<number, any>>({})
+  const [enrich, setEnrich] = useState<{ ipCompletions: any[]; relations: any[]; ipConsistency: any; clientHints: any[] }>({ ipCompletions: [], relations: [], ipConsistency: null, clientHints: [] })
+  const [ipFills, setIpFills] = useState<Record<string, { field: string; was: string; full: string }>>({}) // eid:field → applied completion (for the revert affordance)
+  const autoRef = useRef<Set<string>>(new Set()) // keys we've already auto-applied, so a user edit isn't re-overwritten
   const [revealed, setRevealed] = useState(false)
   const [expand, setExpand] = useState<Record<number, boolean>>({})
   const [routeOpen, setRouteOpen] = useState<Record<number, boolean>>({})
   const hasSealed = useMemo(() => (suggestion.entitiesJson || []).some((e: Entity) => e._sealed && Object.values(e._sealed).some(Boolean)) || !!suggestion.rawTextSealed, [suggestion])
 
-  // duplicate detection — on client change and (debounced) when match keys edited
-  const sig = useMemo(() => JSON.stringify((draft.entitiesJson || []).map((e: Entity) => [e.kind, e.fields?.serial, e.fields?.name, e.fields?.extension, e.fields?.label, e.fields?.username])), [draft.entitiesJson])
+  // duplicate detection + context enrichment — on client change and (debounced)
+  // when match/relation/IP keys are edited
+  const sig = useMemo(() => JSON.stringify((draft.entitiesJson || []).map((e: Entity) => [e.kind, e.include, e.fields?.serial, e.fields?.name, e.fields?.extension, e.fields?.label, e.fields?.username, e.fields?.ipAddress, e.fields?.lanIp, e.fields?.url])), [draft.entitiesJson])
   useEffect(() => {
     let alive = true; const t = setTimeout(async () => {
       const r = await fetch(`/api/notes-intake/${draft.id}/matches`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: draft.matchedClientId, entities: draft.entitiesJson }) })
       const d = await r.json().catch(() => ({ matches: [] })); if (!alive) return
       const map: Record<number, any> = {}; for (const m of (d.matches || [])) map[m.entityIndex] = m; setMatches(map)
-      setDraft((cur) => ({ ...cur, entitiesJson: (cur.entitiesJson || []).map((e: any, idx: number) => { const m = map[idx]; if (!m) return e.mode === "skip" ? e : { ...e, mode: e.mode === "update" && !e.targetId ? "create" : (e.mode || "create") }; if (e.mode === "skip") return e; if (e.mode && e.targetId) return e; return { ...e, mode: m.strong ? "update" : "create", targetId: m.targetId } }) }))
+      setEnrich({ ipCompletions: d.ipCompletions || [], relations: d.relations || [], ipConsistency: d.ipConsistency || null, clientHints: d.clientHints || [] })
+      const newFills: Record<string, { field: string; was: string; full: string }> = {}
+      setDraft((cur) => {
+        const ents = (cur.entitiesJson || []).map((e: any, idx: number) => {
+          const m = map[idx]
+          if (!m) return e.mode === "skip" ? e : { ...e, mode: e.mode === "update" && !e.targetId ? "create" : (e.mode || "create") }
+          if (e.mode === "skip") return e
+          if (e.mode && e.targetId) return e
+          return { ...e, mode: m.strong ? "update" : "create", targetId: m.targetId }
+        })
+        // pre-fill inferred credential → asset links (once per credential)
+        for (const rel of (d.relations || [])) {
+          const i = rel.credentialIndex; const e = ents[i]; if (!e || e.kind !== "credential") continue
+          const key = `${e.eid || i}:link`
+          if (autoRef.current.has(key)) continue
+          if (e.linkAssetEid == null && e.linkAssetId == null) {
+            const assetEid = rel.assetEid || ents[rel.assetIndex]?.eid
+            if (assetEid) { ents[i] = { ...e, linkAssetEid: assetEid }; autoRef.current.add(key) }
+          }
+        }
+        // pre-fill completed IPs (once per field, only while it's still the partial)
+        for (const ip of (d.ipCompletions || [])) {
+          const i = ip.entityIndex; const e = ents[i]; if (!e) continue
+          const key = `${e.eid || i}:${ip.field}`
+          if (autoRef.current.has(key)) continue
+          const curVal = (e.fields?.[ip.field] || "").toString()
+          if (curVal === ip.current && ip.full !== ip.current) {
+            ents[i] = { ...e, fields: { ...(e.fields || {}), [ip.field]: ip.full } }
+            autoRef.current.add(key); newFills[key] = { field: ip.field, was: ip.current, full: ip.full }
+          }
+        }
+        return { ...cur, entitiesJson: ents }
+      })
+      if (Object.keys(newFills).length) setIpFills((s) => ({ ...s, ...newFills }))
     }, 500)
     return () => { alive = false; clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -177,7 +222,7 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
   function patchDraft(p: Partial<Suggestion>) { setDraft((d) => ({ ...d, ...p })) }
   function setEntity(idx: number, p: Partial<Entity>) { setDraft((d) => { const e = [...(d.entitiesJson || [])]; e[idx] = { ...e[idx], ...p }; return { ...d, entitiesJson: e } }) }
   function setEntityField(idx: number, key: string, val: string) { setDraft((d) => { const e = [...(d.entitiesJson || [])]; e[idx] = { ...e[idx], fields: { ...(e[idx].fields || {}), [key]: val } }; return { ...d, entitiesJson: e } }) }
-  function addEntity(kind: Entity["kind"]) { setDraft((d) => ({ ...d, entitiesJson: [...(d.entitiesJson || []), { kind, summary: "", include: true, mode: "create", fields: {} }] })) }
+  function addEntity(kind: Entity["kind"]) { setDraft((d) => ({ ...d, entitiesJson: [...(d.entitiesJson || []), { kind, eid: mkEid(), summary: "", include: true, mode: "create", fields: {} }] })) }
   function removeEntity(idx: number) { setDraft((d) => ({ ...d, entitiesJson: (d.entitiesJson || []).filter((_: any, i: number) => i !== idx) })) }
 
   async function reveal() {
@@ -202,7 +247,7 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
     setBusy(true)
     const r = await fetch(`/api/notes-intake/${draft.id}/commit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: draft.matchedClientId, entities: ents }) })
     const d = await r.json(); setBusy(false)
-    if (r.ok) { const s = d.summary; onDone(`Pushed: ${s.credentials.length} new cred, ${s.assets.length} new asset, ${s.phoneExtensions.length} ext${s.vendors?.length ? `, ${s.vendors.length} vendor` : ""}${s.updated?.length ? ` · ${s.updated.length} updated` : ""}${s.skipped?.length ? ` · ${s.skipped.length} skipped` : ""}`, { type: "success", advance: true }) } else toast(d.error || "Commit failed", "error")
+    if (r.ok) { const s = d.summary; onDone(`Pushed: ${s.credentials.length} new cred, ${s.assets.length} new asset, ${s.phoneExtensions.length} ext${s.vendors?.length ? `, ${s.vendors.length} vendor` : ""}${s.links ? `, ${s.links} linked` : ""}${s.updated?.length ? ` · ${s.updated.length} updated` : ""}${s.skipped?.length ? ` · ${s.skipped.length} skipped` : ""}`, { type: "success", advance: true }) } else toast(d.error || "Commit failed", "error")
   }
   async function save() {
     setBusy(true); const corrected = draft.matchedClientId !== suggestion.matchedClientId
@@ -241,6 +286,8 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
     return { text: "Source on disk", action: <button onClick={trashSource} disabled={busy} style={{ ...ghostBtn, padding: "3px 9px", minHeight: 0, color: BAD }}>Trash source</button> }
   })()
 
+  const noteAssets: { e: Entity; i: number }[] = (draft.entitiesJson || []).map((e: Entity, i: number) => ({ e, i })).filter((x: { e: Entity; i: number }) => x.e.kind === "asset" && x.e.include !== false)
+
   return (
     <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, background: "var(--color-background-secondary)", display: "flex", flexDirection: "column", maxHeight: isMobile ? "none" : "82vh" }}>
       <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
@@ -268,6 +315,8 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
           <ClientCombobox clients={clients} valueId={draft.matchedClientId} valueName={draft.matchedClientName} onSelect={(c) => patchDraft({ matchedClientId: c?.id || null, matchedClientName: c?.name || null })} placeholder="Type to search clients…" />
           {draft.clientReasoning && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>{draft.clientReasoning}</div>}
           {Array.isArray(draft.clientCandidatesJson) && draft.clientCandidatesJson.length > 0 && (<div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}><span style={{ fontSize: 10, color: "var(--muted)" }}>alt:</span>{draft.clientCandidatesJson.map((cid: string) => clientById[cid] ? (<button key={cid} onClick={() => patchDraft({ matchedClientId: cid, matchedClientName: clientById[cid] })} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer", border: "0.5px solid var(--color-border-tertiary)", background: "transparent", color: "var(--accent)", minHeight: 26 }}>{clientById[cid]}</button>) : null)}</div>)}
+          {enrich.ipConsistency && <div style={{ fontSize: 11, color: OK, marginTop: 8 }}>🌐 IPs fit this client&apos;s subnet — {enrich.ipConsistency.count} record(s) on {enrich.ipConsistency.prefix}.x</div>}
+          {enrich.clientHints.length > 0 && (<div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>{enrich.clientHints.map((h: any) => (<div key={h.clientId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", padding: "5px 8px", borderRadius: 6, background: "var(--color-background-warning)", border: "0.5px solid var(--color-border-warning)" }}><span style={{ fontSize: 11, color: "var(--text)" }}>🌐 {h.ip} is in <b>{h.clientName}</b>&apos;s subnet <span style={{ color: "var(--muted)" }}>· {h.reason}</span></span><button onClick={() => patchDraft({ matchedClientId: h.clientId, matchedClientName: h.clientName })} style={{ fontSize: 10.5, padding: "3px 9px", borderRadius: 4, cursor: "pointer", fontFamily: "var(--mono)", border: "none", background: "var(--accent)", color: "#fff", minHeight: 24 }}>Use this client</button></div>))}</div>)}
         </div>
 
         <div style={{ fontSize: 11, fontFamily: "var(--mono)", color: "var(--muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>{(draft.entitiesJson || []).length} item(s)</div>
@@ -299,8 +348,16 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
                   <div style={{ display: "flex", gap: 4 }}>{([["update", "Update"], ["create", "New"], ["skip", "Skip"]] as const).map(([mode, t]) => { const on = (e.mode || "create") === mode; return <button key={mode} onClick={() => setEntity(idx, mode === "update" ? { mode, targetId: m.targetId } : { mode, targetId: undefined })} style={{ fontSize: 10.5, padding: "4px 9px", borderRadius: 4, cursor: "pointer", fontFamily: "var(--mono)", border: "0.5px solid var(--color-border-tertiary)", background: on ? "var(--accent)" : "transparent", color: on ? "#fff" : "var(--muted)", minHeight: 26 }}>{t}</button> })}</div>
                 </div>)}
                 <div className="ni-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {keys.map((k) => { const isSecret = SECRET_KEYS.includes(k); const sealed = isSecret && e._sealed?.[k] && !revealed; return (<div key={k}><label style={lbl}>{k}{isSecret ? " 🔑" : ""}</label><input value={sealed ? "" : ((e.fields?.[k] as string) || "")} placeholder={sealed ? "•••••• reveal" : ""} disabled={sealed} onChange={(ev) => setEntityField(idx, k, ev.target.value)} style={inp} /></div>) })}
+                  {keys.map((k) => { const isSecret = SECRET_KEYS.includes(k); const sealed = isSecret && e._sealed?.[k] && !revealed; const fill = ipFills[`${e.eid}:${k}`]; const filled = fill && (e.fields?.[k] || "") === fill.full; return (<div key={k}><label style={lbl}>{k}{isSecret ? " 🔑" : ""}</label><input value={sealed ? "" : ((e.fields?.[k] as string) || "")} placeholder={sealed ? "•••••• reveal" : ""} disabled={sealed} onChange={(ev) => setEntityField(idx, k, ev.target.value)} style={{ ...inp, ...(filled ? { borderColor: "var(--color-border-success)" } : {}) }} />{filled ? <div style={{ fontSize: 9.5, color: OK, fontFamily: "var(--mono)", marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}><span>✓ completed from siblings</span><button onClick={() => setEntityField(idx, k, fill.was)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 9.5, textDecoration: "underline", padding: 0 }}>revert to {fill.was}</button></div> : null}</div>) })}
                 </div>
+                {e.kind === "credential" && noteAssets.length > 0 && (<div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10.5, color: "var(--muted)", fontFamily: "var(--mono)" }}>🔗 login for:</span>
+                  <select value={e.linkAssetEid || ""} onChange={(ev) => setEntity(idx, { linkAssetEid: ev.target.value || null, linkAssetId: null })} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 4, fontFamily: "var(--sans)", background: "var(--color-background-secondary)", color: "var(--text)", border: "0.5px solid " + (e.linkAssetEid ? "var(--color-border-success)" : "var(--color-border-tertiary)"), cursor: "pointer", maxWidth: 240 }}>
+                    <option value="">— not linked —</option>
+                    {noteAssets.map((a) => <option key={a.e.eid} value={a.e.eid || ""}>{a.e.fields?.name || a.e.summary || "device"}{a.e.fields?.ipAddress ? ` · ${a.e.fields.ipAddress}` : ""}</option>)}
+                  </select>
+                  {e.linkAssetEid ? (() => { const rel = enrich.relations.find((r: any) => (r.credentialEid && r.credentialEid === e.eid) || r.credentialIndex === idx); return rel ? <span style={{ fontSize: 9.5, color: OK, fontFamily: "var(--mono)" }}>auto · {rel.reason}</span> : null })() : null}
+                </div>)}
                 <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
                   {(KIND_FIELDS[e.kind] || []).length > keys.length || expanded ? <button onClick={() => setExpand((s) => ({ ...s, [idx]: !s[idx] }))} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 10.5, fontFamily: "var(--mono)", padding: 0 }}>{expanded ? "− fewer fields" : "+ all fields"}</button> : null}
                   <button onClick={() => setRouteOpen((s) => ({ ...s, [idx]: !s[idx] }))} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 10.5, fontFamily: "var(--mono)", padding: 0 }}>⇢ route to {e.targetClientName || "different client"}</button>
