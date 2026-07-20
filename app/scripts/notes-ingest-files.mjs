@@ -40,7 +40,7 @@ const JSON_SHAPE = `{
   "clientReasoning": string,
   "clientAlternatives": string[],
   "sourceKind": "screenshot" | "handwritten" | "pdf-scan" | "other" | null,
-  "entities": [ { "kind": "credential"|"asset"|"location_network"|"phone_extension"|"other", "confidence": number, "summary": string, "sourceSnippet": string, "fields": { } } ]
+  "entities": [ { "kind": "credential"|"asset"|"location_network"|"phone_extension"|"vendor"|"other", "confidence": number, "summary": string, "sourceSnippet": string, "fields": { } } ]
 }`
 const SYSTEM = `You are an intake assistant for DocHub, an MSP documentation platform for the IT shop "Precision Computers" / PCC2K. A technician gave you a scanned document, Apple Freeform board, screenshot, or photo of handwritten notes / Post-its, and wants it filed under the right client.
 

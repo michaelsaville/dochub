@@ -25,7 +25,7 @@ function mapCategory(c: string | null | undefined): string {
 }
 
 export type NoteEntity = {
-  kind: "credential" | "asset" | "location_network" | "phone_extension" | "other"
+  kind: "credential" | "asset" | "location_network" | "phone_extension" | "vendor" | "other"
   summary?: string
   include?: boolean
   mode?: "create" | "update" | "skip" // "update" merges into targetId; default "create"
@@ -37,6 +37,7 @@ export type CommitSummary = {
   credentials: string[]
   assets: string[]
   phoneExtensions: string[]
+  vendors: string[]
   updated: { type: string; id: string; label?: string }[]
   locationUpdated: boolean
   skipped: { kind: string; summary?: string; reason: string }[]
@@ -137,7 +138,7 @@ export async function commitSuggestion(opts: {
   })
 
   const summary: CommitSummary = {
-    credentials: [], assets: [], phoneExtensions: [], updated: [], locationUpdated: false, skipped: [],
+    credentials: [], assets: [], phoneExtensions: [], vendors: [], updated: [], locationUpdated: false, skipped: [],
   }
 
   for (const e of entities) {
@@ -232,6 +233,30 @@ export async function commitSuggestion(opts: {
           },
         })
         summary.phoneExtensions.push(ext.id)
+      } else if (e.kind === "vendor") {
+        // Vendors are global and shared across clients — find-or-create by name
+        // (case-insensitive) so a re-detected vendor never duplicates, then link
+        // it to this client via the many-to-many relation. Never deletes.
+        const vname = (f.name || e.summary || "").toString().trim()
+        if (!vname) { summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "vendor needs a name" }); continue }
+        let v = await prisma.vendor.findFirst({ where: { name: { equals: vname, mode: "insensitive" } }, select: { id: true } })
+        if (!v) {
+          v = await prisma.vendor.create({
+            data: {
+              name: vname.slice(0, 200),
+              website: f.website || f.url || null,
+              supportUrl: f.supportUrl || f.portalUrl || null,
+              supportPhone: f.supportPhone || f.phone || null,
+              supportEmail: f.supportEmail || f.email || null,
+              accountNumber: f.accountNumber || f.account || null,
+              notes: f.notes || null,
+            },
+            select: { id: true },
+          })
+        }
+        // link (idempotent — connect on an existing relation is a no-op)
+        await prisma.client.update({ where: { id: clientId }, data: { vendors: { connect: { id: v.id } } } })
+        summary.vendors.push(v.id)
       } else {
         summary.skipped.push({ kind: e.kind, summary: e.summary, reason: "informational — not written as a record" })
       }
@@ -245,7 +270,7 @@ export async function commitSuggestion(opts: {
     staffUserId: staffUserId ?? null,
     eventType: "TECH_NOTE",
     title: "Imported from Apple Notes intake",
-    body: `From note "${noteTitle}": created ${summary.credentials.length} credential(s), ${summary.assets.length} asset(s), ${summary.phoneExtensions.length} phone extension(s); updated ${summary.updated.length} existing record(s)${summary.locationUpdated ? "; location updated" : ""}.`,
+    body: `From note "${noteTitle}": created ${summary.credentials.length} credential(s), ${summary.assets.length} asset(s), ${summary.phoneExtensions.length} phone extension(s), linked ${summary.vendors.length} vendor(s); updated ${summary.updated.length} existing record(s)${summary.locationUpdated ? "; location updated" : ""}.`,
   })
 
   return summary

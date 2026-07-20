@@ -49,7 +49,7 @@ const JSON_SHAPE = `{
   "clientAlternatives": string[], // other plausible client ids, most likely first (may be [])
   "entities": [
     {
-      "kind": "credential" | "asset" | "location_network" | "phone_extension" | "other",
+      "kind": "credential" | "asset" | "location_network" | "phone_extension" | "vendor" | "other",
       "confidence": number,       // 0.0 - 1.0
       "summary": string,          // short human label, e.g. "SonicWall admin login", "Synology NAS"
       "sourceSnippet": string,    // the exact text in the note this came from
@@ -58,6 +58,7 @@ const JSON_SHAPE = `{
         // asset:       name, category (SERVER|NAS|NETWORK_GEAR|FIREWALL|WIRELESS|COMPUTER|PRINTER|PHONE_SYSTEM|OTHER), make, model, serial, ipAddress, macAddress, managementUrl, room, os
         // location_network: wanIp, lanIp, subnet, gateway, ispName
         // phone_extension:  extension, displayName, sipUsername, sipPassword, did
+        // vendor:      name (the company, e.g. "Comcast", "Ubiquiti"), category, supportPhone, supportEmail, website, supportUrl, accountNumber — a service provider / supplier, NOT a device or login
         // any:         notes
       }
     }

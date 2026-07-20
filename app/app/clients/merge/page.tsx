@@ -2,8 +2,9 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
+import ClientCombobox from "@/components/ClientCombobox"
 import { useSession } from "next-auth/react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 type Client = { id: string; name: string; isActive?: boolean }
 
@@ -14,7 +15,7 @@ export default function MergeClientsPage() {
   const { data: session } = useSession()
   const isAdmin = (session?.user as any)?.role === "ADMIN"
   const [clients, setClients] = useState<Client[]>([])
-  const [srcName, setSrcName] = useState(""); const [tgtName, setTgtName] = useState("")
+  const [src, setSrc] = useState<Client | null>(null); const [tgt, setTgt] = useState<Client | null>(null)
   const [preview, setPreview] = useState<any>(null); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null)
   const [confirmText, setConfirmText] = useState("")
 
@@ -24,9 +25,7 @@ export default function MergeClientsPage() {
     return () => { alive = false }
   }, [])
 
-  const byName = useMemo(() => Object.fromEntries(clients.map((c) => [c.name.toLowerCase(), c.id])), [clients])
-  const srcId = byName[srcName.trim().toLowerCase()]
-  const tgtId = byName[tgtName.trim().toLowerCase()]
+  const srcId = src?.id; const tgtId = tgt?.id
 
   async function run(confirm?: boolean) {
     if (!srcId || !tgtId) { setMsg("Pick both clients from the list"); return }
@@ -36,7 +35,7 @@ export default function MergeClientsPage() {
     const d = await r.json().catch(() => ({})); setBusy(false)
     if (!r.ok) { setMsg(d.error || "Failed"); return }
     if (d.dryRun) { setPreview(d); setMsg(null) }
-    else { setPreview(null); setSrcName(""); setTgtName(""); setConfirmText(""); setMsg(`✓ Merged — ${d.moved} records reassigned into ${d.target.name}. Source deactivated.`) }
+    else { setPreview(null); setSrc(null); setTgt(null); setConfirmText(""); setMsg(`✓ Merged — ${d.moved} records reassigned into ${d.target.name}. Source deactivated.`) }
   }
 
   if (!isAdmin) return <AppShell><div style={{ padding: 40, color: "var(--muted)" }}>Merging clients is ADMIN-only.</div></AppShell>
@@ -48,10 +47,9 @@ export default function MergeClientsPage() {
         <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 20 }}>Reassign every record (locations, assets, credentials, phone, notes, …) from a duplicate client into the one you&apos;re keeping, then deactivate the duplicate. Records are moved, never deleted; a backup is taken and the whole move is one transaction that rolls back if anything conflicts.</p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-          <div><label style={lbl}>Merge this (duplicate) …</label><input list="clist" value={srcName} onChange={(e) => { setSrcName(e.target.value); setPreview(null) }} placeholder="e.g. Piedmont Housing" style={inp} /></div>
-          <div><label style={lbl}>… into this (keep)</label><input list="clist" value={tgtName} onChange={(e) => { setTgtName(e.target.value); setPreview(null) }} placeholder="e.g. Piedmont Housing Authority" style={inp} /></div>
+          <div><label style={lbl}>Merge this (duplicate) …</label><ClientCombobox clients={clients} valueId={src?.id} valueName={src?.name} onSelect={(c) => { setSrc(c); setPreview(null) }} placeholder="e.g. Piedmont Housing" /></div>
+          <div><label style={lbl}>… into this (keep)</label><ClientCombobox clients={clients} valueId={tgt?.id} valueName={tgt?.name} onSelect={(c) => { setTgt(c); setPreview(null) }} placeholder="e.g. Piedmont Housing Authority" /></div>
         </div>
-        <datalist id="clist">{clients.map((c) => <option key={c.id} value={c.name} />)}</datalist>
 
         <button onClick={() => run(false)} disabled={busy || !srcId || !tgtId} style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", background: "transparent", color: "var(--text)", cursor: "pointer", opacity: !srcId || !tgtId ? 0.5 : 1 }}>Preview what moves</button>
         {msg && <div style={{ marginTop: 14, fontSize: 12.5, color: msg.startsWith("✓") ? "var(--color-text-success)" : "var(--color-text-danger)" }}>{msg}</div>}

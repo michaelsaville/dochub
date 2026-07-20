@@ -21,7 +21,7 @@ const JSON_SHAPE = `{
   "sourceKind": "screenshot" | "handwritten" | "pdf-scan" | "other" | null, // for IMAGES: screenshot = UI/app/terminal/console capture; handwritten = photo of handwriting/whiteboard; pdf-scan = scanned document; else null
   "entities": [
     {
-      "kind": "credential" | "asset" | "location_network" | "phone_extension" | "other",
+      "kind": "credential" | "asset" | "location_network" | "phone_extension" | "vendor" | "other",
       "confidence": number,
       "summary": string,          // short human label, e.g. "SonicWall admin login", "Synology NAS"
       "sourceSnippet": string,    // the exact text this came from (or a short description for an image region)
@@ -30,6 +30,7 @@ const JSON_SHAPE = `{
         // asset:       name, category (SERVER|NAS|NETWORK_GEAR|FIREWALL|WIRELESS|COMPUTER|PRINTER|PHONE_SYSTEM|OTHER), make, model, serial, ipAddress, macAddress, managementUrl, room, os
         // location_network: wanIp, lanIp, subnet, gateway, ispName
         // phone_extension:  extension, displayName, did, sipUsername, sipPassword
+        // vendor:      name (the company, e.g. "Comcast", "Ubiquiti"), category, supportPhone, supportEmail, website, supportUrl, accountNumber — a service provider / supplier, NOT a device or login
         // any:         notes
       }
     }

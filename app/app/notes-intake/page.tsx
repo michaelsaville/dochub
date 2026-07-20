@@ -2,10 +2,11 @@
 "use client"
 
 import AppShell from "@/components/AppShell"
+import ClientCombobox from "@/components/ClientCombobox"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 type Entity = {
-  kind: "credential" | "asset" | "location_network" | "phone_extension" | "other"
+  kind: "credential" | "asset" | "location_network" | "phone_extension" | "vendor" | "other"
   eid?: string
   confidence?: number
   summary?: string
@@ -28,13 +29,15 @@ type Suggestion = {
 }
 
 const TABS = ["PENDING", "COMMITTED", "SKIPPED", "REJECTED", "PURGED", "FAILED", "ALL"]
-const ENTITY_KINDS: Entity["kind"][] = ["credential", "asset", "location_network", "phone_extension", "other"]
+const ENTITY_KINDS: Entity["kind"][] = ["credential", "asset", "location_network", "phone_extension", "vendor", "other"]
+const KIND_LABEL: Record<string, string> = { credential: "credential", asset: "asset", location_network: "network", phone_extension: "phone ext", vendor: "vendor", other: "other" }
 const SECRET_KEYS = ["password", "totp", "sipPassword"]
 const CORE_FIELDS: Record<string, string[]> = {
   credential: ["label", "username", "password", "totp", "url"],
   asset: ["name", "serial", "ipAddress", "make", "model"],
   location_network: ["wanIp", "ispName", "subnet", "gateway"],
   phone_extension: ["extension", "displayName", "sipUsername", "sipPassword", "did"],
+  vendor: ["name", "supportPhone", "supportEmail", "website"],
   other: ["notes"],
 }
 const KIND_FIELDS: Record<string, string[]> = {
@@ -42,9 +45,10 @@ const KIND_FIELDS: Record<string, string[]> = {
   asset: ["name", "category", "make", "model", "serial", "ipAddress", "macAddress", "room", "managementUrl", "os", "notes"],
   location_network: ["wanIp", "ispName", "lanIp", "subnet", "gateway", "notes"],
   phone_extension: ["extension", "displayName", "did", "sipUsername", "sipPassword", "notes"],
+  vendor: ["name", "category", "supportPhone", "supportEmail", "website", "supportUrl", "accountNumber", "notes"],
   other: ["notes"],
 }
-const KIND_COLOR: Record<string, string> = { credential: "#e0a458", asset: "#3d6fff", location_network: "#43b581", phone_extension: "#b47cff", other: "#8a8f98" }
+const KIND_COLOR: Record<string, string> = { credential: "#e0a458", asset: "#3d6fff", location_network: "#43b581", phone_extension: "#b47cff", vendor: "#2fb3a3", other: "#8a8f98" }
 const OK = "var(--color-text-success)", BAD = "var(--color-text-danger)", WARN = "var(--color-text-warning)"
 
 function confColor(c: number | null | undefined) { if (c == null) return "var(--muted)"; if (c >= 0.85) return OK; if (c >= 0.6) return WARN; return BAD }
@@ -145,8 +149,8 @@ function StateBox({ icon, title, body, spinner }: { icon?: string; title: string
 }
 
 // ── Detail panel ──
-function DetailPanel({ suggestion, clients, clientById, clientByName, onDone, toast, isMobile, onBack }: {
-  suggestion: Suggestion; clients: { id: string; name: string }[]; clientById: Record<string, string>; clientByName: Record<string, string>
+function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile, onBack }: {
+  suggestion: Suggestion; clients: { id: string; name: string }[]; clientById: Record<string, string>
   onDone: (msg: string, opts?: { type?: string; undo?: () => void; advance?: boolean }) => void; toast: (m: string, type?: string) => void; isMobile: boolean; onBack: () => void
 }) {
   const [draft, setDraft] = useState<Suggestion>(() => JSON.parse(JSON.stringify(suggestion)))
@@ -198,7 +202,7 @@ function DetailPanel({ suggestion, clients, clientById, clientByName, onDone, to
     setBusy(true)
     const r = await fetch(`/api/notes-intake/${draft.id}/commit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: draft.matchedClientId, entities: ents }) })
     const d = await r.json(); setBusy(false)
-    if (r.ok) { const s = d.summary; onDone(`Pushed: ${s.credentials.length} new cred, ${s.assets.length} new asset, ${s.phoneExtensions.length} ext${s.updated?.length ? ` · ${s.updated.length} updated` : ""}${s.skipped?.length ? ` · ${s.skipped.length} skipped` : ""}`, { type: "success", advance: true }) } else toast(d.error || "Commit failed", "error")
+    if (r.ok) { const s = d.summary; onDone(`Pushed: ${s.credentials.length} new cred, ${s.assets.length} new asset, ${s.phoneExtensions.length} ext${s.vendors?.length ? `, ${s.vendors.length} vendor` : ""}${s.updated?.length ? ` · ${s.updated.length} updated` : ""}${s.skipped?.length ? ` · ${s.skipped.length} skipped` : ""}`, { type: "success", advance: true }) } else toast(d.error || "Commit failed", "error")
   }
   async function save() {
     setBusy(true); const corrected = draft.matchedClientId !== suggestion.matchedClientId
@@ -261,8 +265,7 @@ function DetailPanel({ suggestion, clients, clientById, clientByName, onDone, to
 
         <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={lbl}>Client match</span><span style={{ fontSize: 11, color: confColor(draft.clientConfidence), fontFamily: "var(--mono)" }}>{draft.clientConfidence != null ? Math.round(draft.clientConfidence * 100) + "% AI" : ""}</span></div>
-          <input list="clientlist" value={draft.matchedClientName || ""} placeholder="Type to search clients…" onChange={(e) => { const v = e.target.value; const id = clientByName[v.trim().toLowerCase()]; patchDraft({ matchedClientName: v, matchedClientId: id || draft.matchedClientId }) }} style={{ ...inp, fontFamily: "var(--sans)", fontSize: 13 }} />
-          <datalist id="clientlist">{clients.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+          <ClientCombobox clients={clients} valueId={draft.matchedClientId} valueName={draft.matchedClientName} onSelect={(c) => patchDraft({ matchedClientId: c?.id || null, matchedClientName: c?.name || null })} placeholder="Type to search clients…" />
           {draft.clientReasoning && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>{draft.clientReasoning}</div>}
           {Array.isArray(draft.clientCandidatesJson) && draft.clientCandidatesJson.length > 0 && (<div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}><span style={{ fontSize: 10, color: "var(--muted)" }}>alt:</span>{draft.clientCandidatesJson.map((cid: string) => clientById[cid] ? (<button key={cid} onClick={() => patchDraft({ matchedClientId: cid, matchedClientName: clientById[cid] })} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer", border: "0.5px solid var(--color-border-tertiary)", background: "transparent", color: "var(--accent)", minHeight: 26 }}>{clientById[cid]}</button>) : null)}</div>)}
         </div>
@@ -280,7 +283,13 @@ function DetailPanel({ suggestion, clients, clientById, clientByName, onDone, to
               <div key={idx} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, padding: 10, opacity: included && e.mode !== "skip" ? 1 : 0.5, background: "var(--color-background-primary)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <input type="checkbox" checked={included} onChange={(ev) => setEntity(idx, { include: ev.target.checked })} style={{ width: 16, height: 16 }} />
-                  <span style={{ background: (KIND_COLOR[e.kind] || "#888"), color: "var(--bg)", fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, fontFamily: "var(--mono)" }}>{e.kind.replace("_", " ")}</span>
+                  <span style={{ position: "relative", display: "inline-flex", alignItems: "center", flexShrink: 0 }} title="Change the detected type">
+                    <select value={e.kind} onChange={(ev) => setEntity(idx, { kind: ev.target.value as Entity["kind"], mode: "create", targetId: undefined })}
+                      style={{ appearance: "none", WebkitAppearance: "none", MozAppearance: "none", background: (KIND_COLOR[e.kind] || "#888"), color: "var(--bg)", fontSize: 10, fontWeight: 700, padding: "3px 16px 3px 7px", borderRadius: 4, fontFamily: "var(--mono)", border: "none", cursor: "pointer", letterSpacing: "0.02em" }}>
+                      {(ENTITY_KINDS.includes(e.kind) ? ENTITY_KINDS : [...ENTITY_KINDS, e.kind]).map((k) => <option key={k} value={k} style={{ background: "var(--color-background-secondary)", color: "var(--text)", fontWeight: 400 }}>{KIND_LABEL[k] || String(k).replace("_", " ")}</option>)}
+                    </select>
+                    <span style={{ position: "absolute", right: 5, pointerEvents: "none", color: "var(--bg)", fontSize: 8 }}>▾</span>
+                  </span>
                   <input value={e.summary || ""} placeholder="describe…" onChange={(ev) => setEntity(idx, { summary: ev.target.value })} style={{ ...inp, fontFamily: "var(--sans)", fontSize: 12.5, fontWeight: 500, border: "none", background: "transparent", padding: "2px 0", minHeight: 0 }} />
                   <span style={{ fontSize: 10, color: confColor(e.confidence), fontFamily: "var(--mono)", flexShrink: 0 }}>{e.confidence != null ? Math.round(e.confidence * 100) + "%" : ""}</span>
                   <button onClick={() => removeEntity(idx)} title="Remove" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
@@ -296,14 +305,14 @@ function DetailPanel({ suggestion, clients, clientById, clientByName, onDone, to
                   {(KIND_FIELDS[e.kind] || []).length > keys.length || expanded ? <button onClick={() => setExpand((s) => ({ ...s, [idx]: !s[idx] }))} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 10.5, fontFamily: "var(--mono)", padding: 0 }}>{expanded ? "− fewer fields" : "+ all fields"}</button> : null}
                   <button onClick={() => setRouteOpen((s) => ({ ...s, [idx]: !s[idx] }))} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 10.5, fontFamily: "var(--mono)", padding: 0 }}>⇢ route to {e.targetClientName || "different client"}</button>
                 </div>
-                {routeOpen[idx] && (<div style={{ marginTop: 6 }}><label style={lbl}>this item → client (blank = note&apos;s client)</label><input list="clientlist" value={e.targetClientName || ""} placeholder={draft.matchedClientName || "note client"} onChange={(ev) => { const v = ev.target.value; const id = clientByName[v.trim().toLowerCase()]; setEntity(idx, { targetClientName: v || undefined, targetClientId: id || undefined }) }} style={{ ...inp, fontFamily: "var(--sans)" }} /></div>)}
+                {routeOpen[idx] && (<div style={{ marginTop: 6 }}><label style={lbl}>this item → client (blank = note&apos;s client)</label><ClientCombobox clients={clients} valueId={e.targetClientId} valueName={e.targetClientName} allowClear small placeholder={draft.matchedClientName || "note client"} onSelect={(c) => setEntity(idx, { targetClientId: c?.id || undefined, targetClientName: c?.name || undefined })} /></div>)}
                 {e.sourceSnippet && (<details style={{ marginTop: 8 }}><summary style={{ fontSize: 10.5, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--mono)" }}>source snippet</summary><pre style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 4, fontFamily: "var(--mono)" }}>{e.sourceSnippet}</pre></details>)}
               </div>
             )
           })}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span style={{ fontSize: 10.5, color: "var(--muted)", fontFamily: "var(--mono)" }}>+ add item:</span>{ENTITY_KINDS.map((k) => (<button key={k} onClick={() => addEntity(k)} style={{ fontSize: 10.5, padding: "4px 9px", borderRadius: 4, cursor: "pointer", fontFamily: "var(--mono)", border: "0.5px solid " + (KIND_COLOR[k] || "#888") + "66", background: "transparent", color: KIND_COLOR[k] || "#888", minHeight: 26 }}>{k.replace("_", " ")}</button>))}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span style={{ fontSize: 10.5, color: "var(--muted)", fontFamily: "var(--mono)" }}>+ add item:</span>{ENTITY_KINDS.map((k) => (<button key={k} onClick={() => addEntity(k)} style={{ fontSize: 10.5, padding: "4px 9px", borderRadius: 4, cursor: "pointer", fontFamily: "var(--mono)", border: "0.5px solid " + (KIND_COLOR[k] || "#888") + "66", background: "transparent", color: KIND_COLOR[k] || "#888", minHeight: 26 }}>{KIND_LABEL[k] || k}</button>))}</div>
         {(draft.entitiesJson || []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8, fontStyle: "italic" }}>Nothing extracted{draft.isRelevant ? "" : " — AI marked this not relevant"}. Pick a client, add items by hand, then Push — or Purge.</div>}
 
         {draft.committedSummaryJson && (<pre style={{ fontSize: 11, color: OK, marginTop: 12, fontFamily: "var(--mono)", whiteSpace: "pre-wrap" }}>{JSON.stringify(draft.committedSummaryJson, null, 2)}</pre>)}
@@ -354,7 +363,6 @@ export default function NotesIntakePage() {
 
   const sel = useMemo(() => items.find((i) => i.id === selId) || null, [items, selId])
   const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c.name])), [clients])
-  const clientByName = useMemo(() => Object.fromEntries(clients.map((c) => [c.name.toLowerCase(), c.id])), [clients])
   const srcTypes = useMemo(() => [...new Set(items.map((i) => i.sourceType || "other"))], [items])
 
   const filtered = useMemo(() => {
@@ -439,7 +447,7 @@ export default function NotesIntakePage() {
           </div>)}
           {showDetail && (<div>
             {!sel && <StateBox icon="📝" title="Select a note to review" body="Use j / k to move, or tap a note." />}
-            {sel && <DetailPanel key={sel.id} suggestion={sel} clients={clients} clientById={clientById} clientByName={clientByName} onDone={onDone} toast={(m, t) => showToast(m, t)} isMobile={isMobile} onBack={() => setSelId(null)} />}
+            {sel && <DetailPanel key={sel.id} suggestion={sel} clients={clients} clientById={clientById} onDone={onDone} toast={(m, t) => showToast(m, t)} isMobile={isMobile} onBack={() => setSelId(null)} />}
           </div>)}
         </div>
       </div>
@@ -447,7 +455,7 @@ export default function NotesIntakePage() {
       {selectMode && selected.size > 0 && (
         <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8, background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", padding: "8px 12px", zIndex: 90, flexWrap: "wrap", maxWidth: "94vw" }}>
           <span style={{ fontSize: 12, color: "var(--text)", fontWeight: 600 }}>{selected.size} selected</span>
-          <input list="clientlist" placeholder="assign client…" onKeyDown={(e) => { if (e.key === "Enter") { const id = clientByName[(e.target as HTMLInputElement).value.trim().toLowerCase()]; if (id) bulk("assign", id, clientById[id]) } }} style={{ ...inp, width: 150, fontFamily: "var(--sans)" }} />
+          <ClientCombobox clients={clients} width={170} small dropUp placeholder="assign client…" onSelect={(c) => { if (c) bulk("assign", c.id, c.name) }} />
           <button onClick={() => bulk("skip")} style={ghostBtn}>Skip</button>
           <button onClick={() => bulk("reject")} style={{ ...ghostBtn, color: BAD }}>Reject</button>
           <button onClick={() => bulk("purge")} style={{ ...ghostBtn, color: BAD, borderColor: "var(--color-border-danger)" }}>Purge</button>
