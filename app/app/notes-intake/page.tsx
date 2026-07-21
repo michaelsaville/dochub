@@ -25,7 +25,7 @@ type Suggestion = {
   id: string; origin: string; sourceType: string | null; uploadDetectedMime?: string | null
   sourceState: string; sourcePendingOp: string | null; sourceDeletedAt: string | null
   sourcePath: string; sourceFolder: string | null; noteTitle: string
-  rawText: string | null; rawTextSealed?: boolean; status: string; isRelevant: boolean; relevanceReason: string | null
+  rawText: string | null; rawTextSealed?: boolean; rawTextRedacted?: boolean; status: string; isRelevant: boolean; relevanceReason: string | null
   matchedClientId: string | null; matchedClientName: string | null; clientConfidence: number | null
   clientReasoning: string | null; clientCandidatesJson: any; entitiesJson: any; committedSummaryJson: any
 }
@@ -168,6 +168,7 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
   const [ipFills, setIpFills] = useState<Record<string, { field: string; was: string; full: string }>>({}) // eid:field → applied completion (for the revert affordance)
   const autoRef = useRef<Set<string>>(new Set()) // keys we've already auto-applied, so a user edit isn't re-overwritten
   const [revealed, setRevealed] = useState(false)
+  const [srcOpen, setSrcOpen] = useState(true)
   const [expand, setExpand] = useState<Record<number, boolean>>({})
   const [routeOpen, setRouteOpen] = useState<Record<number, boolean>>({})
   const hasSealed = useMemo(() => (suggestion.entitiesJson || []).some((e: Entity) => e._sealed && Object.values(e._sealed).some(Boolean)) || !!suggestion.rawTextSealed, [suggestion])
@@ -302,11 +303,26 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 12px", fontSize: 11, color: "var(--muted)", fontFamily: "var(--mono)", flexWrap: "wrap" }}>
           <span>{srcLine.text}</span>{srcLine.action}
-          {hasSealed && !revealed && <button onClick={reveal} disabled={busy} style={{ ...ghostBtn, padding: "3px 9px", minHeight: 0, color: "var(--accent)" }}>🔒 Reveal secrets</button>}
-          {revealed && <span style={{ color: WARN }}>secrets revealed (audited)</span>}
         </div>
 
-        {draft.origin === "upload" && (<details open style={{ margin: "0 0 12px" }}><summary style={{ fontSize: 11, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--mono)" }}>source file</summary><div style={{ marginTop: 6 }}>{String(draft.uploadDetectedMime || "").includes("pdf") ? <object data={`/api/notes-intake/${draft.id}/file`} type="application/pdf" style={{ width: "100%", height: 420, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)" }}><a href={`/api/notes-intake/${draft.id}/file`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open file</a></object> : <img src={`/api/notes-intake/${draft.id}/file`} alt="source" style={{ maxWidth: "100%", maxHeight: 480, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", display: "block" }} />}</div></details>)}
+        {/* Source — always visible so you review against what the AI actually saw, not a guess. */}
+        <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, background: "var(--color-background-primary)", marginBottom: 14, overflow: "hidden" }}>
+          <div onClick={() => setSrcOpen((o) => !o)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 10px", cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11, fontFamily: "var(--mono)", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Source — what the AI saw</span><SourceBadge source={draft.sourceType} /></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {hasSealed && !revealed && <button onClick={(e) => { e.stopPropagation(); reveal() }} disabled={busy} style={{ ...ghostBtn, padding: "3px 9px", minHeight: 0, color: "var(--accent)" }}>🔒 Reveal secrets</button>}
+              {revealed && <span style={{ fontSize: 10.5, color: WARN, fontFamily: "var(--mono)" }}>revealed (audited)</span>}
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>{srcOpen ? "▾" : "▸"}</span>
+            </div>
+          </div>
+          {srcOpen && (<div style={{ padding: "0 10px 10px" }}>
+            {draft.origin === "upload" && (<div style={{ marginBottom: draft.rawText ? 10 : 0 }}>{String(draft.uploadDetectedMime || "").includes("pdf") ? <object data={`/api/notes-intake/${draft.id}/file`} type="application/pdf" style={{ width: "100%", height: 420, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)" }}><a href={`/api/notes-intake/${draft.id}/file`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open file</a></object> : <img src={`/api/notes-intake/${draft.id}/file`} alt="source" style={{ maxWidth: "100%", maxHeight: 480, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", display: "block" }} />}</div>)}
+            {draft.rawText ? (<>
+              <pre style={{ fontSize: 11.5, color: "var(--text)", whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0, fontFamily: "var(--mono)", background: "var(--color-background-secondary)", padding: 10, borderRadius: 6, maxHeight: 320, overflowY: "auto" }}>{draft.rawText}</pre>
+              {draft.rawTextRedacted && !revealed && <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "var(--mono)", marginTop: 4 }}>•••••• marks a hidden secret value — Reveal (audited) to see it</div>}
+            </>) : draft.origin !== "upload" ? <div style={{ fontSize: 11.5, color: "var(--muted)", fontStyle: "italic" }}>No source text was captured for this note.</div> : null}
+          </div>)}
+        </div>
 
         {draft.relevanceReason && <div style={{ fontSize: 11.5, color: "var(--muted)", margin: "0 0 12px", fontStyle: "italic" }}>{draft.relevanceReason}</div>}
 
@@ -373,7 +389,6 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
         {(draft.entitiesJson || []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8, fontStyle: "italic" }}>Nothing extracted{draft.isRelevant ? "" : " — AI marked this not relevant"}. Pick a client, add items by hand, then Push — or Purge.</div>}
 
         {draft.committedSummaryJson && (<pre style={{ fontSize: 11, color: OK, marginTop: 12, fontFamily: "var(--mono)", whiteSpace: "pre-wrap" }}>{JSON.stringify(draft.committedSummaryJson, null, 2)}</pre>)}
-        <details style={{ marginTop: 12 }}><summary style={{ fontSize: 11, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--mono)" }}>original note</summary>{draft.rawTextSealed && !revealed ? <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>🔒 <button onClick={reveal} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 11.5 }}>Reveal</button> to view (audited)</div> : <pre style={{ fontSize: 11.5, color: "var(--text)", whiteSpace: "pre-wrap", marginTop: 6, fontFamily: "var(--mono)", background: "var(--color-background-primary)", padding: 10, borderRadius: 6 }}>{draft.rawText}</pre>}</details>
       </div>
 
       {draft.status !== "COMMITTED" && draft.status !== "PURGED" && (
