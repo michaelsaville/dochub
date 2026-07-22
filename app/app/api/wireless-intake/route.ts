@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
   // 3) A Wi-Fi controller to hang the networks off of (Client -> Controller -> Network).
   let controller = await prisma.wifiController.findFirst({ where: { clientId: client.id } })
-  if (!controller) controller = await prisma.wifiController.create({ data: { clientId: client.id, name: "Home Wi-Fi" } })
+  if (!controller) controller = await prisma.wifiController.create({ data: { clientId: client.id, name: "Home Wi-Fi", type: "STANDALONE" } })
 
   // 4) Upsert the Wi-Fi network(s) by SSID; vault the PSK as an encrypted credential.
   const wifiResult: any[] = []
