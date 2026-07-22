@@ -41,7 +41,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/scout/") ||
     pathname.startsWith("/api/bff/") ||
     pathname.startsWith("/api/aux-display/emit") ||
-    pathname.startsWith("/api/ai/")
+    pathname.startsWith("/api/ai/") ||
+    pathname.startsWith("/api/wireless-intake")
   ) {
     return NextResponse.next()
   }
