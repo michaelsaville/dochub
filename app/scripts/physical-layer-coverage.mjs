@@ -17,8 +17,21 @@
 //  `docker inspect dochub-db-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'`)
 //
 // Flags:
-//   --json    emit machine-readable output instead of the table
-//   --strict  exit 1 if coverage is 0% (for use as a regression gate later)
+//   --json        emit machine-readable output instead of the table
+//   --min=<pct>   exit 1 if coverage is below this percentage — THIS IS THE GATE.
+//                 Baseline when the feature shipped was 3.3% (6 of 182 locations,
+//                 all pre-existing Asset.room values, zero cable runs). The plan
+//                 says Phase 2+ is justified only if capture actually happens in
+//                 normal field use, so the number to beat is stated here rather
+//                 than left as a judgement call nobody makes:
+//
+//                     GATE: >= 10% coverage AND >= 25 CableRun rows by 2026-10-01
+//
+//                 Run from cron and append the series:
+//                     0 6 * * *  cd ~/dochub/app && DATABASE_URL=... \
+//                       node scripts/physical-layer-coverage.mjs --json \
+//                       >> ~/backups/dochub/physlayer-coverage.jsonl
+//   --strict      alias for --min=0.01 (any coverage at all)
 //
 // Read-only. Never writes.
 
@@ -26,7 +39,11 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 const AS_JSON = process.argv.includes("--json")
-const STRICT = process.argv.includes("--strict")
+const MIN = (() => {
+  const arg = process.argv.find((a) => a.startsWith("--min="))
+  if (arg) return Number(arg.slice(6))
+  return process.argv.includes("--strict") ? 0.01 : null
+})()
 
 /** Does a table exist yet? Lets one script span the whole build. */
 async function tableExists(name) {
@@ -110,6 +127,8 @@ add("Floor plans", "Rooms drawn", await scalarIf(["Room"], `SELECT count(*) FROM
 
 // ---- headline: locations with ANY physical documentation -------------------
 const hasCableRun = await tableExists("CableRun")
+const hasFloor = await tableExists("Floor")
+const hasPortLink = await tableExists("PortLink")
 const documented = await scalar(`
   SELECT count(*) FROM "Location" l WHERE
        EXISTS (SELECT 1 FROM "Rack" r WHERE r."locationId" = l.id)
@@ -117,6 +136,11 @@ const documented = await scalar(`
     OR EXISTS (SELECT 1 FROM "Asset" a JOIN "SwitchPort" sp ON sp."assetId" = a.id
                WHERE a."locationId" = l.id AND sp."label" IS NOT NULL AND sp."label" <> '')
     ${hasCableRun ? `OR EXISTS (SELECT 1 FROM "CableRun" c WHERE c."locationId" = l.id)` : ""}
+    ${hasFloor ? `OR EXISTS (SELECT 1 FROM "Floor" f WHERE f."locationId" = l.id AND f."planStorageName" IS NOT NULL)` : ""}
+    ${hasPortLink ? `OR EXISTS (SELECT 1 FROM "PortLink" pl
+                                JOIN "DevicePort" dp ON dp.id = pl."aPortId"
+                                JOIN "Asset" a2 ON a2.id = dp."assetId"
+                                WHERE a2."locationId" = l.id)` : ""}
 `)
 const coverage = locations ? (documented / locations) * 100 : 0
 
@@ -143,7 +167,7 @@ if (AS_JSON) {
   console.log("=".repeat(58) + "\n")
 }
 
-if (STRICT && coverage === 0) {
-  console.error("STRICT: physical-layer coverage is 0%.")
+if (MIN !== null && coverage < MIN) {
+  console.error(`GATE FAILED: coverage ${coverage.toFixed(1)}% is below the ${MIN}% threshold.`)
   process.exit(1)
 }

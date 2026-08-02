@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 /**
  * SVG pan/zoom over a viewBox. Hand-rolled, ~90 lines.
@@ -23,6 +23,14 @@ const MAX_SCALE = 6
 
 export function usePanZoom(initial: Box) {
   const [box, setBox] = useState<Box>(initial)
+
+  // The content's real dimensions are often not known on first render (a floor plan
+  // is fetched). useState only reads its initializer once, so without this the
+  // viewBox stays at the placeholder and every toLocal() result is off by the ratio
+  // between them — silently writing wrong coordinates to the database.
+  useEffect(() => {
+    setBox((b) => (b.w === initial.w && b.h === initial.h ? b : { ...initial }))
+  }, [initial.x, initial.y, initial.w, initial.h])
   const svgRef = useRef<SVGSVGElement | null>(null)
   // Active pointers by id — two of them means a pinch, and we must not also pan.
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -60,7 +68,12 @@ export function usePanZoom(initial: Box) {
   }, [initial.w, initial.h])
 
   const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
+    // NOTE: do NOT setPointerCapture here. Per Pointer Events L3, capture retargets
+    // every subsequent pointerup to the capture element, and React builds its
+    // propagation path from event.target — so capturing on the <svg> silently makes
+    // every child onPointerUp unreachable. That killed tap-to-patch entirely
+    // (reproduced in Chromium). Capture is taken lazily in onPointerMove, once the
+    // gesture has proven itself a pan, which is the only case that needs it.
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     moved.current = false
     if (pointers.current.size === 2) {
@@ -101,15 +114,29 @@ export function usePanZoom(initial: Box) {
     const dx = ((e.clientX - start.x) / r.width) * start.box.w
     const dy = ((e.clientY - start.y) / r.height) * start.box.h
     // 3px of slop so a tap that wobbles still registers as a tap, not a pan.
-    if (Math.abs(e.clientX - start.x) > 3 || Math.abs(e.clientY - start.y) > 3) moved.current = true
+    if (Math.abs(e.clientX - start.x) > 3 || Math.abs(e.clientY - start.y) > 3) {
+      if (!moved.current) {
+        // Now it is definitely a pan: take capture so dragging outside the element
+        // keeps working. Taps never reach here, so their pointerup stays on target.
+        try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId) } catch { /* not capturable */ }
+      }
+      moved.current = true
+    }
     setBox({ ...start.box, x: start.box.x - dx, y: start.box.y - dy })
   }, [zoomAt])
 
   const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     pointers.current.delete(e.pointerId)
     if (pointers.current.size < 2) pinch.current = null
-    if (pointers.current.size === 0) panning.current = null
-  }, [])
+    if (pointers.current.size === 0) {
+      panning.current = null
+    } else if (pointers.current.size === 1 && !panning.current) {
+      // Lifting one finger out of a pinch used to leave the gesture dead until full
+      // release. Re-seat the pan from whichever pointer is still down.
+      const [p] = [...pointers.current.values()]
+      panning.current = { x: p.x, y: p.y, box }
+    }
+  }, [box])
 
   const onWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY)

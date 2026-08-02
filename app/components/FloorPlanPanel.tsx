@@ -7,11 +7,11 @@ import { deviceGlyph, deviceColor } from "@/lib/port-state"
 /**
  * Floor plans: an uploaded image with a scaled, drawable SVG overlay.
  *
- * Structure is <img> with an absolutely-positioned <svg> on top, both in
- * plan-pixel coordinates, sharing the rack editor's viewBox pan/zoom hook. Rooms
- * are polygons, devices are pins, and everything is stored against the image's
- * natural dimensions captured at upload — so a re-encode can never silently move
- * every pin.
+ * The plan is an <image> INSIDE the svg, not a sibling <img>: as a sibling it
+ * carried no transform, so pan/zoom moved the overlay and left the drawing behind,
+ * and anything traced while zoomed was persisted against a different coordinate
+ * system than it was drawn in. Everything is stored in plan-pixel space against the
+ * natural dimensions captured at upload.
  *
  * Mutation is gated behind an explicit mode. On an iPad in a wiring closet, a view
  * that reacts to a stray finger by dragging a device to the wrong room is worse
@@ -27,8 +27,14 @@ type Floor = {
 }
 type Placed = {
   id: string; name: string; friendlyName: string | null; category: string
+  assetType?: { name: string } | null
   floorId: string | null; roomId: string | null; planX: number | null; planY: number | null; room: string | null
 }
+
+/** Same normalization as api/racks/[id]/elevation, so a device looks the same in
+ *  the rack elevation and on the floor plan. */
+const kindOf = (p: { category: string; assetType?: { name: string } | null }) =>
+  (p.assetType?.name ?? p.category ?? "OTHER").toUpperCase().replace(/\s+/g, "_")
 type AssetLite = { id: string; name: string; friendlyName: string | null; category: string }
 
 type Mode = "view" | "room" | "place" | "scale"
@@ -100,23 +106,28 @@ export default function FloorPlanPanel({
     const answer = prompt(`That line is ${px.toFixed(0)} pixels. How long is it in metres?`)
     const metres = Number(answer)
     if (!Number.isFinite(metres) || metres <= 0) { setScalePts([]); setMode("view"); return }
-    await fetch(`/api/floors/${floor.id}`, {
+    const res = await fetch(`/api/floors/${floor.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pxPerMetre: px / metres }),
     })
-    setScalePts([]); setMode("view"); setMsg(`Scale set: ${(px / metres).toFixed(1)} px/m`)
-    await load()
+    setScalePts([]); setMode("view")
+    // Report what actually happened. Announcing "Scale set" before the response is
+    // known is an affirmative lie about a write that may have failed.
+    setMsg(res.ok ? `Scale set: ${(px / metres).toFixed(1)} px/m` : "Could not save the scale")
+    if (res.ok) await load()
   }
 
   async function saveRoom(pts: [number, number][]) {
     if (!floor || pts.length < 3) { setDraft([]); return }
     const name = prompt("Room name (e.g. MDF, Exam 3)")
     if (!name?.trim()) { setDraft([]); return }
-    await fetch(`/api/floors/${floor.id}/rooms`, {
+    const res = await fetch(`/api/floors/${floor.id}/rooms`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, points: pts }),
     })
     setDraft([]); setMode("view")
+    if (!res.ok) { setMsg((await res.json().catch(() => ({}))).error ?? "Could not save the room"); return }
+    setMsg(`Saved ${name}`)
     await load()
   }
 
@@ -125,11 +136,13 @@ export default function FloorPlanPanel({
     // Drop into whichever room polygon contains the point, so placing a device
     // also answers "which room is it in" without a second step.
     const hit = floor.rooms.find((r) => pointInPolygon([x, y], pointsOf(r.geometry)))
-    await fetch(`/api/assets/${placingAssetId}/placement`, {
+    const res = await fetch(`/api/assets/${placingAssetId}/placement`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ floorId: floor.id, planX: x, planY: y, ...(hit ? { roomName: hit.name } : {}) }),
     })
     setPlacingAssetId(""); setMode("view")
+    if (!res.ok) { setMsg((await res.json().catch(() => ({}))).error ?? "Could not place the device"); return }
+    setMsg(hit ? `Placed in ${hit.name}` : "Placed")
     await load()
   }
 
@@ -153,6 +166,21 @@ export default function FloorPlanPanel({
 
   const onFloor = placed.filter((p) => p.floorId === floor?.id && p.planX != null && p.planY != null)
   const unplaced = assets.filter((a) => !placed.some((p) => p.id === a.id && p.floorId === floor?.id))
+
+  /** Reposition or unpin an existing device. Without this the first mistake was
+   *  permanent — the device disappeared from the picker and pins had no handler,
+   *  which teaches a tech to stop capturing. */
+  async function tapPin(p: Placed) {
+    if (mode !== "view") return
+    const move = confirm(`${p.friendlyName || p.name}\n\nOK = move it (tap the new spot)\nCancel = remove it from the plan`)
+    if (move) { setPlacingAssetId(p.id); setMode("place"); setMsg(`Tap the new location for ${p.friendlyName || p.name}`); return }
+    const res = await fetch(`/api/assets/${p.id}/placement`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ floorId: null, planX: null, planY: null }),
+    })
+    setMsg(res.ok ? "Removed from the plan" : "Could not remove it")
+    if (res.ok) await load()
+  }
 
   if (loading) return <div style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>Loading floor plans...</div>
 
@@ -201,7 +229,8 @@ export default function FloorPlanPanel({
             style={{ padding: "9px 12px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)",
                      background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
             <option value="">Choose a device...</option>
-            {unplaced.map((a) => <option key={a.id} value={a.id}>{a.friendlyName || a.name}</option>)}
+            {[...unplaced, ...assets.filter(a => a.id === placingAssetId && !unplaced.some(u => u.id === a.id))]
+              .map((a) => <option key={a.id} value={a.id}>{a.friendlyName || a.name}</option>)}
           </select>
         )}
         <button className="btn btn-secondary" onClick={pz.reset} style={{ minHeight: "40px" }}>Fit</button>
@@ -226,15 +255,21 @@ export default function FloorPlanPanel({
           drawing is fine — it gets downscaled and re-encoded on upload.
         </div>
       ) : (
-        <div style={{ position: "relative", maxWidth: "100%", overflow: "hidden", borderRadius: "8px", border: "1px solid var(--color-border-primary)" }}>
-          <img src={`/api/floors/${floor.id}`} alt={`${floor.name} plan`}
-            style={{ display: "block", width: "100%", height: "auto" }} />
+        <div style={{ maxWidth: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--color-border-primary)" }}>
           <svg
             {...pz.bind}
             onPointerUp={(e) => { pz.bind.onPointerUp(e); onCanvasTap(e) }}
             className="print-graphics"
-            style={{ ...pz.bind.style, position: "absolute", inset: 0, width: "100%", height: "100%" }}
+            role="img"
+            aria-label={`${floor.name} floor plan`}
+            style={{ ...pz.bind.style, display: "block", width: "100%", height: "auto" }}
           >
+            {/* The plan is an <image> INSIDE the svg, not a sibling <img>. As a
+                sibling it carried no transform, so pan/zoom moved the overlay and
+                left the drawing behind — and every room traced while zoomed was
+                stored against a different coordinate system than it was drawn in. */}
+            <image href={`/api/floors/${floor.id}`} x={0} y={0} width={W} height={H}
+              preserveAspectRatio="none" />
             {/* Rooms */}
             {floor.rooms.map((r) => {
               const pts = pointsOf(r.geometry)
@@ -275,12 +310,15 @@ export default function FloorPlanPanel({
               return (
                 <g key={p.id}>
                   <circle cx={p.planX!} cy={p.planY!} r={r}
-                    fill={deviceColor(p.category)} fillOpacity={0.85}
+                    fill={deviceColor(kindOf(p))} fillOpacity={0.85}
                     stroke="var(--color-text-primary)" strokeWidth={Math.max(0.6, W * 0.0008)} />
                   <text x={p.planX!} y={p.planY! + r * 0.35} textAnchor="middle"
                     fontSize={r * 0.95} fontFamily="var(--mono)" fill="#fff"
-                    style={{ pointerEvents: "none" }}>{deviceGlyph(p.category)}</text>
+                    style={{ pointerEvents: "none" }}>{deviceGlyph(kindOf(p))}</text>
                   <title>{`${p.friendlyName || p.name}${p.room ? ` — ${p.room}` : ""}`}</title>
+                  <circle cx={p.planX!} cy={p.planY!} r={Math.max(22, W * 0.022)} fill="transparent"
+                    className="no-print" style={{ cursor: mode === "view" ? "pointer" : "default" }}
+                    onPointerUp={(e) => { e.stopPropagation(); if (!pz.didPan()) tapPin(p) }} />
                 </g>
               )
             })}

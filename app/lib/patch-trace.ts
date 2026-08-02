@@ -45,7 +45,7 @@ export type TraceHop = {
  * and is worth surfacing if it does) shows up as siblings at the same hop.
  */
 export async function tracePort(portId: string): Promise<TraceHop[]> {
-  return prisma.$queryRaw<TraceHop[]>`
+  const rows = await prisma.$queryRaw<TraceHop[]>`
     WITH RECURSIVE
     -- Every edge, normalized to (from, to) and labelled with how it is traversed.
     edge AS (
@@ -68,7 +68,8 @@ export async function tracePort(portId: string): Promise<TraceHop[]> {
       WHERE NOT e.to_port = ANY(w.path)
         AND w.hop < ${MAX_HOPS}
     )
-    SELECT w.port_id                        AS "portId",
+    SELECT DISTINCT ON (w.port_id)
+           w.port_id                        AS "portId",
            w.hop                            AS hop,
            dp."assetId"                     AS "assetId",
            COALESCE(a."friendlyName", a.name) AS "assetName",
@@ -79,20 +80,49 @@ export async function tracePort(portId: string): Promise<TraceHop[]> {
     FROM walk w
     JOIN "DevicePort" dp ON dp.id = w.port_id
     JOIN "Asset" a       ON a.id = dp."assetId"
-    ORDER BY w.hop, dp."assetId", dp."portIndex"
+    -- DISTINCT ON keeps the SHORTEST route to each port. The CTE enumerates simple
+    -- PATHS, not nodes, so a diamond topology returns one row per path and the same
+    -- port appears repeatedly — which made a 6-port graph report "11 hops".
+    ORDER BY w.port_id, w.hop
   `
+  // Re-sort in JS: DISTINCT ON forces an ORDER BY starting with port_id, so hop
+  // order has to be restored here.
+  return rows.sort((a, b) => a.hop - b.hop || a.assetName.localeCompare(b.assetName) || a.portIndex - b.portIndex)
+}
+
+/** True when the walk stopped because it hit the hop ceiling, not a cable end. */
+export function isTruncated(hops: TraceHop[]): boolean {
+  return hops.some((h) => h.hop >= MAX_HOPS)
 }
 
 /**
- * `sw-mdf:14 -> PP-A front/12 -> PP-A rear/12 -> TO B-114`
+ * `sw-mdf:14 -> PP-A:12 -> PP-A:12r -> TO:1`
  *
- * ASCII arrows on purpose: this string is reused in printed and PDF output, and
- * @react-pdf's bundled Helvetica silently corrupts non-ASCII glyphs.
+ * IMPORTANT: " -> " reads as "is cabled to", so this may only join ports that are
+ * genuinely consecutive. tracePort returns everything REACHABLE, and tracing from a
+ * mid-chain port (a patch-panel front port — the most-tapped object in a rack)
+ * branches in both directions. Naively joining that set claimed the switch was
+ * cabled to the panel's REAR port, which is exactly the fact someone is checking.
+ *
+ * So: group by hop. A hop with one port continues the chain; a hop with several is
+ * a genuine branch and is rendered as such rather than flattened into a lie.
+ *
+ * ASCII arrows on purpose — reused in printed and PDF output, where @react-pdf's
+ * bundled Helvetica silently corrupts non-ASCII glyphs.
  */
 export function formatTrace(hops: TraceHop[]): string {
-  return hops
-    .map((h) => `${h.assetName}${h.portLabel ? ` ${h.portLabel}` : ""}:${h.portIndex}${h.side === "REAR" ? "r" : ""}`)
-    .join(" -> ")
+  if (hops.length === 0) return ""
+  const label = (h: TraceHop) =>
+    `${h.assetName}${h.portLabel ? ` ${h.portLabel}` : ""}:${h.portIndex}${h.side === "REAR" ? "r" : ""}`
+
+  const byHop = new Map<number, TraceHop[]>()
+  for (const h of hops) byHop.set(h.hop, [...(byHop.get(h.hop) ?? []), h])
+
+  const parts = [...byHop.keys()].sort((a, b) => a - b).map((n) => {
+    const at = byHop.get(n)!
+    return at.length === 1 ? label(at[0]) : `[${at.map(label).join(" | ")}]`
+  })
+  return parts.join(" -> ") + (isTruncated(hops) ? " -> ..." : "")
 }
 
 /**
@@ -100,9 +130,10 @@ export function formatTrace(hops: TraceHop[]): string {
  *
  * @@unique([aPortId, kind]) and @@unique([bPortId, kind]) stop a port from holding
  * two links of the same kind *in the same column* — but nothing stops port X being
- * `aPortId` on one row and `bPortId` on another with the same kind. That check has
- * to run inside the insert transaction, because an offline double-tap replaying
- * through two queues is a live path here, not a hypothetical.
+ * `aPortId` on one row and `bPortId` on another with the same kind — the "crossed"
+ * case. That check must run inside the insert transaction AND under a lock: a bare
+ * read-then-write under READ COMMITTED lets two concurrent patches both read "free"
+ * and both insert. lib/audit-log.ts uses pg_advisory_xact_lock for the same reason.
  */
 export async function createPortLink(input: {
   clientId: string
@@ -118,6 +149,8 @@ export async function createPortLink(input: {
     throw new Error("A cable cannot connect a port to itself")
   }
   return prisma.$transaction(async (tx) => {
+    // Serialize link creation. Arbitrary constant, distinct from audit-log's 4823710.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(4823711)`
     const conflicts = await tx.portLink.findMany({
       where: {
         kind: input.kind as Prisma.EnumLinkKindFilter["equals"],
@@ -157,6 +190,19 @@ export async function scaffoldDevicePorts(assetId: string, portCount: number, pa
       const front = have.has(`FRONT:${i}`)
         ? await tx.devicePort.findUnique({ where: { assetId_side_portIndex: { assetId, side: "FRONT", portIndex: i } } })
         : await tx.devicePort.create({ data: { assetId, side: "FRONT", portIndex: i } })
+
+      // Join the L2 facet if one exists. SwitchPort owns VLAN / PoE / uplink and
+      // DevicePort owns identity and cabling; without this link the rack editor can
+      // never render those states and its legend advertises an unreachable one.
+      // Matched on (assetId, portNumber) — the natural key for a physical port.
+      if (front) {
+        const sp = await tx.switchPort.findFirst({
+          where: { assetId, portNumber: i, devicePortId: null },
+          select: { id: true },
+        })
+        if (sp) await tx.switchPort.update({ where: { id: sp.id }, data: { devicePortId: front.id } })
+      }
+
       if (!passthrough || !front) continue
 
       const rear = have.has(`REAR:${i}`)

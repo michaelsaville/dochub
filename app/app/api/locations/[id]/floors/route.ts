@@ -33,6 +33,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         select: {
           id: true, name: true, friendlyName: true, category: true,
           floorId: true, roomId: true, planX: true, planY: true, room: true,
+          // Prefer the configured AssetType over the coarse category enum, matching
+          // api/racks/[id]/elevation. Without it every switch/AP is a grey dot.
+          assetType: { select: { name: true } },
         },
       }),
     ])

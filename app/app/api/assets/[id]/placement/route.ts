@@ -66,6 +66,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data.room = room?.name ?? name
       }
     } else if (body.roomId !== undefined) {
+      if (body.roomId) {
+        // A room from another client's floor must not be attachable to this asset.
+        const ok = await prisma.room.findFirst({
+          where: { id: body.roomId, floor: { locationId: asset.locationId } },
+          select: { id: true },
+        })
+        if (!ok) return NextResponse.json({ error: "Room is not at this asset's location" }, { status: 400 })
+      }
       data.roomId = body.roomId || null
     }
 

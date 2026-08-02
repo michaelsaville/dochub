@@ -67,9 +67,17 @@ async function ensureLink(tx, clientId, kind, aPortId, bPortId) {
   // A port may hold at most one link of each kind; treat an existing one as done.
   const existing = await tx.portLink.findFirst({
     where: { kind, OR: [{ aPortId }, { bPortId: aPortId }, { aPortId: bPortId }, { bPortId }] },
-    select: { id: true },
+    select: { id: true, aPortId: true, bPortId: true },
   })
-  if (existing) return { created: false }
+  if (existing) {
+    const same =
+      (existing.aPortId === aPortId && existing.bPortId === bPortId) ||
+      (existing.aPortId === bPortId && existing.bPortId === aPortId)
+    // Already migrated is fine; a DIFFERENT cable on this port is a real conflict
+    // and must not be reported as a successful no-op.
+    if (same) return { created: false }
+    throw new Error(`port already carries a different ${kind} link`)
+  }
   await tx.portLink.create({ data: { clientId, kind, aPortId, bPortId } })
   return { created: true }
 }
@@ -95,12 +103,21 @@ for (const run of runs) {
       // ── the patch panel ───────────────────────────────────────────────────
       let panelFront = null
       if (run.panelAssetId || run.panelLabel) {
+        // A named panel with no port number cannot be migrated: `?? 1` collapsed
+        // every run in a closet onto FRONT/1 + REAR/1, ensureLink then reported
+        // {created:false} for runs 2..N, and the script printed "links created: 1"
+        // and exited 0. That is the DESIGNED capture shape (CablingPanel carries
+        // panelLabel forward so a tech can bang out a closet), so it must be a
+        // refusal, not a silent merge.
+        if (run.panelPort == null) {
+          throw new Error("panel named but panelPort is empty — set the port number, or clear the panel")
+        }
         const panelId = run.panelAssetId
           ? { id: run.panelAssetId, created: false }
           : await ensureAsset(tx, run.locationId, run.panelLabel, "OTHER")
         if (panelId.created) stats.assetsCreated++
 
-        const idx = run.panelPort ?? 1
+        const idx = run.panelPort
         const front = await ensurePort(tx, panelId.id, "FRONT", idx, run.jackLabel)
         const rear = await ensurePort(tx, panelId.id, "REAR", idx, run.jackLabel)
         if (front.created) stats.portsCreated++

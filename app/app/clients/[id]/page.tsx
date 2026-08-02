@@ -338,6 +338,20 @@ const CLIENT_NAV_SECTION_KEY = "dochub:client-nav-section"
 // Network sub-tabs, deep-linkable via ?sub=. Kept at module scope so the URL guard
 // and the state type stay in sync — a search result hrefs straight to ?tab=Network&sub=racks.
 const NETWORK_SUB_TABS = ["ipam", "cabling", "floorplan", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const
+// A Record, not a ternary chain: the chain silently fell through to "Topology
+// Diagram" for every tab added after it was written, so `cabling` and `floorplan`
+// both shipped with no name in the product. A Record is exhaustive at compile time.
+const NETWORK_SUB_TAB_LABELS: Record<(typeof NETWORK_SUB_TABS)[number], string> = {
+  ipam: "IPAM",
+  cabling: "Cabling",
+  floorplan: "Floor Plan",
+  circuits: "Circuits",
+  racks: "Rack Diagrams",
+  wireless: "Wireless",
+  ptp: "PTP Bridges",
+  shares: "File Shares",
+  diagram: "Topology Diagram",
+}
 type NetworkSubTab = (typeof NETWORK_SUB_TABS)[number]
 const isNetworkSubTab = (v: string | null): v is NetworkSubTab =>
   !!v && (NETWORK_SUB_TABS as readonly string[]).includes(v)
@@ -4053,7 +4067,7 @@ export default function ClientDetailPage() {
                   borderBottom: networkSubTab === t ? "2px solid var(--color-text-primary)" : "2px solid transparent",
                   marginBottom: "-1px",
                 }}>
-                  {t === "ipam" ? "IPAM" : t === "circuits" ? "Circuits" : t === "racks" ? "Rack Diagrams" : t === "wireless" ? "Wireless" : t === "ptp" ? "PTP Bridges" : t === "shares" ? "File Shares" : "Topology Diagram"}
+                  {NETWORK_SUB_TAB_LABELS[t]}
                 </button>
               ))}
             </div>

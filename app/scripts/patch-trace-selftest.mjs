@@ -27,7 +27,10 @@ const check = (name, pass, detail = "") => {
 
 // ── extract the live CTE from the TypeScript source ─────────────────────────
 const src = readFileSync(new URL("../lib/patch-trace.ts", import.meta.url), "utf8")
-const m = src.match(/prisma\.\$queryRaw<TraceHop\[\]>`([\s\S]*?)`\n\}/)
+// Match up to the terminating backtick. Anchoring on the function's closing brace
+// broke the moment tracePort gained post-query sorting — which is the guard working
+// as designed: it failed loudly instead of silently testing a stale copy of the CTE.
+const m = src.match(/prisma\.\$queryRaw<TraceHop\[\]>`([\s\S]*?)`/)
 if (!m) {
   console.error("could not extract the trace CTE from lib/patch-trace.ts — did its shape change?")
   process.exit(1)
@@ -113,6 +116,29 @@ try {
     const broken = await trace(tx, swP.id)
     check("without the passthrough, the trace dead-ends at the panel", broken.length === 2, chain(broken))
     await tx.devicePort.update({ where: { id: ppF.id }, data: { pairedPortId: ppR.id } })
+
+    // ── 6b. tracing from a MID-CHAIN port must not fabricate adjacency ──────
+    // A patch-panel front port is the most-tapped object in a rack, and it branches
+    // in both directions. Rendering the reachable SET joined by " -> " claimed the
+    // switch was cabled to the panel's REAR port — which is precisely the fact
+    // someone opens this screen to check.
+    const fromPanel = await trace(tx, ppF.id)
+    const byHop = new Map()
+    for (const h of fromPanel) byHop.set(h.hop, [...(byHop.get(h.hop) ?? []), h])
+    const hop1 = byHop.get(1) ?? []
+    check(
+      "a mid-chain origin reports a BRANCH, not a false linear chain",
+      hop1.length === 2 &&
+        hop1.some(h => h.assetName === "selftest-switch") &&
+        hop1.some(h => h.assetName === "selftest-panel" && h.side === "REAR"),
+      `hop1 = ${hop1.map(h => `${h.assetName}:${h.portIndex}${h.side === "REAR" ? "r" : ""}`).join(" | ")}`
+    )
+    // And every port appears exactly once, even though several paths reach it.
+    check(
+      "each port appears once regardless of how many paths reach it",
+      new Set(fromPanel.map(h => h.portId)).size === fromPanel.length,
+      `${fromPanel.length} rows, ${new Set(fromPanel.map(h => h.portId)).size} distinct`
+    )
 
     // ── 7. a port may hold BOTH a keystone and a cord ───────────────────────
     // ppR already has BUILDING; adding PATCH to the same port must be legal.

@@ -33,6 +33,9 @@ export default function RackEditorPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // Any reload invalidates the displayed chain — otherwise a freshly drawn
+      // cable sits next to "Nothing connected to this port yet".
+      setTrace(null)
       const res = await fetch(`/api/racks/${rackId}/elevation`)
       if (!res.ok) { setErr((await res.json()).error ?? "Failed to load"); return }
       setData(await res.json())
@@ -108,29 +111,39 @@ export default function RackEditorPage() {
           </div>
         )}
 
-        {/* Devices with no ports yet. Without this the editor is an empty box for
-            every rack, since nothing scaffolds DevicePort rows automatically. */}
-        {data && data.devices.some(d => d.ports.length === 0) && (
+        {/* Port scaffolding. Shown for EVERY device, not only portless ones: the
+            previous version hid the control the moment any ports existed, so a
+            device scaffolded the wrong way could never be repaired even though
+            scaffoldDevicePorts is idempotent and would extend it. */}
+        {data && data.devices.length > 0 && (
           <div style={{
             marginBottom: "14px", padding: "12px", borderRadius: "8px",
             background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)",
           }} className="no-print">
             <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
-              These devices have no ports yet:
+              Add ports. Choose <strong>pass-through</strong> for a patch panel — it creates
+              paired front and rear ports, which is what lets a trace see through the panel
+              instead of dead-ending at it.
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              {data.devices.filter(d => d.ports.length === 0).map(d => (
-                <div key={d.assetId} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{d.name}</span>
-                  {[8, 16, 24, 48].map(n => (
-                    <button key={n} className="btn btn-ghost" style={{ minHeight: "34px" }}
-                      onClick={() => addPorts(d.assetId, n, /PANEL|PATCH/i.test(d.kind ?? ""))}>
-                      {n}
-                    </button>
-                  ))}
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                    {/PANEL|PATCH/i.test(d.kind ?? "") ? "front+rear, paired" : "front only"}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {data.devices.map(d => (
+                <div key={d.assetId} style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "13px", color: "var(--color-text-primary)", minWidth: "160px" }}>
+                    {d.name}
+                    <span style={{ color: "var(--color-text-muted)", marginLeft: "6px", fontSize: "11px" }}>
+                      {d.ports.length === 0 ? "no ports" : `${d.ports.length} port${d.ports.length === 1 ? "" : "s"}`}
+                    </span>
                   </span>
+                  {[8, 16, 24, 48].map(n => (
+                    <span key={n} style={{ display: "flex", gap: "2px" }}>
+                      <button className="btn btn-ghost" style={{ minHeight: "38px" }}
+                        title={`${n} front-only ports (switch, firewall, server)`}
+                        onClick={() => addPorts(d.assetId, n, false)}>{n}</button>
+                      <button className="btn btn-ghost" style={{ minHeight: "38px", fontSize: "10px" }}
+                        title={`${n} paired front+rear ports (patch panel)`}
+                        onClick={() => addPorts(d.assetId, n, true)}>{n}⇄</button>
+                    </span>
+                  ))}
                 </div>
               ))}
             </div>

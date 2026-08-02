@@ -79,6 +79,18 @@ export function portPattern(state: PortState): string | null {
  * a dozen device classes. Pair with the 2-letter glyph below for monochrome print.
  */
 export const DEVICE_COLORS: Record<string, string> = {
+  // AssetCategory members (what Asset.category actually holds) MUST be present.
+  // These maps were keyed only on the legacy NetworkDeviceType names, so on the
+  // floor plan every NETWORK_GEAR / WIRELESS / PHONE_SYSTEM device fell through to
+  // OTHER and rendered as an identical grey "--" dot — i.e. exactly the devices a
+  // floor plan exists to locate, while 784 workstations rendered a legible "PC".
+  NETWORK_GEAR: "#3b82f6",
+  WIRELESS: "#8b5cf6",
+  PHONE_SYSTEM: "#f43f5e",
+  PHONE_ENDPOINT: "#fb7185",
+  TABLET: "#22d3ee",
+  VPN: "#a78bfa",
+  WEBSITE: "#eab308",
   FIREWALL: "#ef4444",
   ROUTER: "#f97316",
   SWITCH: "#3b82f6",
@@ -96,6 +108,13 @@ export const DEVICE_COLORS: Record<string, string> = {
 
 /** Two-letter mono badge — survives greyscale print where hue does not. */
 export const DEVICE_GLYPH: Record<string, string> = {
+  NETWORK_GEAR: "SW",
+  WIRELESS: "AP",
+  PHONE_SYSTEM: "PB",
+  PHONE_ENDPOINT: "PH",
+  TABLET: "TB",
+  VPN: "VP",
+  WEBSITE: "WW",
   FIREWALL: "FW",
   ROUTER: "RT",
   SWITCH: "SW",

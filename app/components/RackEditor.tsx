@@ -27,10 +27,15 @@ import {
 const U_HEIGHT = 26
 const RACK_W = 620
 const RAIL_W = 34
-const PORT = 15          // drawn port size
+const PORT = 13          // drawn port size
 const PORT_GAP = 3
-const HIT = 44           // MINIMUM touch target. A 24-port switch at 1:1 on an iPad
-                         // Mini is ~8px/port; without hit slop it is unusable.
+const PITCH = PORT + PORT_GAP
+// Effective tap radius, resolved by NEAREST CENTRE at the <svg> level rather than by
+// per-port hit rectangles. Fixed-size rects on a 16px pitch necessarily overlap, and
+// the topmost one wins — so tapping port 12 selected 13, silently writing a cable
+// between two ports nobody touched. Nearest-centre has no overlap by construction and
+// still gives a large forgiving target.
+const TAP_RADIUS = 22
 
 export type EditorPort = {
   id: string
@@ -90,10 +95,16 @@ export default function RackEditor({
     for (const d of devices) {
       const visible = d.ports.filter((p) => p.side === side).sort((a, b) => a.portIndex - b.portIndex)
       const rowY = 20 + (d.startU - 1) * U_HEIGHT
+      const midY = rowY + (d.heightU * U_HEIGHT) / 2
+      // Two rows, odd on top — how switch faces are actually laid out, and what
+      // keeps a 48-port panel inside the chassis instead of 200px past its edge.
+      const twoRow = visible.length > 12
       visible.forEach((p, i) => {
+        const col = twoRow ? Math.floor(i / 2) : i
+        const rowOffset = twoRow ? (i % 2 === 0 ? -(PORT / 2 + 1) : PORT / 2 + 1) : 0
         m.set(p.id, {
-          x: RAIL_W + 12 + i * (PORT + PORT_GAP) + PORT / 2,
-          y: rowY + (d.heightU * U_HEIGHT) / 2,
+          x: RAIL_W + 12 + col * PITCH + PORT / 2,
+          y: midY + rowOffset,
           device: d,
           port: p,
         })
@@ -125,6 +136,18 @@ export default function RackEditor({
     (...ids: string[]) => (highlighted && !ids.some((i) => highlighted.has(i)) ? 0.22 : 1),
     [highlighted]
   )
+
+  /** Nearest port centre to a tap, or null if the tap was not near one. */
+  const portAt = useCallback((clientX: number, clientY: number) => {
+    const { x, y } = pz.toLocal(clientX, clientY)
+    let best: string | null = null
+    let bestD = Infinity
+    for (const [id, p] of portPos) {
+      const d = Math.hypot(p.x - x, p.y - y)
+      if (d < bestD) { bestD = d; best = id }
+    }
+    return bestD <= TAP_RADIUS ? best : null
+  }, [portPos, pz])
 
   const tapPort = useCallback(async (portId: string) => {
     if (pz.didPan()) return  // the gesture was a pan, not a tap
@@ -179,9 +202,13 @@ export default function RackEditor({
         )}
         <button className="btn btn-secondary" onClick={pz.reset} style={{ minHeight: "40px" }}>Fit</button>
         {selected && (
-          <span style={{ fontSize: "12px", color: "var(--color-text-warning)" }}>
-            {readOnly ? "Showing this run" : `Tap a second port to connect · Esc to cancel`}
-          </span>
+          <>
+            <span style={{ fontSize: "12px", color: "var(--color-text-warning)" }}>
+              {readOnly ? "Showing this run" : "Tap a second port to connect"}
+            </span>
+            <button className="btn btn-secondary" style={{ minHeight: "40px" }}
+              onClick={() => { setSelected(null); setMsg(null) }}>Cancel</button>
+          </>
         )}
         {busy && <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>Saving...</span>}
         {msg && <span style={{ fontSize: "12px", color: "var(--color-text-danger)" }}>{msg}</span>}
@@ -189,6 +216,14 @@ export default function RackEditor({
 
       <svg
         {...pz.bind}
+        onPointerUp={(e) => {
+          pz.bind.onPointerUp(e)
+          // Tap resolution lives here, not on per-port rects: fixed rects on a 16px
+          // pitch overlap and the wrong port wins.
+          if (pz.didPan()) return
+          const id = portAt(e.clientX, e.clientY)
+          if (id) tapPort(id)
+        }}
         width="100%"
         height={height}
         role="img"
@@ -196,6 +231,7 @@ export default function RackEditor({
         className="print-graphics"
         style={{ ...pz.bind.style, maxWidth: "100%", background: "var(--color-chassis)", borderRadius: "8px", border: "1px solid var(--color-border-primary)" }}
       >
+        <style>{`@media print { #cables path, #ports g, #devices g { opacity: 1 !important; } }`}</style>
         <defs>
           {/* Backs up the EMPTY state so it survives greyscale print and colour
               blindness — never encode an actionable state in hue alone. */}
@@ -241,7 +277,7 @@ export default function RackEditor({
           {[...portPos.entries()].map(([id, { x, y, port }]) => {
             const isSel = selected === id
             return (
-              <g key={id} opacity={dim(id)} style={{ cursor: "pointer" }}>
+              <g key={id} opacity={dim(id)} style={{ cursor: "pointer", pointerEvents: "none" }}>
                 <rect x={x - PORT / 2} y={y - PORT / 2} width={PORT} height={PORT} rx="2"
                       fill={portPattern(port.state) ?? portFill(port.state)}
                       stroke={port.vlanColor || (isSel ? "var(--accent)" : "var(--color-border-primary)")}
@@ -250,12 +286,7 @@ export default function RackEditor({
                   <text x={x} y={y + 3} textAnchor="middle" fontSize="7"
                         fill={portText(port.state)}>⚡</text>
                 )}
-                {/* Invisible 44px hit target. Drawn AFTER the visual so it wins the
-                    hit test, and kept transparent so it never affects print. */}
-                <rect x={x - HIT / 2} y={y - HIT / 2} width={HIT} height={HIT} fill="transparent"
-                      onPointerUp={() => tapPort(id)}>
-                  <title>{`Port ${port.portIndex}${port.label ? ` (${port.label})` : ""} — ${PORT_STATE_LABEL[port.state]}`}</title>
-                </rect>
+                <title>{`Port ${port.portIndex}${port.label ? ` (${port.label})` : ""} — ${PORT_STATE_LABEL[port.state]}`}</title>
               </g>
             )
           })}
@@ -269,21 +300,36 @@ export default function RackEditor({
             if (!a || !b) return null   // other side is on the opposite face
             const midX = Math.max(a.x, b.x) + 26 + Math.abs(a.y - b.y) * 0.12
             return (
-              <path
-                key={l.id}
-                d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
-                stroke={l.color || (l.kind === "BUILDING" ? "var(--color-text-warning)" : "var(--accent)")}
-                strokeWidth={2}
-                // Dashed = permanent in-wall run, solid = movable cord. Same
-                // convention Patchdocs uses, and it reads in monochrome print.
-                strokeDasharray={l.kind === "BUILDING" ? "5 3" : undefined}
-                opacity={dim(l.aPortId, l.bPortId)}
-                style={{ pointerEvents: "stroke", cursor: readOnly ? "default" : "pointer" }}
-                onPointerUp={() => {
-                  if (readOnly || pz.didPan()) return
-                  if (confirm("Disconnect this cable?")) onDisconnect(l.id)
-                }}
-              />
+              <g key={l.id} opacity={dim(l.aPortId, l.bPortId)}>
+                {/* Transparent fat stroke: the visible cable is 2px, which is 22x
+                    below the touch target this same file enforces for ports. */}
+                {!readOnly && (
+                  <path
+                    d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
+                    stroke="transparent" strokeWidth={20} fill="none"
+                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                    className="no-print"
+                    onPointerUp={async (e) => {
+                      e.stopPropagation()
+                      if (pz.didPan()) return
+                      if (!confirm("Disconnect this cable?")) return
+                      setBusy(true)
+                      try { await onDisconnect(l.id) }
+                      catch (err) { setMsg((err as Error).message) }
+                      finally { setBusy(false) }
+                    }}
+                  />
+                )}
+                <path
+                  d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
+                  stroke={l.color || (l.kind === "BUILDING" ? "var(--color-text-warning)" : "var(--accent)")}
+                  strokeWidth={2}
+                  // Dashed = permanent in-wall run, solid = movable cord. Same
+                  // convention Patchdocs uses, and it reads in monochrome print.
+                  strokeDasharray={l.kind === "BUILDING" ? "5 3" : undefined}
+                  style={{ pointerEvents: "none" }}
+                />
+              </g>
             )
           })}
         </g>

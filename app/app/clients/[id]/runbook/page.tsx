@@ -79,7 +79,11 @@ export default function RunbookPage() {
           body { background: white !important; color: black !important; font-family: Arial, sans-serif; }
           .report-section { page-break-inside: avoid; }
           .report-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-          .report-table th { background: #1e293b; color: white; padding: 6px 8px; text-align: left; }
+          /* Dark fill + white text needs print-color-adjust:exact, and browsers
+             default to economy with "Background graphics" OFF — which dropped the
+             fill and kept the white text, handing the client six UNLABELLED columns
+             under a $250-500 invoice. Inverted so it needs no fill at all. */
+          .report-table th { background: #fff; color: #111; border-bottom: 2px solid #111; padding: 6px 8px; text-align: left; font-weight: 700; }
           .report-table td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
           .report-table tr:nth-child(even) td { background: #f8fafc; }
           .report-header { border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 24px; }

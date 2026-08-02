@@ -75,6 +75,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const roomId = req.nextUrl.searchParams.get("roomId")
     if (!roomId) return NextResponse.json({ error: "roomId is required" }, { status: 400 })
 
+    // The room must belong to the floor we authorized. Without this the authz check
+    // above is decorative: it proves access to floor X, then deletes a room on
+    // floor Y. Invisible today only because every user is currently unscoped.
+    const room = await prisma.room.findFirst({ where: { id: roomId, floorId }, select: { id: true } })
+    if (!room) return NextResponse.json({ error: "Room not found on this floor" }, { status: 404 })
+
     // Assets keep their free-text `room` string; only the resolved pointer clears.
     await prisma.asset.updateMany({ where: { roomId }, data: { roomId: null } })
     await prisma.room.delete({ where: { id: roomId } })
