@@ -27,6 +27,14 @@ export default function ScanPage() {
       const res = await fetch(`/api/search?q=${encodeURIComponent(value)}`)
       if (res.ok) {
         const d = await res.json()
+        // Cable runs first: a printed jack label is exactly what code_39/code_128
+        // encode, and someone scanning a faceplate sticker wants the run, not a
+        // fuzzy asset match on the same string.
+        if (d.cableRuns?.[0]) {
+          const r = d.cableRuns[0]
+          router.push(`/clients/${r.clientId}?tab=Network&sub=cabling&run=${r.id}`)
+          return
+        }
         if (d.assets?.[0]) { router.push(`/assets/${d.assets[0].id}`); return }
         if (d.clients?.[0]) { router.push(`/clients/${d.clients[0].id}`); return }
       }

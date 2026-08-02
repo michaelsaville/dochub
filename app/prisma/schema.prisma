@@ -166,6 +166,7 @@ model Client {
   backupConfigs     BackupConfig[]
   intakeSuggestions IntakeSuggestion[]
   internetCircuits  InternetCircuit[]
+  cableRuns         CableRun[]
 }
 
 model Location {
@@ -193,6 +194,7 @@ model Location {
   attachments    ClientAttachment[] @relation("LocationAttachments")
   internetCircuits InternetCircuit[]
   flexAssets       FlexAsset[]
+  cableRuns        CableRun[]
   /// Cross-app pointer to TicketHub's TH_Site.id. Populated lazily on
   /// first successful name-match resolve so subsequent cross-schema
   /// lookups are O(1). Null = no matching TH_Site yet (DocHub has 178
@@ -343,6 +345,8 @@ model Asset {
   circuitsAsEdge     InternetCircuit[]      @relation("CircuitEdgeAsset")
   purchaseVendor     Vendor?                @relation("AssetPurchaseVendor", fields: [purchaseVendorId], references: [id])
   licenseSeats       LicenseSeatAssignment[] @relation("LicenseSeatAsset")
+  cableRunsAsPanel   CableRun[]             @relation("CableRunPanelAsset")
+  cableRunsAsSwitch  CableRun[]             @relation("CableRunSwitchAsset")
 }
 
 model SynologyConfig {
@@ -1374,6 +1378,7 @@ model SwitchPort {
   asset           Asset?           @relation(fields: [assetId], references: [id], onDelete: Cascade)
   vlan            Vlan?            @relation(fields: [vlanId], references: [id])
   interfaces      AssetInterface[]
+  cableRuns       CableRun[]
 }
 
 model AssetInterface {
@@ -1484,6 +1489,60 @@ model IpAssignment {
   person    Person?     @relation("PersonIpAssignment", fields: [personId], references: [id])
 
   @@unique([subnetId, ipAddress])
+}
+
+// ─── Physical layer / cable documentation ────────────────────────────────────
+
+/// One horizontal cable run: wall jack → patch-panel port → switch port.
+///
+/// Deliberately FLAT. The binding constraint on physical-layer documentation is
+/// capture cost, not model expressiveness — this codebase already shipped a richer
+/// substrate (Rack/RackSlot/SwitchPort) that sat at 0 rows for years. A tech in a
+/// closet can fill this in from a phone; a normalized port graph he cannot.
+///
+/// Every reference is optional except the jack itself, because capture must never
+/// block on "create the patch panel first". Phase 2 migrates these rows into
+/// DevicePort/PortLink once there are rows worth migrating.
+model CableRun {
+  id               String    @id @default(cuid())
+  clientId         String
+  locationId       String
+  /// As printed on the faceplate, e.g. "B-114". The one required field — it is
+  /// what someone standing at the jack actually reads off the wall.
+  jackLabel        String
+  room             String?   // free text, autocompleted from CableRun + Asset.room
+  panelAssetId     String?   // patch panel, when it exists as an Asset
+  panelLabel       String?   // free text when it does not (the common case)
+  panelPort        Int?
+  switchAssetId    String?
+  switchPortNumber Int?      // what a tech knows: "port 14 on that switch"
+  switchPortId     String?   // optional upgrade when a SwitchPort row happens to exist
+  cableType        String?   // Cat5e | Cat6 | Cat6a | OM4 | OS2
+  photoStorageName String?   // house convention (cf. Rack.photoStorageName), not an FK
+  notes            String?
+  lastVerifiedAt   DateTime?
+  verifiedBy       String?
+  /// Offline-queue idempotency. TicketHub replays queued writes from a Dexie queue
+  /// AND from Workbox BackgroundSync (which runs outside any tab), so a replayed
+  /// create must be recognised rather than collide with @@unique([locationId, jackLabel])
+  /// and show the tech an error for his own successful write.
+  clientOpId       String?   @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  client      Client      @relation(fields: [clientId],      references: [id], onDelete: Cascade)
+  location    Location    @relation(fields: [locationId],    references: [id], onDelete: Cascade)
+  panelAsset  Asset?      @relation("CableRunPanelAsset",  fields: [panelAssetId],  references: [id])
+  switchAsset Asset?      @relation("CableRunSwitchAsset", fields: [switchAssetId], references: [id])
+  switchPort  SwitchPort? @relation(fields: [switchPortId], references: [id])
+
+  @@unique([locationId, jackLabel])
+  // Not decorative: Prisma does not auto-index FK columns (Asset.locationId has no
+  // index at all), and the client-scoped `/` search filters on clientId per keystroke.
+  @@index([clientId])
+  @@index([locationId])
+  @@index([switchAssetId])
+  @@index([room])
 }
 
 enum ClientType {

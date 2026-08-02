@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
 
   const q = req.nextUrl.searchParams.get("q")?.trim()
   const scopeClientId = req.nextUrl.searchParams.get("clientId")?.trim() || null
-  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [], flexAssets: [], subnets: [], ipAssignments: [], racks: [] })
+  if (!q || q.length < 2) return NextResponse.json({ clients: [], assets: [], cableRuns: [], credentials: [], runbooks: [], documents: [], files: [], people: [], vendors: [], licenses: [], locations: [], netdevices: [], circuits: [], flexAssets: [], subnets: [], ipAssignments: [], racks: [] })
 
   const mode = "insensitive" as const
   const contains = (field: string) => ({ contains: q, mode })
 
-  const [clients, assets, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits, flexAssets, subnets, ipAssignments, racks] = await Promise.all([
+  const [clients, assets, cableRuns, credentials, runbooks, documents, files, people, vendors, licenses, locations, netdevices, circuits, flexAssets, subnets, ipAssignments, racks] = await Promise.all([
     // When scoped to a client, never return other Client rows — the tech is
     // already on that client's page.
     scopeClientId ? Promise.resolve([] as any[]) : prisma.client.findMany({
@@ -48,6 +48,30 @@ export async function GET(req: NextRequest) {
         room: true,
         location: { select: { client: { select: { id: true, name: true } } } },
       },
+      take: 6,
+    }),
+    // Positioned second on purpose: cross-group rank IS the order of the push
+    // loops in flattenResults, and a jack label typed at 2am must not appear
+    // below 70 other rows. Ordered explicitly because nothing else in this route
+    // has an orderBy — heap order visibly reshuffles on a table edited in the field.
+    prisma.cableRun.findMany({
+      where: {
+        OR: [
+          { jackLabel: contains("jackLabel") },
+          { room: contains("room") },
+          { panelLabel: contains("panelLabel") },
+          { notes: contains("notes") },
+        ],
+        ...(scopeClientId ? { clientId: scopeClientId } : {}),
+      },
+      select: {
+        id: true, jackLabel: true, room: true, panelLabel: true, panelPort: true,
+        clientId: true, switchPortNumber: true,
+        location: { select: { id: true, name: true } },
+        switchAsset: { select: { id: true, name: true, friendlyName: true } },
+        client: { select: { id: true, name: true } },
+      },
+      orderBy: [{ room: "asc" }, { jackLabel: "asc" }],
       take: 6,
     }),
     prisma.credential.findMany({
@@ -280,6 +304,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     clients:     clients.filter((c: any) => ok(c.id)),
     assets:      assets.filter((a: any) => ok(a.location?.client?.id)),
+    // CableRun carries clientId directly — the simplest group in this route.
+    // Note the scope is ALSO applied in the where above: the post-filter runs
+    // after take:N, so filtering only here would let other clients' rows consume
+    // the result budget and return an empty answer to a legitimately-scoped tech.
+    cableRuns:   cableRuns.filter((r: any) => ok(r.clientId)),
     credentials: credentials.filter((c: any) => ok(c.client?.id)),
     runbooks:    runbooks.filter((r: any) => !r.clientId || ok(r.clientId)),
     documents:   documents.filter((d: any) => ok(d.clientId)),

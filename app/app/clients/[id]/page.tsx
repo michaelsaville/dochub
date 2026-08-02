@@ -5,6 +5,7 @@ import { SOURCE_DEFAULTS, SOURCE_DOMAINS } from "@/lib/source-colors"
 import CastButton from "@/components/CastButton"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
+import CablingPanel from "@/components/CablingPanel"
 import MergedDocumentsPanel from "@/components/MergedDocumentsPanel"
 import PortalUsersPanel from "@/components/PortalUsersPanel"
 import PortalVaultPanel from "@/components/PortalVaultPanel"
@@ -335,7 +336,7 @@ const CLIENT_NAV_SECTION_KEY = "dochub:client-nav-section"
 
 // Network sub-tabs, deep-linkable via ?sub=. Kept at module scope so the URL guard
 // and the state type stay in sync — a search result hrefs straight to ?tab=Network&sub=racks.
-const NETWORK_SUB_TABS = ["ipam", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const
+const NETWORK_SUB_TABS = ["ipam", "cabling", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const
 type NetworkSubTab = (typeof NETWORK_SUB_TABS)[number]
 const isNetworkSubTab = (v: string | null): v is NetworkSubTab =>
   !!v && (NETWORK_SUB_TABS as readonly string[]).includes(v)
@@ -715,6 +716,7 @@ export default function ClientDetailPage() {
       if (assets.length === 0) fetchAssets()
     }
     if (networkSubTab === "racks" && racks.length === 0) { fetchRacks(); if (networkDevices.length === 0) fetchNetworkDevices(); if (assets.length === 0) fetchAssets() }
+    if (networkSubTab === "cabling" && assets.length === 0) fetchAssets()
     if (networkSubTab === "shares") {
       if (adDomains.length === 0 && clientShares.length === 0) fetchShares()
       if (assets.length === 0) fetchAssets()
@@ -4081,6 +4083,17 @@ export default function ClientDetailPage() {
                   />
                 )}
               </div>
+            )}
+
+            {/* Cabling sub-tab — CableRun capture. Panel owns its own fetching;
+                this page is already 4,300+ lines and must not grow a data layer for it. */}
+            {networkSubTab === "cabling" && (
+              <CablingPanel
+                clientId={id as string}
+                locations={client.locations}
+                assets={assets}
+                focusRunId={searchParams.get("run")}
+              />
             )}
 
             {/* Racks sub-tab */}

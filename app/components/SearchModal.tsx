@@ -15,6 +15,9 @@ type SearchResult = {
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
   client:     { label: "Client",     color: "#3d6fff" },
   asset:      { label: "Asset",      color: "#00d4aa" },
+  // An unregistered category throws at render (meta.label.toUpperCase()), so this
+  // entry is not cosmetic — it is required the moment the API returns the group.
+  cableRun:   { label: "Cable Run",  color: "#f59e0b" },
   credential: { label: "Credential", color: "#ec4899" },
   runbook:    { label: "Runbook",    color: "#f59e0b" },
   document:   { label: "Document",   color: "#6366f1" },
@@ -34,6 +37,7 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
 function flattenResults(data: {
   clients: { id: string; name: string; type: string }[]
   assets: { id: string; name: string; friendlyName: string | null; category: string | null; make: string | null; model: string | null; room: string | null; location: { client: { id: string; name: string } } | null }[]
+  cableRuns: { id: string; jackLabel: string; room: string | null; panelLabel: string | null; panelPort: number | null; clientId: string; switchPortNumber: number | null; location: { id: string; name: string } | null; switchAsset: { id: string; name: string; friendlyName: string | null } | null; client: { id: string; name: string } | null }[]
   credentials: { id: string; label: string; username: string | null; url: string | null; client: { id: string; name: string } }[]
   runbooks: { id: string; title: string; summary: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
   documents: { id: string; title: string; clientId: string; client: { id: string; name: string } }[]
@@ -66,6 +70,23 @@ function flattenResults(data: {
       label: a.friendlyName || a.name,
       sublabel: [a.room ? `Room ${a.room}` : null, a.make, a.model, clientName].filter(Boolean).join(" · "),
       href: `/assets/${a.id}`,
+    })
+  }
+  // The sublabel IS the deliverable here: it renders the whole chain
+  // jack -> panel/port -> switch:port inline, so the 2am lookup is answered by the
+  // search results list itself, without opening anything.
+  for (const r of data.cableRuns) {
+    const sw = r.switchAsset ? (r.switchAsset.friendlyName || r.switchAsset.name) : null
+    results.push({
+      id: r.id, category: "cableRun", categoryColor: CATEGORY_META.cableRun.color,
+      label: r.jackLabel,
+      sublabel: [
+        r.room,
+        r.panelLabel ? `panel ${r.panelLabel}${r.panelPort != null ? `/${r.panelPort}` : ""}` : null,
+        sw ? `${sw}${r.switchPortNumber != null ? `:${r.switchPortNumber}` : ""}` : null,
+        r.client?.name,
+      ].filter(Boolean).join(" · "),
+      href: `/clients/${r.clientId}?tab=Network&sub=cabling&run=${r.id}`,
     })
   }
   for (const c of data.credentials) {
