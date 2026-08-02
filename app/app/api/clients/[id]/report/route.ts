@@ -91,10 +91,21 @@ export async function GET(
   }
 
   if (modules.includes("network")) {
-    data.network = await prisma.networkDevice.findMany({
-      where: { clientId: id, isActive: true },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-      include: { location: { select: { name: true } } },
+    // Was prisma.networkDevice — a table with 0 rows since the asset migration
+    // completed, so this section rendered empty on every report ever generated.
+    data.network = await prisma.asset.findMany({
+      where: {
+        location: { clientId: id },
+        status: { not: "RETIRED" },
+        category: { in: ["NETWORK_GEAR", "WIRELESS"] },
+      },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+      select: {
+        id: true, name: true, friendlyName: true, category: true, make: true, model: true,
+        ipAddress: true, macAddress: true,
+        assetType: { select: { name: true } },
+        location: { select: { name: true } },
+      },
     })
     data.subnets = await prisma.subnet.findMany({
       where: { clientId: id },
@@ -102,6 +113,21 @@ export async function GET(
       include: {
         ipAssignments: { orderBy: { ipAddress: "asc" } },
         location: { select: { name: true } },
+      },
+    })
+  }
+
+  if (modules.includes("cabling")) {
+    // Cabling: the as-built deliverable. Ordered the way a building is walked.
+    data.cableRuns = await prisma.cableRun.findMany({
+      where: { clientId: id },
+      orderBy: [{ room: "asc" }, { jackLabel: "asc" }],
+      select: {
+        id: true, jackLabel: true, room: true, panelLabel: true, panelPort: true,
+        switchPortNumber: true, cableType: true, notes: true, lastVerifiedAt: true,
+        location: { select: { name: true } },
+        panelAsset: { select: { name: true, friendlyName: true } },
+        switchAsset: { select: { name: true, friendlyName: true } },
       },
     })
   }

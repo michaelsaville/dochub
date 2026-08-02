@@ -11,6 +11,7 @@ const ALL_MODULES = [
   { id: "licenses",    label: "Licenses",     icon: "📋" },
   { id: "vendors",     label: "Vendors",      icon: "🏢" },
   { id: "network",     label: "Network / IPAM", icon: "🌐" },
+  { id: "cabling",     label: "Cabling / As-built", icon: "🔌" },
   { id: "contacts",    label: "Contacts",     icon: "👥" },
   { id: "users",       label: "Users",        icon: "👤" },
   { id: "locations",   label: "Locations",    icon: "📍" },
@@ -336,8 +337,8 @@ export default function RunbookPage() {
                     <tbody>
                       {data.network.map((d: any) => (
                         <tr key={d.id}>
-                          <td style={{ fontWeight: 500 }}>{d.name}</td>
-                          <td>{d.type}</td>
+                          <td style={{ fontWeight: 500 }}>{d.friendlyName || d.name}</td>
+                          <td>{d.assetType?.name || d.category}</td>
                           <td>{[d.make, d.model].filter(Boolean).join(" ") || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "11px" }}>{d.ipAddress || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "11px" }}>{d.macAddress || "—"}</td>
@@ -346,6 +347,38 @@ export default function RunbookPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Cabling — the as-built. This is what gets handed to the client. */}
+              {data.cableRuns?.length > 0 && (
+                <div className="report-section">
+                  <div className="section-title">Cabling / Horizontal Runs</div>
+                  <table className="report-table">
+                    <thead><tr><th>Jack</th><th>Room</th><th>Patch panel</th><th>Switch port</th><th>Cable</th><th>Verified</th></tr></thead>
+                    <tbody>
+                      {data.cableRuns.map((r: any) => (
+                        <tr key={r.id}>
+                          <td style={{ fontFamily: "monospace", fontWeight: 600 }}>{r.jackLabel}</td>
+                          <td>{r.room || "—"}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: "11px" }}>
+                            {[(r.panelAsset?.friendlyName || r.panelAsset?.name || r.panelLabel), r.panelPort]
+                              .filter((v: any) => v !== null && v !== undefined && v !== "").join("/") || "—"}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "11px" }}>
+                            {[(r.switchAsset?.friendlyName || r.switchAsset?.name), r.switchPortNumber]
+                              .filter((v: any) => v !== null && v !== undefined && v !== "").join(":") || "—"}
+                          </td>
+                          <td>{r.cableType || "—"}</td>
+                          <td>{fmt(r.lastVerifiedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: "10px", marginTop: "6px", opacity: 0.7 }}>
+                    {data.cableRuns.length} run(s). &quot;Verified&quot; is the last date a
+                    technician physically confirmed the run — not the date it was installed.
+                  </div>
                 </div>
               )}
 
