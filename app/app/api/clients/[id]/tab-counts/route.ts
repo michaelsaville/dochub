@@ -30,7 +30,12 @@ export async function GET(
             applications: true,
             vendors: true,
             websites: true,
-            networkDevices: { where: { assetId: null } },
+            // Legacy NetworkDevice is empty; the Network tab now counts what it
+            // actually contains — subnets, circuits, VLANs and cable runs.
+            subnets: true,
+            internetCircuits: true,
+            vlans: true,
+            cableRuns: true,
             vpnGateways: true,
             phoneSystems: true,
             cameraSystems: true,
@@ -57,7 +62,7 @@ export async function GET(
     Applications: c.applications,
     Vendors: c.vendors,
     Domains: c.websites,
-    Network: c.networkDevices,
+    Network: c.subnets + c.internetCircuits + c.vlans + c.cableRuns,
     "Remote Access": c.vpnGateways,
     "Phone System": c.phoneSystems,
     Cameras: c.cameraSystems,

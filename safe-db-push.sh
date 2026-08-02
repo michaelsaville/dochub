@@ -44,8 +44,22 @@ BEFORE=$(crit_counts); echo "== 4/5 Critical counts BEFORE: $BEFORE"
 if [ "$MODE" = "--check" ]; then echo "== --check: not pushing. Backup + gate passed."; exit 0; fi
 
 echo "== 5/5 Applying additive db push"
+# NOTE: the push runs through a pipe, so $? is grep's status, not prisma's.
+# Without PIPESTATUS this script printed "DONE — 0 rows lost" after a push that
+# actually failed (observed 2026-08-02: prisma refused a new nullable unique
+# column pending --accept-data-loss, and the script still reported success).
+set -o pipefail
 docker run --rm --network "$NET" -v "$PWD":/app -w /app -e DATABASE_URL="$DBURL" node:20-alpine \
   sh -c 'npx --yes prisma@6 db push --skip-generate' 2>&1 | grep -iE 'sync|error|warn' | sed 's/^/   /'
+PUSH_RC=${PIPESTATUS[0]}
+set +o pipefail
+if [ "$PUSH_RC" -ne 0 ]; then
+  echo "   !! PUSH FAILED (exit $PUSH_RC) — schema NOT applied. Nothing was changed."
+  echo "   If prisma is only warning about a unique index on a new nullable column,"
+  echo "   check it is NULL everywhere, then apply the vetted migrate-diff SQL directly"
+  echo "   rather than reaching for --accept-data-loss, which disables this gate."
+  exit 4
+fi
 AFTER=$(crit_counts); echo "   Critical counts AFTER:  $AFTER"
 if [ "$BEFORE" != "$AFTER" ]; then
   echo "   !! WARNING: critical row counts CHANGED — investigate immediately. Restore: psql < $BK"; exit 3

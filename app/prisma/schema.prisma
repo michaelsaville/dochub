@@ -167,6 +167,7 @@ model Client {
   intakeSuggestions IntakeSuggestion[]
   internetCircuits  InternetCircuit[]
   cableRuns         CableRun[]
+  portLinks         PortLink[]
 }
 
 model Location {
@@ -345,6 +346,7 @@ model Asset {
   circuitsAsEdge     InternetCircuit[]      @relation("CircuitEdgeAsset")
   purchaseVendor     Vendor?                @relation("AssetPurchaseVendor", fields: [purchaseVendorId], references: [id])
   licenseSeats       LicenseSeatAssignment[] @relation("LicenseSeatAsset")
+  devicePorts        DevicePort[]
   cableRunsAsPanel   CableRun[]             @relation("CableRunPanelAsset")
   cableRunsAsSwitch  CableRun[]             @relation("CableRunSwitchAsset")
 }
@@ -1372,11 +1374,15 @@ model SwitchPort {
   /// are writable by BOTH paths today. Written by api/assets/[id]/ports/[portId].
   /// Deliberately lands BEFORE any sync exists: it only protects edits made after it.
   lockedFields    String?
+  /// 1:1 join to the physical port. SwitchPort remains the L2 facet (VLAN, PoE,
+  /// uplink); DevicePort owns identity and cabling. Backfilled once, never dual-written.
+  devicePortId    String?          @unique
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   networkDevice   NetworkDevice?   @relation(fields: [networkDeviceId], references: [id], onDelete: Cascade)
   asset           Asset?           @relation(fields: [assetId], references: [id], onDelete: Cascade)
   vlan            Vlan?            @relation(fields: [vlanId], references: [id])
+  devicePort      DevicePort?      @relation(fields: [devicePortId], references: [id])
   interfaces      AssetInterface[]
   cableRuns       CableRun[]
 }
@@ -1543,6 +1549,97 @@ model CableRun {
   @@index([locationId])
   @@index([switchAssetId])
   @@index([room])
+}
+
+enum PortSide {
+  FRONT
+  REAR
+}
+
+enum LinkKind {
+  /// Permanent in-wall cabling: patch-panel rear <-> wall outlet. Installed once,
+  /// changed only by an electrician. A patch-panel port is an empty slot until a
+  /// BUILDING link lands on it — the physical analogue is inserting the keystone.
+  BUILDING
+  /// The movable patch cord: patch-panel front <-> switch port, or device <-> outlet.
+  /// Changed constantly. Separating these two is what makes end-to-end tracing
+  /// meaningful, and is the one genuinely good idea worth taking from Patchdocs.
+  PATCH
+}
+
+/// A physical port on a device.
+///
+/// Separate from SwitchPort on purpose: SwitchPort carries L2 semantics (vlanId,
+/// isPoe, isUplink) that are meaningless on a patch-panel port or a keystone, it
+/// still carries the legacy networkDeviceId FK, and it has no unique constraint on
+/// (assetId, portNumber) — you cannot anchor a cable graph on a non-unique
+/// identity. SwitchPort stays as the L2 facet, joined 1:1 via devicePortId.
+///
+/// NOTE: the column is `portIndex`, never `index`. The path trace is a hand-written
+/// recursive CTE and `"index"` would need quoting on every reference; one missed
+/// quote is a runtime syntax error in the single most load-bearing query here.
+model DevicePort {
+  id           String   @id @default(cuid())
+  assetId      String
+  side         PortSide @default(FRONT)
+  portIndex    Int
+  name         String?
+  mediaType    String   @default("RJ45")
+  label        String?
+  notes        String?
+  /// The other side of a pass-through, i.e. a patch panel's front port 12 paired
+  /// with its rear port 12. This is what makes a panel TRANSPARENT to a trace.
+  /// Modelled explicitly rather than assumed from matching portIndex, because on a
+  /// switch, front port 1 and rear port 1 are emphatically NOT connected.
+  pairedPortId String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  asset    Asset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  paired   DevicePort? @relation("PortPair", fields: [pairedPortId], references: [id])
+  pairedBy DevicePort? @relation("PortPair")
+
+  linksAsA   PortLink[]   @relation("PortLinkA")
+  linksAsB   PortLink[]   @relation("PortLinkB")
+  switchPort SwitchPort?
+
+  @@unique([assetId, side, portIndex])
+  @@index([assetId])
+}
+
+/// A cable between two ports.
+///
+/// One table with a `kind` discriminator rather than two: the concepts differ in
+/// lifecycle, not in shape, and the trace is a single uniform graph walk — two
+/// tables would double the recursive CTE for no gain.
+///
+/// The two unique indexes give the Patchdocs semantic for free: a port may hold at
+/// most one BUILDING link (its keystone) and at most one PATCH link (its cord).
+/// They do NOT prevent the same port appearing as aPortId on one row and bPortId
+/// on another with the same kind — lib/patch-link.ts enforces that inside the
+/// insert transaction, because an offline double-tap is a live path here.
+model PortLink {
+  id          String    @id @default(cuid())
+  clientId    String
+  kind        LinkKind
+  aPortId     String
+  bPortId     String
+  color       String?
+  cableType   String?
+  lengthCm    Int?
+  installedAt DateTime?
+  testedAt    DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  client Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  aPort  DevicePort @relation("PortLinkA", fields: [aPortId], references: [id], onDelete: Cascade)
+  bPort  DevicePort @relation("PortLinkB", fields: [bPortId], references: [id], onDelete: Cascade)
+
+  @@unique([aPortId, kind])
+  @@unique([bPortId, kind])
+  @@index([clientId, kind])
 }
 
 enum ClientType {

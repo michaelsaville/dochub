@@ -18,18 +18,22 @@ export async function GET(
 
   const [
     contacts, assets, credentials, documents, locations,
-    networkDevices, websites, diagrams, runbooks, vlans,
+    networkDevices, websites, diagrams, runbooks, vlans, cableRuns,
   ] = await Promise.all([
     prisma.person.count({ where: { clientId: id } }),
     prisma.asset.count({ where: { location: { clientId: id } } }),
     prisma.credential.count({ where: { clientId: id, isRetired: false } }),
     prisma.clientDocument.count({ where: { clientId: id } }),
     prisma.location.count({ where: { clientId: id } }),
-    prisma.networkDevice.count({ where: { clientId: id, assetId: null } }),
+    // Counts NETWORK-CATEGORY ASSETS, not the legacy NetworkDevice table.
+    // NetworkDevice has 0 rows since the asset migration completed, so counting it
+    // made this check permanently unmet and capped EVERY client below 100%.
+    prisma.asset.count({ where: { location: { clientId: id }, category: { in: ["NETWORK_GEAR", "WIRELESS"] } } }),
     prisma.website.count({ where: { clientId: id } }),
     prisma.networkDiagram.count({ where: { clientId: id } }),
     prisma.runbook.count({ where: { clientId: id } }),
     prisma.vlan.count({ where: { clientId: id } }),
+    prisma.cableRun.count({ where: { clientId: id } }),
   ])
 
   // Primary contact check
@@ -49,6 +53,7 @@ export async function GET(
     { label: "Has runbooks/SOPs", met: runbooks > 0, weight: 5 },
     { label: "Has VLANs documented", met: vlans > 0, weight: 5 },
     { label: "Has network devices documented", met: networkDevices > 0, weight: 5 },
+    { label: "Has cabling documented", met: cableRuns > 0, weight: 5 },
   ]
 
   const totalWeight = checks.reduce((s, c) => s + c.weight, 0)

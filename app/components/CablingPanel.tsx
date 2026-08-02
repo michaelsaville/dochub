@@ -59,7 +59,11 @@ const STALE_AFTER_DAYS = 365
 const deviceName = (a: { name: string; friendlyName: string | null } | null | undefined) =>
   a ? a.friendlyName || a.name : null
 
-/** `B-114 -> PP-A/12 -> sw-mdf:14`. ASCII arrows — this string is reused in print/PDF. */
+/**
+ * `B-114 → PP-A/12 → sw-mdf:14` — screen only, so a real arrow is fine here.
+ * The print/PDF path uses cableRunChain() in lib/cable-runs.ts, which is ASCII-only
+ * because @react-pdf's bundled Helvetica silently corrupts non-ASCII glyphs.
+ */
 function chainOf(r: CableRun): string {
   const parts: string[] = [r.jackLabel]
   const panel = deviceName(r.panelAsset) || r.panelLabel
@@ -114,7 +118,9 @@ export default function CablingPanel({ clientId, locations, assets, focusRunId }
   // database are all called "USW Lite 16 PoE".
   const switches = useMemo(
     () => assets
-      .filter(a => a.category === "NETWORK" || a.portCount != null || /switch/i.test(a.name))
+      // NETWORK_GEAR is the real enum value ("NETWORK" does not exist and silently
+      // matched nothing); portCount and a name match catch the rest.
+      .filter(a => a.category === "NETWORK_GEAR" || a.portCount != null || /switch/i.test(a.name))
       .sort((a, b) => (deviceName(a) || "").localeCompare(deviceName(b) || "")),
     [assets]
   )
