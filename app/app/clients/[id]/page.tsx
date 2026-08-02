@@ -6,6 +6,7 @@ import CastButton from "@/components/CastButton"
 import IpamPanel from "@/components/IpamPanel"
 import RackDiagram from "@/components/RackDiagram"
 import CablingPanel from "@/components/CablingPanel"
+import FloorPlanPanel from "@/components/FloorPlanPanel"
 import MergedDocumentsPanel from "@/components/MergedDocumentsPanel"
 import PortalUsersPanel from "@/components/PortalUsersPanel"
 import PortalVaultPanel from "@/components/PortalVaultPanel"
@@ -336,7 +337,7 @@ const CLIENT_NAV_SECTION_KEY = "dochub:client-nav-section"
 
 // Network sub-tabs, deep-linkable via ?sub=. Kept at module scope so the URL guard
 // and the state type stay in sync — a search result hrefs straight to ?tab=Network&sub=racks.
-const NETWORK_SUB_TABS = ["ipam", "cabling", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const
+const NETWORK_SUB_TABS = ["ipam", "cabling", "floorplan", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const
 type NetworkSubTab = (typeof NETWORK_SUB_TABS)[number]
 const isNetworkSubTab = (v: string | null): v is NetworkSubTab =>
   !!v && (NETWORK_SUB_TABS as readonly string[]).includes(v)
@@ -717,6 +718,7 @@ export default function ClientDetailPage() {
     }
     if (networkSubTab === "racks" && racks.length === 0) { fetchRacks(); if (networkDevices.length === 0) fetchNetworkDevices(); if (assets.length === 0) fetchAssets() }
     if (networkSubTab === "cabling" && assets.length === 0) fetchAssets()
+    if (networkSubTab === "floorplan" && assets.length === 0) fetchAssets()
     if (networkSubTab === "shares") {
       if (adDomains.length === 0 && clientShares.length === 0) fetchShares()
       if (assets.length === 0) fetchAssets()
@@ -4094,6 +4096,17 @@ export default function ClientDetailPage() {
                 assets={assets}
                 focusRunId={searchParams.get("run")}
               />
+            )}
+
+            {/* Floor plan sub-tab — one panel per location; most sites have exactly one. */}
+            {networkSubTab === "floorplan" && (
+              client.locations.length === 0 ? (
+                <div style={{ color: "var(--color-text-secondary)", fontSize: "14px" }}>
+                  Add a location first — floor plans belong to a site.
+                </div>
+              ) : (
+                <FloorPlanPanel locationId={client.locations[0].id} assets={assets} />
+              )
             )}
 
             {/* Racks sub-tab */}

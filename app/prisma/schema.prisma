@@ -196,6 +196,7 @@ model Location {
   internetCircuits InternetCircuit[]
   flexAssets       FlexAsset[]
   cableRuns        CableRun[]
+  floors           Floor[]
   /// Cross-app pointer to TicketHub's TH_Site.id. Populated lazily on
   /// first successful name-match resolve so subsequent cross-schema
   /// lookups are O(1). Null = no matching TH_Site yet (DocHub has 178
@@ -284,6 +285,15 @@ model Asset {
   /// Acquisition cost in cents (one-time). Stored as cents to avoid float drift in budget rollups.
   cost               Int?
   room               String?
+  /// Placement on a floor plan. `room` above stays as free text and is NOT removed:
+  /// it is what a tech types at 4pm, and forcing a picker before a Room exists is
+  /// the friction that produced an 0.8% fill rate. Typing free text creates/matches
+  /// the Room; roomId is the resolved pointer. Same both-representations pattern as
+  /// Subnet.vlan / Subnet.vlanRefId.
+  floorId            String?
+  roomId             String?
+  planX              Float?
+  planY              Float?
   syncroAssetId      String?                @unique
   notes              String?
   successorId        String?                @unique
@@ -347,6 +357,8 @@ model Asset {
   purchaseVendor     Vendor?                @relation("AssetPurchaseVendor", fields: [purchaseVendorId], references: [id])
   licenseSeats       LicenseSeatAssignment[] @relation("LicenseSeatAsset")
   devicePorts        DevicePort[]
+  floor              Floor?                 @relation("AssetFloor", fields: [floorId], references: [id])
+  roomRef            Room?                  @relation("AssetRoom",  fields: [roomId],  references: [id])
   cableRunsAsPanel   CableRun[]             @relation("CableRunPanelAsset")
   cableRunsAsSwitch  CableRun[]             @relation("CableRunSwitchAsset")
 }
@@ -1549,6 +1561,55 @@ model CableRun {
   @@index([locationId])
   @@index([switchAssetId])
   @@index([room])
+}
+
+/// A floor of a location. Optional everywhere: most PCC2K sites are a single
+/// storey with one wall cabinet, and forcing a Floor level on them would be a
+/// step that gets auto-created and never used.
+model Floor {
+  id       String  @id @default(cuid())
+  locationId String
+  name     String  @default("Ground Floor")
+  ordinal  Int     @default(0)
+  /// House convention for images: a bare storage name, no ClientAttachment FK
+  /// (cf. Rack.photoStorageName, Camera.photoStorageName).
+  planStorageName String?
+  planWidth       Int?
+  planHeight      Int?
+  /// Pixels per metre, from the two-point scale calibration. Null = plan not
+  /// scaled yet, which is fine — an unscaled plan is still a useful picture.
+  pxPerMetre      Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  rooms    Room[]
+  assets   Asset[]  @relation("AssetFloor")
+
+  @@unique([locationId, ordinal])
+  @@index([locationId])
+}
+
+/// A room drawn on a floor plan.
+///
+/// `geometry` is NULLABLE on purpose. The capture rule is that typing a room name
+/// auto-creates the room and never blocks on drawing it — a required polygon would
+/// reintroduce exactly the friction that produced a 0.8% fill rate on Asset.room.
+model Room {
+  id        String   @id @default(cuid())
+  floorId   String
+  name      String
+  shortId   String?
+  /// GeoJSON-ish { points: [[x,y], ...] } in plan-image pixel space.
+  geometry  Json?
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  floor  Floor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  assets Asset[] @relation("AssetRoom")
+
+  @@index([floorId])
 }
 
 enum PortSide {
