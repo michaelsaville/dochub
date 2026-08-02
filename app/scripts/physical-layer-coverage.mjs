@@ -90,7 +90,11 @@ add("Logical", "IP assignments", await scalar(`SELECT count(*) FROM "IpAssignmen
 // ---- the new physical layer (null until each phase lands) ------------------
 const runs = await scalarIf(["CableRun"], `SELECT count(*) FROM "CableRun"`)
 add("Cable runs", "CableRun rows", runs)
-add("Cable runs", "  ...with a photo", await scalarIf(["CableRun"], `SELECT count(*) FROM "CableRun" WHERE "photoAttachmentId" IS NOT NULL`), runs)
+// NB: photoStorageName, not photoAttachmentId — the house convention for images on
+// physical entities is a bare storage name with no FK (cf. Rack, Camera). This script
+// predates the model and originally guessed the FK name, which made it crash the
+// moment the table actually existed.
+add("Cable runs", "  ...with a photo", await scalarIf(["CableRun"], `SELECT count(*) FROM "CableRun" WHERE "photoStorageName" IS NOT NULL`), runs)
 add("Cable runs", "  ...verified in last 90d", await scalarIf(["CableRun"], `SELECT count(*) FROM "CableRun" WHERE "lastVerifiedAt" > now() - interval '90 days'`), runs)
 add("Cable runs", "  ...terminating on a known switch port", await scalarIf(["CableRun"], `SELECT count(*) FROM "CableRun" WHERE "switchPortId" IS NOT NULL`), runs)
 add("Cable runs", "Locations with >=1 cable run", await scalarIf(["CableRun"], `SELECT count(DISTINCT "locationId") FROM "CableRun"`), locations)
