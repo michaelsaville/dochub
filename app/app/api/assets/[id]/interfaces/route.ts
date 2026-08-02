@@ -11,7 +11,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       where: { assetId: id },
       include: {
         vlan: true,
-        switchPort: { include: { networkDevice: { select: { id: true, name: true } } } },
+        // Ports moved from NetworkDevice to Asset; NetworkDevice is now empty (0 rows).
+        // Include both so the consumer can prefer `asset` and fall back to the legacy link.
+        switchPort: {
+          include: {
+            networkDevice: { select: { id: true, name: true } },
+            asset: { select: { id: true, name: true, friendlyName: true } },
+          },
+        },
         credential: { select: { id: true, label: true, username: true } },
       },
       orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
@@ -61,7 +68,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
       include: {
         vlan: true,
-        switchPort: { include: { networkDevice: { select: { id: true, name: true } } } },
+        // Ports moved from NetworkDevice to Asset; NetworkDevice is now empty (0 rows).
+        // Include both so the consumer can prefer `asset` and fall back to the legacy link.
+        switchPort: {
+          include: {
+            networkDevice: { select: { id: true, name: true } },
+            asset: { select: { id: true, name: true, friendlyName: true } },
+          },
+        },
         credential: { select: { id: true, label: true, username: true } },
       },
     })

@@ -19,6 +19,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { OR: [{ assetId, portNumber }, { asset: { id: assetId }, portNumber }] },
     })
 
+    // Provenance. Every field a human touches here is recorded so a future controller
+    // sync can refuse to overwrite it. `isPoe` and `isUplink` are writable by BOTH
+    // hand-entry and sync, so without this the first successful sync run would silently
+    // revert a technician's work with no way to tell which value was authored.
+    // Union with whatever is already locked — never shrink the set.
+    const touched = (["label", "isUplink", "isPoe", "vlanId", "notes"] as const).filter(
+      (f) => body[f] !== undefined
+    )
+    const lockedFields = Array.from(
+      new Set([...(existing?.lockedFields?.split(",").filter(Boolean) ?? []), ...touched])
+    ).sort().join(",") || null
+
     let port
     if (existing) {
       port = await prisma.switchPort.update({
@@ -30,6 +42,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           ...(isPoe !== undefined && { isPoe }),
           ...(vlanId !== undefined && { vlanId: vlanId || null }),
           ...(notes !== undefined && { notes: notes?.trim() || null }),
+          lockedFields,
         },
         include: {
           vlan: true,
@@ -48,6 +61,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           isPoe: isPoe ?? false,
           vlanId: vlanId || null,
           notes: notes?.trim() || null,
+          lockedFields,
         },
         include: {
           vlan: true,

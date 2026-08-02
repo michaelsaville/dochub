@@ -60,6 +60,18 @@
 
   --color-accent:       var(--accent);
   --color-accent-muted: rgba(61, 111, 255, 0.12);
+
+  /* Physical-layer port/slot state fills.
+     These are SOLID paired fill/foreground tokens, not the translucent
+     --color-background-* aliases: a 36px port chip needs an opaque fill to read
+     state at a glance, and rgba(...,0.12) over a dark chassis is invisible.
+     Each pair is redefined in @media print, because port state IS the deliverable
+     on an as-built sheet and must survive on white paper. Keep them in pairs —
+     changing a fill without its foreground breaks contrast. */
+  --color-fill-inuse:   #166534;  --color-on-inuse:  #bbf7d0;
+  --color-fill-uplink:  #374151;  --color-on-uplink: #d1d5db;
+  --color-fill-empty:   #111827;  --color-on-empty:  #9ca3af;
+  --color-chassis:      #1a1a1a;
 }
 
 /* ─── Base ───────────────────────────────────────────────────────────────── */
@@ -315,33 +327,57 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
 
 /* ─── Print / Report styles ──────────────────────────────────────────────── */
 @media print {
-  /* Override theme variables — always print black on white */
+  /* Override theme variables — always print black on white.
+     Every declaration MUST carry !important. ThemeProvider writes 13 of these same
+     custom properties as an INLINE style on <html> (components/ThemeProvider.tsx),
+     and an inline declaration outranks a normal author-stylesheet one — so without
+     !important this whole block loses to the active theme and pages print dark.
+     Verified 2026-08-02; do not strip these. */
   :root {
-    --bg: #ffffff;
-    --surface: #f7f7f7;
-    --card: #eeeeee;
-    --border: #cccccc;
-    --text: #111111;
-    --muted: #555555;
+    --bg: #ffffff !important;
+    --surface: #f7f7f7 !important;
+    --card: #eeeeee !important;
+    --border: #cccccc !important;
+    --text: #111111 !important;
+    --muted: #555555 !important;
     /* Semantic colors must darken for white paper — the screen values print ~1.5:1 */
-    --accent:  #1d4ed8;
-    --accent2: #0a7d68;
-    --danger:  #cc0000;
-    --warn:    #8a5a00;
-    --color-text-primary:    #111111;
-    --color-text-secondary:  #444444;
-    --color-text-muted:      #777777;
-    --color-background-primary:   #ffffff;
-    --color-background-secondary: #f7f7f7;
-    --color-background-hover:     #eeeeee;
-    --color-border-secondary: #cccccc;
-    --color-border-tertiary:  #dddddd;
-    --color-text-danger:      #cc0000;
+    --accent:  #1d4ed8 !important;
+    --accent2: #0a7d68 !important;
+    --danger:  #cc0000 !important;
+    --warn:    #8a5a00 !important;
+    --color-text-primary:    #111111 !important;
+    --color-text-secondary:  #444444 !important;
+    --color-text-muted:      #777777 !important;
+    --color-background-primary:   #ffffff !important;
+    --color-background-secondary: #f7f7f7 !important;
+    --color-background-hover:     #eeeeee !important;
+    --color-border-secondary: #cccccc !important;
+    --color-border-tertiary:  #dddddd !important;
+    --color-text-danger:      #cc0000 !important;
+    /* On-accent text is derived per-theme by ThemeProvider for dark backgrounds;
+       on white paper the accent fills darken above, so force a light foreground. */
+    --on-accent: #ffffff !important;
+    /* Port/slot state must stay legible on paper: invert each pair to a pale fill
+       with dark text. Without this an as-built port grid prints as black chips. */
+    --color-fill-inuse:  #d4f4e2 !important;  --color-on-inuse:  #0a3d24 !important;
+    --color-fill-uplink: #e5e7eb !important;  --color-on-uplink: #1f2937 !important;
+    --color-fill-empty:  #ffffff !important;  --color-on-empty:  #4b5563 !important;
+    --color-chassis:     #ffffff !important;
   }
 
   body { background: #fff !important; color: #111 !important; }
   aside, .no-print { display: none !important; }
   main { overflow: visible !important; }
+
+  /* Opt-in only. Browsers default to print-color-adjust:economy and DROP background
+     fills, which turns a correctly-tokenized rack elevation or port grid into white
+     voids — the failure that looks like "nothing printed". Scope this to diagrams
+     whose meaning IS the fill (port state, VLAN colour, device category); do not
+     make it global or every page ink-bombs. */
+  .print-graphics, .print-graphics * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   @page { size: A4; margin: 1.8cm 2cm; }
 

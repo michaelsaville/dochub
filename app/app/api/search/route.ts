@@ -32,6 +32,9 @@ export async function GET(req: NextRequest) {
           { ipAddress: contains("ipAddress") },
           { make: contains("make") },
           { model: contains("model") },
+          // Physical placement. The 2am lookup ("what's in the MDF?") was
+          // unanswerable before this — room was stored but never searchable.
+          { room: contains("room") },
         ],
         ...(scopeClientId ? { location: { clientId: scopeClientId } } : {}),
       },
@@ -42,6 +45,7 @@ export async function GET(req: NextRequest) {
         category: true,
         make: true,
         model: true,
+        room: true,
         location: { select: { client: { select: { id: true, name: true } } } },
       },
       take: 6,
@@ -247,12 +251,23 @@ export async function GET(req: NextRequest) {
       take: 5,
     }),
     // Racks are owned by a location; scope/RBAC resolve the client via location.
+    // NOTE: `Rack` has no `location` STRING column — it is a relation. The nested
+    // location filters inside OR and the scope filter outside it AND together.
     prisma.rack.findMany({
       where: {
-        name: contains("name"),
+        OR: [
+          { name: contains("name") },
+          { notes: contains("notes") },
+          { location: { name: contains("name") } },
+          { location: { city: contains("city") } },
+        ],
         ...(scopeClientId ? { location: { clientId: scopeClientId } } : {}),
       },
-      select: { id: true, name: true, location: { select: { client: { select: { id: true, name: true } } } } },
+      select: {
+        id: true,
+        name: true,
+        location: { select: { id: true, name: true, city: true, client: { select: { id: true, name: true } } } },
+      },
       take: 5,
     }),
   ])

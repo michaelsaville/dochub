@@ -41,7 +41,10 @@ type AssetInterface = {
     id: string
     portNumber: number
     label: string | null
-    networkDevice: { id: string; name: string }
+    // Both nullable in the schema. Ports migrated from NetworkDevice to Asset, and
+    // NetworkDevice now has 0 rows — so `networkDevice` is null on every live port.
+    networkDevice: { id: string; name: string } | null
+    asset: { id: string; name: string; friendlyName: string | null } | null
   } | null
 }
 
@@ -930,7 +933,7 @@ export default function AssetDetailPage() {
                     )}
                     {iface.switchPort && (
                       <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }}>
-                        {iface.switchPort.networkDevice.name} · Port {iface.switchPort.portNumber}{iface.switchPort.label ? ` (${iface.switchPort.label})` : ""}
+                        {iface.switchPort.asset?.friendlyName || iface.switchPort.asset?.name || iface.switchPort.networkDevice?.name || "Switch"} · Port {iface.switchPort.portNumber}{iface.switchPort.label ? ` (${iface.switchPort.label})` : ""}
                       </div>
                     )}
                     {iface.notes && (

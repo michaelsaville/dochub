@@ -1361,6 +1361,13 @@ model SwitchPort {
   isPoe           Boolean          @default(false)
   vlanId          String?
   notes           String?
+  /// Comma-separated field names a HUMAN has set on this port (e.g. "label,isUplink").
+  /// Provenance guard: any future controller sync (UniFi et al) must refuse to write a
+  /// field listed here. Without it, sync and hand-entry are indistinguishable and the
+  /// first successful nightly run silently destroys documentation — `isPoe`/`isUplink`
+  /// are writable by BOTH paths today. Written by api/assets/[id]/ports/[portId].
+  /// Deliberately lands BEFORE any sync exists: it only protects edits made after it.
+  lockedFields    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   networkDevice   NetworkDevice?   @relation(fields: [networkDeviceId], references: [id], onDelete: Cascade)
@@ -1378,6 +1385,12 @@ model AssetInterface {
   ipAddress    String?
   vlanId       String?
   switchPortId String?
+  /// How the switchPort link was established: MANUAL | UNIFI | LLDP | MAC_TABLE.
+  /// A sync must never null an existing switchPortId — absence from a controller's
+  /// MAC table means the device is powered off, not unplugged. Let switchPortSeenAt
+  /// age instead, and surface staleness in the UI.
+  switchPortSource String?
+  switchPortSeenAt DateTime?
   isPrimary    Boolean @default(false)
   notes        String?
 

@@ -41,6 +41,14 @@ type Props = {
   onRacksChange: (racks: Rack[]) => void
 }
 
+// INTENTIONALLY RAW HEX — do not tokenize.
+// This is a *categorical* palette (one hue per device class), not theme colour. The
+// theme ships 4 semantic colours, which cannot encode 12 categories. These values are
+// also string-concatenated with alpha suffixes below (`${color}22`), and a CSS
+// `var(--x)22` is not a colour — it silently renders nothing.
+// Print caveat: category currently survives only as hue, so it is lost in monochrome.
+// When lib/port-state.ts is extracted (Phase 3), move this map there and give it a
+// parallel pattern/glyph encoding.
 const DEVICE_COLORS: Record<string, string> = {
   FIREWALL: "#ef4444",
   ROUTER: "#f97316",
@@ -59,6 +67,7 @@ const DEVICE_COLORS: Record<string, string> = {
 const input = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
 const lbl = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
 
+/** Returns a 6-digit hex, never a CSS variable — callers append alpha (`${color}22`). */
 function slotColor(slot: RackSlot): string {
   if (slot.networkDevice) return DEVICE_COLORS[slot.networkDevice.type ?? "OTHER"] ?? "#64748b"
   if (slot.asset) return DEVICE_COLORS[slot.asset.category ?? "OTHER"] ?? "#64748b"
@@ -287,13 +296,13 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
           flex: 1,
           minWidth: 0,
           height: `${rowHeight}px`,
-          background: isEditing ? "#1e293b" : `${color}22`,
+          background: isEditing ? "var(--card)" : `${color}22`,
           borderLeft: isDropTarget && dragOverSide === "left"
-            ? "3px solid #facc15"
+            ? "3px solid var(--warn)"
             : `3px solid ${color}`,
           borderRight: isDropTarget && dragOverSide === "right"
-            ? "3px solid #facc15"
-            : isShelf ? "1px solid #1e293b" : undefined,
+            ? "3px solid var(--warn)"
+            : isShelf ? "1px solid var(--border)" : undefined,
           position: "relative",
           cursor: canDrag ? "grab" : "pointer",
           opacity: isDragging ? 0.4 : 1,
@@ -306,49 +315,49 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
           <div style={{ padding: "8px 10px", overflowY: "auto", maxHeight: `${rowHeight}px` }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", marginBottom: "6px" }}>
               <div>
-                <label style={{ ...lbl, color: "#94a3b8", fontSize: "11px" }}>Label</label>
-                <input value={slotEditForm.label ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, label: e.target.value }))} placeholder="Optional" style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "3px 7px" }} />
+                <label style={{ ...lbl, color: "var(--color-text-secondary)", fontSize: "11px" }}>Label</label>
+                <input value={slotEditForm.label ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, label: e.target.value }))} placeholder="Optional" style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "3px 7px" }} />
               </div>
               <div>
-                <label style={{ ...lbl, color: "#94a3b8", fontSize: "11px" }}>Notes</label>
-                <input value={slotEditForm.notes ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, notes: e.target.value }))} style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "3px 7px" }} />
+                <label style={{ ...lbl, color: "var(--color-text-secondary)", fontSize: "11px" }}>Notes</label>
+                <input value={slotEditForm.notes ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, notes: e.target.value }))} style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "3px 7px" }} />
               </div>
               <div>
-                <label style={{ ...lbl, color: "#94a3b8", fontSize: "11px" }}>Network Device</label>
-                <select value={slotEditForm.networkDeviceId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, networkDeviceId: e.target.value, assetId: "" }))} style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "3px 7px" }}>
+                <label style={{ ...lbl, color: "var(--color-text-secondary)", fontSize: "11px" }}>Network Device</label>
+                <select value={slotEditForm.networkDeviceId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, networkDeviceId: e.target.value, assetId: "" }))} style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "3px 7px" }}>
                   <option value="">None</option>
                   {networkDevices.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ ...lbl, color: "#94a3b8", fontSize: "11px" }}>Asset</label>
-                <select value={slotEditForm.assetId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, assetId: e.target.value, networkDeviceId: "" }))} style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "3px 7px" }}>
+                <label style={{ ...lbl, color: "var(--color-text-secondary)", fontSize: "11px" }}>Asset</label>
+                <select value={slotEditForm.assetId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, assetId: e.target.value, networkDeviceId: "" }))} style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "3px 7px" }}>
                   <option value="">None</option>
                   {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
             </div>
             <div style={{ display: "flex", gap: "5px" }}>
-              <button onClick={() => updateSlot(rackId, slot.id)} disabled={savingSlot} style={{ fontSize: "10px", fontWeight: 500, padding: "3px 8px", borderRadius: "5px", border: "none", background: "#e2e8f0", color: "#0f172a", cursor: "pointer" }}>Save</button>
-              <button onClick={() => setEditingSlot(null)} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", border: "1px solid #334155", background: "transparent", cursor: "pointer", color: "#94a3b8" }}>Cancel</button>
-              <button onClick={() => deleteSlot(rackId, slot.id)} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer", marginLeft: "auto" }}>Remove</button>
+              <button onClick={() => updateSlot(rackId, slot.id)} disabled={savingSlot} style={{ fontSize: "10px", fontWeight: 500, padding: "3px 8px", borderRadius: "5px", border: "none", background: "var(--text)", color: "var(--bg)", cursor: "pointer" }}>Save</button>
+              <button onClick={() => setEditingSlot(null)} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", border: "1px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+              <button onClick={() => deleteSlot(rackId, slot.id)} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "5px", border: "none", background: "var(--color-background-danger)", color: "var(--color-text-danger)", cursor: "pointer", marginLeft: "auto" }}>Remove</button>
             </div>
           </div>
         ) : (
           <div style={{ padding: "0 8px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div style={{ fontSize: "12px", fontWeight: 500, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {canDrag && <span style={{ marginRight: "4px", color: "#475569", fontSize: "10px", userSelect: "none" }}>⠿</span>}
+            <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {canDrag && <span style={{ marginRight: "4px", color: "var(--color-text-secondary)", fontSize: "10px", userSelect: "none" }}>⠿</span>}
               {slotName(slot)}
             </div>
             {slotSub(slot) && (
-              <div style={{ fontSize: "10px", color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ fontSize: "10px", color: "var(--color-text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {slotSub(slot)}
               </div>
             )}
             {isHovered && !draggingSlotId && (
               <button
                 onClick={() => { setEditingSlot(slot.id); setSlotEditForm({ label: slot.label ?? "", notes: slot.notes ?? "", networkDeviceId: slot.networkDevice?.id ?? "", assetId: slot.asset?.id ?? "" }) }}
-                style={{ position: "absolute", right: "4px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #475569", background: "#1e293b", color: "#94a3b8", cursor: "pointer", zIndex: 1 }}
+                style={{ position: "absolute", right: "4px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid var(--color-border-primary)", background: "var(--card)", color: "var(--color-text-secondary)", cursor: "pointer", zIndex: 1 }}
               >
                 Edit
               </button>
@@ -434,8 +443,11 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
               <img
                 src={`/api/racks/${rack.id}/photo`}
                 alt="Rack photo"
-                style={{ maxWidth: "100%", maxHeight: "320px", borderRadius: "8px", border: "1px solid #334155", display: "block" }}
+                style={{ maxWidth: "100%", maxHeight: "320px", borderRadius: "8px", border: "1px solid var(--color-border-secondary)", display: "block" }}
               />
+              {/* Controls float on a dark scrim OVER a photo, so their colours are
+                  deliberately theme-independent light-on-dark. Tokenizing them would
+                  make them #111 on a black scrim in print — invisible. */}
               <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "6px" }}>
                 <label style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "5px", background: "rgba(0,0,0,0.7)", color: "#e2e8f0", cursor: "pointer", border: "1px solid #475569" }}>
                   Replace
@@ -449,8 +461,8 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
           ) : (
             <label style={{
               display: "inline-flex", alignItems: "center", gap: "6px",
-              fontSize: "12px", color: "#64748b", cursor: "pointer",
-              padding: "5px 10px", borderRadius: "6px", border: "1px dashed #334155",
+              fontSize: "12px", color: "var(--color-text-secondary)", cursor: "pointer",
+              padding: "5px 10px", borderRadius: "6px", border: "1px dashed var(--color-border-secondary)",
               background: "transparent",
             }}>
               {uploadingPhotoFor === rack.id ? "Uploading..." : "+ Add rack photo"}
@@ -463,11 +475,11 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
         <div style={{ maxWidth: "680px" }}>
 
           {/* Top-of-rack shelf */}
-          <div style={{ border: "2px solid #475569", borderBottom: "none", borderRadius: "6px 6px 0 0", background: "#1e293b", padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", minHeight: "36px" }}>
+          <div style={{ border: "2px solid var(--color-border-primary)", borderBottom: "none", borderRadius: "6px 6px 0 0", background: "var(--card)", padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", minHeight: "36px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, flexWrap: "wrap" }}>
-              <span style={{ fontSize: "10px", color: "#64748b", fontFamily: "monospace", flexShrink: 0 }}>TOP</span>
+              <span style={{ fontSize: "10px", color: "var(--color-text-secondary)", fontFamily: "monospace", flexShrink: 0 }}>TOP</span>
               {topShelfSlots.length === 0 ? (
-                <span style={{ fontSize: "11px", color: "#334155", fontStyle: "italic" }}>top shelf empty</span>
+                <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontStyle: "italic" }}>top shelf empty</span>
               ) : (
                 <div style={{ display: "flex", gap: "4px", flex: 1, flexWrap: "wrap" }}>
                   {topShelfSlots.map(slot => {
@@ -487,20 +499,20 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                         style={{
                           background: `${color}33`,
                           border: isDropTarget
-                            ? `2px solid #facc15`
+                            ? `2px solid var(--warn)`
                             : `1px solid ${color}88`,
                           borderRadius: "4px",
                           padding: "2px 8px",
                           fontSize: "11px",
-                          color: "#e2e8f0",
+                          color: "var(--color-text-primary)",
                           cursor: canDrag ? "grab" : "pointer",
                           position: "relative",
                           opacity: isDragging ? 0.4 : 1,
                           transition: "opacity 0.1s",
                           boxShadow: isDropTarget && dragOverSide === "left"
-                            ? "-3px 0 0 #facc15"
+                            ? "-3px 0 0 var(--warn)"
                             : isDropTarget && dragOverSide === "right"
-                            ? "3px 0 0 #facc15"
+                            ? "3px 0 0 var(--warn)"
                             : undefined,
                         }}
                         onMouseEnter={() => setHoveredSlot(slot.id)}
@@ -508,29 +520,29 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                       >
                         {isEditing ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "4px 0", minWidth: "200px" }}>
-                            <input value={slotEditForm.label ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, label: e.target.value }))} placeholder="Label" style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "2px 6px" }} />
-                            <select value={slotEditForm.networkDeviceId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, networkDeviceId: e.target.value, assetId: "" }))} style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "2px 6px" }}>
+                            <input value={slotEditForm.label ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, label: e.target.value }))} placeholder="Label" style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "2px 6px" }} />
+                            <select value={slotEditForm.networkDeviceId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, networkDeviceId: e.target.value, assetId: "" }))} style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "2px 6px" }}>
                               <option value="">No device</option>
                               {networkDevices.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
-                            <select value={slotEditForm.assetId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, assetId: e.target.value, networkDeviceId: "" }))} style={{ ...input, background: "#0f172a", color: "#e2e8f0", borderColor: "#334155", fontSize: "11px", padding: "2px 6px" }}>
+                            <select value={slotEditForm.assetId ?? ""} onChange={e => setSlotEditForm((f: any) => ({ ...f, assetId: e.target.value, networkDeviceId: "" }))} style={{ ...input, background: "var(--color-background-primary)", color: "var(--color-text-primary)", borderColor: "var(--color-border-secondary)", fontSize: "11px", padding: "2px 6px" }}>
                               <option value="">No asset</option>
                               {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                             <div style={{ display: "flex", gap: "4px" }}>
-                              <button onClick={() => updateSlot(rack.id, slot.id)} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", border: "none", background: "#e2e8f0", color: "#0f172a", cursor: "pointer" }}>Save</button>
-                              <button onClick={() => setEditingSlot(null)} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", border: "1px solid #475569", background: "transparent", cursor: "pointer", color: "#94a3b8" }}>Cancel</button>
-                              <button onClick={() => deleteSlot(rack.id, slot.id)} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer" }}>Remove</button>
+                              <button onClick={() => updateSlot(rack.id, slot.id)} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", border: "none", background: "var(--text)", color: "var(--bg)", cursor: "pointer" }}>Save</button>
+                              <button onClick={() => setEditingSlot(null)} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", border: "1px solid var(--color-border-primary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)" }}>Cancel</button>
+                              <button onClick={() => deleteSlot(rack.id, slot.id)} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", border: "none", background: "var(--color-background-danger)", color: "var(--color-text-danger)", cursor: "pointer" }}>Remove</button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            {canDrag && <span style={{ marginRight: "3px", color: "#475569", fontSize: "9px", userSelect: "none" }}>⠿</span>}
+                            {canDrag && <span style={{ marginRight: "3px", color: "var(--color-text-secondary)", fontSize: "9px", userSelect: "none" }}>⠿</span>}
                             {slotName(slot)}
                             {hoveredSlot === slot.id && !draggingSlotId && (
                               <button
                                 onClick={() => { setEditingSlot(slot.id); setSlotEditForm({ label: slot.label ?? "", notes: slot.notes ?? "", networkDeviceId: slot.networkDevice?.id ?? "", assetId: slot.asset?.id ?? "" }) }}
-                                style={{ marginLeft: "6px", fontSize: "10px", padding: "1px 5px", borderRadius: "3px", border: "1px solid #475569", background: "#1e293b", color: "#94a3b8", cursor: "pointer" }}
+                                style={{ marginLeft: "6px", fontSize: "10px", padding: "1px 5px", borderRadius: "3px", border: "1px solid var(--color-border-primary)", background: "var(--card)", color: "var(--color-text-secondary)", cursor: "pointer" }}
                               >
                                 Edit
                               </button>
@@ -545,22 +557,22 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
             </div>
             <button
               onClick={() => { setAddingSlotTo({ rackId: rack.id, startU: 0 }); setSlotForm(BLANK_SLOT_FORM) }}
-              style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "4px", border: "1px solid #334155", background: "transparent", cursor: "pointer", color: "#64748b", flexShrink: 0 }}
+              style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "4px", border: "1px solid var(--color-border-secondary)", background: "transparent", cursor: "pointer", color: "var(--color-text-secondary)", flexShrink: 0 }}
             >
               + add
             </button>
           </div>
 
           {/* Main rack body */}
-          <div style={{ display: "flex", border: "2px solid #334155", borderTop: "1px solid #334155", borderRadius: "0 0 8px 8px", overflow: "hidden", background: "#0f172a" }}>
+          <div style={{ display: "flex", border: "2px solid var(--color-border-secondary)", borderTop: "1px solid var(--color-border-secondary)", borderRadius: "0 0 8px 8px", overflow: "hidden", background: "var(--color-background-primary)" }}>
             {/* U number column */}
-            <div style={{ width: "32px", background: "#1e293b", borderRight: "1px solid #334155", flexShrink: 0 }}>
+            <div style={{ width: "32px", background: "var(--card)", borderRight: "1px solid var(--color-border-secondary)", flexShrink: 0 }}>
               {rows.map(row => (
                 <div key={row.u} style={{
                   height: row.type === "occupied" ? `${row.height * U_HEIGHT}px` : `${U_HEIGHT}px`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "10px", color: "#64748b", fontFamily: "monospace",
-                  borderBottom: "1px solid #1e293b"
+                  fontSize: "10px", color: "var(--color-text-secondary)", fontFamily: "monospace",
+                  borderBottom: "1px solid var(--border)"
                 }}>
                   {row.u}
                 </div>
@@ -575,7 +587,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                   return (
                     <div
                       key={row.u}
-                      style={{ height: `${row.height * U_HEIGHT}px`, borderBottom: "1px solid #0f172a", display: "flex" }}
+                      style={{ height: `${row.height * U_HEIGHT}px`, borderBottom: "1px solid var(--color-background-primary)", display: "flex" }}
                     >
                       {row.slots.map(slot => renderSlotItem(slot, rack.id, row.slots, row.height * U_HEIGHT, isShelf))}
                       {/* Add-to-shelf button appears at end of occupied rows */}
@@ -586,7 +598,7 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                         onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
                         onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
                       >
-                        <span style={{ fontSize: "14px", color: "#475569", lineHeight: 1 }}>+</span>
+                        <span style={{ fontSize: "14px", color: "var(--color-text-secondary)", lineHeight: 1 }}>+</span>
                       </div>
                     </div>
                   )
@@ -597,12 +609,12 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
                 return (
                   <div
                     key={row.u}
-                    style={{ height: `${U_HEIGHT}px`, borderBottom: "1px solid #1a2332", background: "#0f172a", cursor: "pointer", position: "relative" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "#1e293b" }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "#0f172a" }}
+                    style={{ height: `${U_HEIGHT}px`, borderBottom: "1px solid var(--border)", background: "var(--color-background-primary)", cursor: "pointer", position: "relative" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--card)" }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--color-background-primary)" }}
                     onClick={() => { if (!isAddingHere) { setAddingSlotTo({ rackId: rack.id, startU: row.u }); setSlotForm(BLANK_SLOT_FORM) } }}
                   >
-                    <div style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", color: "#334155" }}>+ add</div>
+                    <div style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", color: "var(--color-text-muted)" }}>+ add</div>
                   </div>
                 )
               })}
@@ -664,7 +676,10 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
   }
 
   return (
-    <div>
+    // print-graphics opts this subtree into print-color-adjust:exact — a rack elevation
+    // whose background fills are dropped by the browser's default `economy` mode prints
+    // as white voids. See the @media print block in app/globals.css.
+    <div className="print-graphics">
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
         <button onClick={() => setShowAddRack(true)} style={{ fontSize: "14px", fontWeight: 500, padding: "8px 16px", borderRadius: "8px", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", cursor: "pointer" }}>
           Add rack

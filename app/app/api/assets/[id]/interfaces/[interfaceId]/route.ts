@@ -38,7 +38,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
       include: {
         vlan: true,
-        switchPort: { include: { networkDevice: { select: { id: true, name: true } } } },
+        // See interfaces/route.ts — prefer `asset`, keep `networkDevice` as legacy fallback.
+        switchPort: {
+          include: {
+            networkDevice: { select: { id: true, name: true } },
+            asset: { select: { id: true, name: true, friendlyName: true } },
+          },
+        },
         credential: { select: { id: true, label: true, username: true } },
       },
     })

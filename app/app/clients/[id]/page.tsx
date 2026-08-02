@@ -27,7 +27,7 @@ import LifecycleRunbooksCard from "@/components/LifecycleRunbooksCard"
 import IdentityPanel from "@/components/IdentityPanel"
 import { useSession } from "next-auth/react"
 import { useState, useEffect, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { ipInCidr } from "@/lib/cidr"
 import { statusColor } from "@/lib/asset-status"
 import LicenseSeats from "@/components/LicenseSeats"
@@ -332,6 +332,13 @@ function vendorSupportChip(vendor?: { supportPhone?: string | null; supportEmail
 // child tabs. Content rendering + deep-links are untouched: this only chooses
 // which tab strip is visible via the same setActiveTab the page already uses.
 const CLIENT_NAV_SECTION_KEY = "dochub:client-nav-section"
+
+// Network sub-tabs, deep-linkable via ?sub=. Kept at module scope so the URL guard
+// and the state type stay in sync — a search result hrefs straight to ?tab=Network&sub=racks.
+const NETWORK_SUB_TABS = ["ipam", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const
+type NetworkSubTab = (typeof NETWORK_SUB_TABS)[number]
+const isNetworkSubTab = (v: string | null): v is NetworkSubTab =>
+  !!v && (NETWORK_SUB_TABS as readonly string[]).includes(v)
 function ClientTabNav({
   activeTab,
   setActiveTab,
@@ -456,13 +463,15 @@ export default function ClientDetailPage() {
   const [loadingClient, setLoadingClient] = useState(true)
   const [sourceColors, setSourceColors] = useState<Record<string, string>>(SOURCE_DEFAULTS)
   const [loadingAssets, setLoadingAssets] = useState(false)
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== "undefined") {
-      const tab = new URLSearchParams(window.location.search).get("tab")
-      if (tab) return tab
-    }
-    return "Dashboard"
-  })
+  // ?tab= / ?sub= are read reactively, NOT once in a useState initializer.
+  // Navigating from this page to itself with different search params (which the
+  // scoped `/` search does on every result) reconciles rather than remounts, so an
+  // initializer never re-runs and the modal would close onto an unchanged page.
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const subParam = searchParams.get("sub")
+  const [activeTab, setActiveTab] = useState(() => tabParam || "Dashboard")
+  useEffect(() => { if (tabParam) setActiveTab(tabParam) }, [tabParam])
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
@@ -562,7 +571,8 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "circuits" | "racks" | "shares" | "wireless" | "ptp" | "diagram">("ipam")
+  const [networkSubTab, setNetworkSubTab] = useState<NetworkSubTab>(() => isNetworkSubTab(subParam) ? subParam : "ipam")
+  useEffect(() => { if (isNetworkSubTab(subParam)) setNetworkSubTab(subParam) }, [subParam])
   const [ptpLinks, setPtpLinks] = useState<any[]>([])
   const [loadingPtp, setLoadingPtp] = useState(false)
   const [subnets, setSubnets] = useState<any[]>([])
@@ -4031,7 +4041,7 @@ export default function ClientDetailPage() {
           <div style={{ maxWidth: "960px" }}>
             {/* Network sub-tabs */}
             <div style={{ display: "flex", gap: "4px", marginBottom: "24px", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: "0" }}>
-              {(["ipam", "circuits", "racks", "wireless", "ptp", "shares", "diagram"] as const).map(t => (
+              {NETWORK_SUB_TABS.map(t => (
                 <button key={t} onClick={() => setNetworkSubTab(t)} style={{
                   fontSize: "13px", fontWeight: networkSubTab === t ? 600 : 400,
                   padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer",

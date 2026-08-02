@@ -33,7 +33,7 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
 
 function flattenResults(data: {
   clients: { id: string; name: string; type: string }[]
-  assets: { id: string; name: string; friendlyName: string | null; category: string | null; make: string | null; model: string | null; location: { client: { id: string; name: string } } | null }[]
+  assets: { id: string; name: string; friendlyName: string | null; category: string | null; make: string | null; model: string | null; room: string | null; location: { client: { id: string; name: string } } | null }[]
   credentials: { id: string; label: string; username: string | null; url: string | null; client: { id: string; name: string } }[]
   runbooks: { id: string; title: string; summary: string | null; clientId: string | null; client: { id: string; name: string } | null }[]
   documents: { id: string; title: string; clientId: string; client: { id: string; name: string } }[]
@@ -47,7 +47,7 @@ function flattenResults(data: {
   flexAssets: { id: string; title: string; layout: { name: string } | null; client: { id: string; name: string } | null }[]
   subnets: { id: string; cidr: string; description: string | null; vlan: string | null; clientId: string; client: { id: string; name: string } | null }[]
   ipAssignments: { id: string; ipAddress: string; hostname: string | null; subnet: { cidr: string; client: { id: string; name: string } | null } | null }[]
-  racks: { id: string; name: string; location: { client: { id: string; name: string } } | null }[]
+  racks: { id: string; name: string; location: { id: string; name: string; city: string | null; client: { id: string; name: string } } | null }[]
 }): SearchResult[] {
   const results: SearchResult[] = []
 
@@ -64,7 +64,7 @@ function flattenResults(data: {
     results.push({
       id: a.id, category: "asset", categoryColor: CATEGORY_META.asset.color,
       label: a.friendlyName || a.name,
-      sublabel: [a.make, a.model, clientName].filter(Boolean).join(" · "),
+      sublabel: [a.room ? `Room ${a.room}` : null, a.make, a.model, clientName].filter(Boolean).join(" · "),
       href: `/assets/${a.id}`,
     })
   }
@@ -178,8 +178,8 @@ function flattenResults(data: {
     results.push({
       id: rk.id, category: "rack", categoryColor: CATEGORY_META.rack.color,
       label: rk.name,
-      sublabel: rk.location?.client?.name || "Rack",
-      href: clientId ? `/clients/${clientId}?tab=Network` : "#",
+      sublabel: [rk.location?.name, rk.location?.city, rk.location?.client?.name].filter(Boolean).join(" · ") || "Rack",
+      href: clientId ? `/clients/${clientId}?tab=Network&sub=racks` : "#",
     })
   }
 

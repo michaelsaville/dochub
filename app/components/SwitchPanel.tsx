@@ -53,6 +53,9 @@ type Props = {
   onClose: () => void
 }
 
+// NOT styling — this is the swatch picker whose chosen value is PERSISTED to
+// Vlan.color (prisma/schema.prisma). Tokenizing these would write the literal string
+// "var(--accent)" into the database. Leave as hex.
 const PRESET_COLORS = [
   "#6366f1", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b",
   "#ef4444", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316",
@@ -334,20 +337,22 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
 
   function portColor(num: number): string {
     const p = getPort(num)
-    if (!p) return "#111827"
-    if (p.interfaces.length > 0) return "#166534"  // in use → dark green
-    if (p.isUplink) return "#374151"
+    if (!p) return "var(--color-fill-empty)"
+    if (p.interfaces.length > 0) return "var(--color-fill-inuse)"
+    if (p.isUplink) return "var(--color-fill-uplink)"
+    // Vlan.color is user-chosen DB data (Vlan.color, schema.prisma) — stays literal hex
+    // so the +"44" alpha suffix remains a valid colour. var(--x)44 renders nothing.
     if (p.vlan) return p.vlan.color + "44"          // configured but empty → dim VLAN tint
-    return "#111827"                                 // unknown / unused → dark
+    return "var(--color-fill-empty)"
   }
 
   // Amber border for ports that have a MAC match but no linked asset
   function portBorder(num: number, isSelected: boolean): string {
-    if (isSelected) return "2px solid white"
+    if (isSelected) return "2px solid var(--accent)"
     const p = getPort(num)
-    if (!p || p.interfaces.length > 0) return "1.5px solid #4b5563"
+    if (!p || p.interfaces.length > 0) return "1.5px solid var(--color-border-primary)"
     // Check if any client asset MAC matches this port number (future: live MAC table)
-    return "1.5px solid #4b5563"
+    return "1.5px solid var(--color-border-primary)"
   }
 
   function portLabel(num: number): string {
@@ -528,7 +533,7 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
               </div>
             ))}
             <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "#374151" }} />
+              <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "var(--color-fill-uplink)" }} />
               <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Uplink</span>
             </div>
           </div>
@@ -542,8 +547,8 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
             No port count set. Edit the device and set the port count to enable the switch panel.
           </div>
         ) : (
-          <div style={{
-            background: "#1a1a1a", border: "2px solid #374151", borderRadius: "10px",
+          <div className="print-graphics" style={{
+            background: "var(--color-chassis)", border: "2px solid var(--color-border-primary)", borderRadius: "10px",
             padding: "16px 20px", overflowX: "auto",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: totalPorts > 24 ? "640px" : undefined }}>
@@ -555,9 +560,9 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
                   return (
                     <button key={num} title={portTooltip(num)} onClick={() => openPort(num)} style={{
                       width: "36px", height: "36px", borderRadius: "4px",
-                      border: selectedPort === num ? "2px solid white" : "1.5px solid #4b5563",
+                      border: selectedPort === num ? "2px solid var(--accent)" : "1.5px solid var(--color-border-primary)",
                       background: portColor(num), cursor: "pointer", fontSize: "9px", fontWeight: 600,
-                      color: inUse ? "#bbf7d0" : (p?.vlan ? "white" : "#9ca3af"),
+                      color: inUse ? "var(--color-on-inuse)" : (p?.vlan ? "var(--color-text-primary)" : "var(--color-on-empty)"),
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexDirection: "column", gap: "1px", padding: "2px",
                       flexShrink: 0, position: "relative",
@@ -576,9 +581,9 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
                   return (
                     <button key={num} title={portTooltip(num)} onClick={() => openPort(num)} style={{
                       width: "36px", height: "36px", borderRadius: "4px",
-                      border: selectedPort === num ? "2px solid white" : "1.5px solid #4b5563",
+                      border: selectedPort === num ? "2px solid var(--accent)" : "1.5px solid var(--color-border-primary)",
                       background: portColor(num), cursor: "pointer", fontSize: "9px", fontWeight: 600,
-                      color: inUse ? "#bbf7d0" : (p?.vlan ? "white" : "#9ca3af"),
+                      color: inUse ? "var(--color-on-inuse)" : (p?.vlan ? "var(--color-text-primary)" : "var(--color-on-empty)"),
                       display: "flex", alignItems: "center", justifyContent: "center",
                       flexDirection: "column", gap: "1px", padding: "2px",
                       flexShrink: 0, position: "relative",
@@ -664,7 +669,7 @@ export default function SwitchPanel({ clientId, deviceId, assetId, deviceName, v
                         background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)",
                         borderRadius: "7px", fontSize: "12px",
                       }}>
-                        <div style={{ color: "#f59e0b", fontWeight: 500, marginBottom: "4px" }}>
+                        <div style={{ color: "var(--color-text-warning)", fontWeight: 500, marginBottom: "4px" }}>
                           Unlinked assets with MAC addresses ({unlinked.length})
                         </div>
                         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
