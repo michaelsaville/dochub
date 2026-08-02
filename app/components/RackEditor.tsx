@@ -35,7 +35,7 @@ const PITCH = PORT + PORT_GAP
 // the topmost one wins — so tapping port 12 selected 13, silently writing a cable
 // between two ports nobody touched. Nearest-centre has no overlap by construction and
 // still gives a large forgiving target.
-const TAP_RADIUS = 22
+const TAP_RADIUS = Math.min(22, U_HEIGHT / 2)   // never bridge a rack unit
 
 export type EditorPort = {
   id: string
@@ -204,7 +204,15 @@ export default function RackEditor({
         {selected && (
           <>
             <span style={{ fontSize: "12px", color: "var(--color-text-warning)" }}>
-              {readOnly ? "Showing this run" : "Tap a second port to connect"}
+              {/* Naming the armed port matters: ports are pointerEvents:none so taps
+                  can resolve at the svg level, which means <title> tooltips never
+                  fire — without this the user commits a cable without ever seeing
+                  which port they selected. */}
+              {(() => {
+                const p = portPos.get(selected)
+                const who = p ? `${p.device.name} port ${p.port.portIndex}${p.port.side === "REAR" ? " (rear)" : ""}` : "port"
+                return readOnly ? `Showing the run through ${who}` : `${who} selected — tap a second port to connect`
+              })()}
             </span>
             <button className="btn btn-secondary" style={{ minHeight: "40px" }}
               onClick={() => { setSelected(null); setMsg(null) }}>Cancel</button>
@@ -217,21 +225,20 @@ export default function RackEditor({
       <svg
         {...pz.bind}
         onPointerUp={(e) => {
-          pz.bind.onPointerUp(e)
-          // Tap resolution lives here, not on per-port rects: fixed rects on a 16px
-          // pitch overlap and the wrong port wins.
+          // Pointer bookkeeping runs in the capture phase (see usePanZoom) so a child
+          // that stops propagation cannot corrupt it. This handler only resolves taps.
           if (pz.didPan()) return
           const id = portAt(e.clientX, e.clientY)
           if (id) tapPort(id)
         }}
-        width="100%"
-        height={height}
-        role="img"
         aria-label={`Rack elevation for ${rackName}, ${side.toLowerCase()} view`}
         className="print-graphics"
-        style={{ ...pz.bind.style, maxWidth: "100%", background: "var(--color-chassis)", borderRadius: "8px", border: "1px solid var(--color-border-primary)" }}
+        // Sized by CSS, NOT width/height attributes: an attribute-sized svg over a
+        // fixed viewBox letterboxes, which centres the rack in dead space. No
+        // role="img" — this element is interactive, not a picture.
+        style={{ ...pz.bind.style, display: "block", width: "100%", height: "auto", maxWidth: `${RACK_W}px`, background: "var(--color-chassis)", borderRadius: "8px", border: "1px solid var(--color-border-primary)" }}
       >
-        <style>{`@media print { #cables path, #ports g, #devices g { opacity: 1 !important; } }`}</style>
+        <style>{`@media print { #cables g, #cables path, #ports g, #devices g { opacity: 1 !important; } }`}</style>
         <defs>
           {/* Backs up the EMPTY state so it survives greyscale print and colour
               blindness — never encode an actionable state in hue alone. */}
@@ -272,6 +279,41 @@ export default function RackEditor({
           })}
         </g>
 
+        {/* Cable HIT layer, beneath the ports on purpose. A fat transparent stroke
+            painted above them shadowed the ports it connects — tapping a cabled port
+            raised "Disconnect?" instead of selecting it, which meant a cabled port
+            could never be traced. Ports win the hit test; the cable is still tappable
+            everywhere it is not directly over one. */}
+        {!readOnly && (
+          <g id="cable-hits" fill="none" className="no-print">
+            {links.map((l) => {
+              const a = portPos.get(l.aPortId)
+              const b = portPos.get(l.bPortId)
+              if (!a || !b) return null
+              const midX = Math.max(a.x, b.x) + 26 + Math.abs(a.y - b.y) * 0.12
+              return (
+                <path
+                  key={l.id}
+                  d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
+                  stroke="transparent" strokeWidth={14} fill="none"
+                  style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                  onPointerUp={async (e) => {
+                    // Safe to stop propagation: pointer bookkeeping runs in the
+                    // capture phase, so this only suppresses the svg's tap handler.
+                    e.stopPropagation()
+                    if (pz.didPan()) return
+                    if (!confirm("Disconnect this cable?")) return
+                    setBusy(true)
+                    try { await onDisconnect(l.id) }
+                    catch (err) { setMsg((err as Error).message) }
+                    finally { setBusy(false) }
+                  }}
+                />
+              )
+            })}
+          </g>
+        )}
+
         {/* Ports */}
         <g id="ports">
           {[...portPos.entries()].map(([id, { x, y, port }]) => {
@@ -292,8 +334,9 @@ export default function RackEditor({
           })}
         </g>
 
-        {/* Cables last, so they sit above the devices they connect. */}
-        <g id="cables" fill="none">
+        {/* Visible cables, above the ports so a run reads as continuous. Never
+            hit-tested — the layer below owns that. */}
+        <g id="cables" fill="none" style={{ pointerEvents: "none" }}>
           {links.map((l) => {
             const a = portPos.get(l.aPortId)
             const b = portPos.get(l.bPortId)
@@ -301,25 +344,6 @@ export default function RackEditor({
             const midX = Math.max(a.x, b.x) + 26 + Math.abs(a.y - b.y) * 0.12
             return (
               <g key={l.id} opacity={dim(l.aPortId, l.bPortId)}>
-                {/* Transparent fat stroke: the visible cable is 2px, which is 22x
-                    below the touch target this same file enforces for ports. */}
-                {!readOnly && (
-                  <path
-                    d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
-                    stroke="transparent" strokeWidth={20} fill="none"
-                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
-                    className="no-print"
-                    onPointerUp={async (e) => {
-                      e.stopPropagation()
-                      if (pz.didPan()) return
-                      if (!confirm("Disconnect this cable?")) return
-                      setBusy(true)
-                      try { await onDisconnect(l.id) }
-                      catch (err) { setMsg((err as Error).message) }
-                      finally { setBusy(false) }
-                    }}
-                  />
-                )}
                 <path
                   d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
                   stroke={l.color || (l.kind === "BUILDING" ? "var(--color-text-warning)" : "var(--accent)")}
@@ -327,7 +351,6 @@ export default function RackEditor({
                   // Dashed = permanent in-wall run, solid = movable cord. Same
                   // convention Patchdocs uses, and it reads in monochrome print.
                   strokeDasharray={l.kind === "BUILDING" ? "5 3" : undefined}
-                  style={{ pointerEvents: "none" }}
                 />
               </g>
             )

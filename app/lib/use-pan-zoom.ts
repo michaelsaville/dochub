@@ -38,34 +38,47 @@ export function usePanZoom(initial: Box) {
   const pinch = useRef<{ dist: number; box: Box; cx: number; cy: number } | null>(null)
   const moved = useRef(false)
 
-  /** Client coords -> viewBox coords. Everything positional goes through this. */
+  /**
+   * Client coords -> user-space (viewBox) coords.
+   *
+   * Uses getScreenCTM, NOT a getBoundingClientRect ratio. The ratio approach is only
+   * correct when the element's aspect ratio happens to equal the viewBox's; the
+   * moment preserveAspectRatio letterboxes (which it does by default whenever
+   * width/height are set as attributes over a fixed viewBox) every coordinate is
+   * offset by the letterbox — silently, and proportionally to how wrong the sizing
+   * is. That put rack-editor taps 5-14 ports away from the finger.
+   */
   const toLocal = useCallback((clientX: number, clientY: number) => {
     const el = svgRef.current
-    if (!el) return { x: 0, y: 0 }
-    const r = el.getBoundingClientRect()
-    return {
-      x: box.x + ((clientX - r.left) / r.width) * box.w,
-      y: box.y + ((clientY - r.top) / r.height) * box.h,
-    }
-  }, [box])
+    const ctm = el?.getScreenCTM()
+    if (!el || !ctm) return { x: 0, y: 0 }
+    const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse())
+    return { x: p.x, y: p.y }
+  }, [])
+
+  /** User-space units per CSS pixel, from the same transform. */
+  const unitsPerPx = useCallback(() => {
+    const ctm = svgRef.current?.getScreenCTM()
+    return ctm && ctm.a !== 0 ? 1 / ctm.a : 1
+  }, [])
 
   const reset = useCallback(() => setBox(initial), [initial.x, initial.y, initial.w, initial.h]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Zoom about a fixed client point, so the thing under the finger stays put. */
   const zoomAt = useCallback((factor: number, clientX: number, clientY: number) => {
+    // Anchor in USER space via the same CTM, not a rect ratio — otherwise the zoom
+    // anchor drifts under letterboxing exactly as the tap coordinates did.
+    const anchor = toLocal(clientX, clientY)
     setBox((b) => {
-      const el = svgRef.current
-      if (!el) return b
-      const r = el.getBoundingClientRect()
       const scale = initial.w / b.w
       const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor))
       const w = initial.w / next
       const h = initial.h / next
-      const px = (clientX - r.left) / r.width
-      const py = (clientY - r.top) / r.height
-      return { x: b.x + (b.w - w) * px, y: b.y + (b.h - h) * py, w, h }
+      const fx = b.w === 0 ? 0.5 : (anchor.x - b.x) / b.w
+      const fy = b.h === 0 ? 0.5 : (anchor.y - b.y) / b.h
+      return { x: anchor.x - fx * w, y: anchor.y - fy * h, w, h }
     })
-  }, [initial.w, initial.h])
+  }, [toLocal, initial.w, initial.h])
 
   const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     // NOTE: do NOT setPointerCapture here. Per Pointer Events L3, capture retargets
@@ -110,9 +123,10 @@ export function usePanZoom(initial: Box) {
     if (!start) return
     const el = svgRef.current
     if (!el) return
-    const r = el.getBoundingClientRect()
-    const dx = ((e.clientX - start.x) / r.width) * start.box.w
-    const dy = ((e.clientY - start.y) / r.height) * start.box.h
+    // Same transform as toLocal — a rect-ratio delta drifts under letterboxing.
+    const k = unitsPerPx()
+    const dx = (e.clientX - start.x) * k
+    const dy = (e.clientY - start.y) * k
     // 3px of slop so a tap that wobbles still registers as a tap, not a pan.
     if (Math.abs(e.clientX - start.x) > 3 || Math.abs(e.clientY - start.y) > 3) {
       if (!moved.current) {
@@ -123,7 +137,7 @@ export function usePanZoom(initial: Box) {
       moved.current = true
     }
     setBox({ ...start.box, x: start.box.x - dx, y: start.box.y - dy })
-  }, [zoomAt])
+  }, [zoomAt, unitsPerPx])
 
   const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     pointers.current.delete(e.pointerId)
@@ -157,8 +171,10 @@ export function usePanZoom(initial: Box) {
       viewBox: `${box.x} ${box.y} ${box.w} ${box.h}`,
       onPointerDown,
       onPointerMove,
-      onPointerUp,
-      onPointerCancel: onPointerUp,
+      // Capture phase: runs before any child handler and cannot be stopped by one.
+      // This is the ONLY place the pointer map is cleaned up.
+      onPointerUpCapture: onPointerUp,
+      onPointerCancelCapture: onPointerUp,
       onWheel,
       style: { touchAction: "none" as const, userSelect: "none" as const },
     },

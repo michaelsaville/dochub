@@ -258,7 +258,9 @@ export default function FloorPlanPanel({
         <div style={{ maxWidth: "100%", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--color-border-primary)" }}>
           <svg
             {...pz.bind}
-            onPointerUp={(e) => { pz.bind.onPointerUp(e); onCanvasTap(e) }}
+            // Bookkeeping runs in usePanZoom's capture-phase handler; this is
+            // tap resolution only.
+            onPointerUp={onCanvasTap}
             className="print-graphics"
             role="img"
             aria-label={`${floor.name} floor plan`}

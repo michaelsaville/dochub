@@ -147,7 +147,9 @@ const coverage = locations ? (documented / locations) * 100 : 0
 await prisma.$disconnect()
 
 if (AS_JSON) {
-  console.log(JSON.stringify({ coverage, documented, locations, metrics }, null, 2))
+  // ONE line, with a timestamp. Pretty-printed multi-line JSON with no date cannot
+  // form a series when appended by cron, which is the only way the gate ever fires.
+  console.log(JSON.stringify({ at: new Date().toISOString(), coverage, documented, locations, metrics }))
 } else {
   const pct = (v, d) => (d ? ` (${((v / d) * 100).toFixed(1)}%)` : "")
   let section = null
