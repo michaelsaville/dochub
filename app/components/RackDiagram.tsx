@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { DEVICE_COLORS } from "@/lib/port-state"
 
 type SlotDevice = {
   id: string
@@ -41,29 +42,11 @@ type Props = {
   onRacksChange: (racks: Rack[]) => void
 }
 
-// INTENTIONALLY RAW HEX — do not tokenize.
-// This is a *categorical* palette (one hue per device class), not theme colour. The
-// theme ships 4 semantic colours, which cannot encode 12 categories. These values are
-// also string-concatenated with alpha suffixes below (`${color}22`), and a CSS
-// `var(--x)22` is not a colour — it silently renders nothing.
-// Print caveat: category currently survives only as hue, so it is lost in monochrome.
-// When lib/port-state.ts is extracted (Phase 3), move this map there and give it a
-// parallel pattern/glyph encoding.
-const DEVICE_COLORS: Record<string, string> = {
-  FIREWALL: "#ef4444",
-  ROUTER: "#f97316",
-  SWITCH: "#3b82f6",
-  ACCESS_POINT: "#8b5cf6",
-  UPS: "#f59e0b",
-  NAS: "#10b981",
-  MODEM: "#6366f1",
-  OTHER: "#64748b",
-  SERVER: "#0ea5e9",
-  COMPUTER: "#14b8a6",
-  LAPTOP: "#84cc16",
-  PRINTER: "#ec4899",
-}
-
+// Device colours + glyphs now live in lib/port-state.ts, shared with RackEditor so
+// a device cannot be blue in one view and green in the other. They stay raw hex
+// there on purpose: a categorical palette cannot be expressed in 4 semantic theme
+// colours, and these values are string-concatenated with alpha suffixes below
+// (`${color}22`) — a CSS `var(--x)22` is not a colour and renders nothing.
 const input = { width: "100%", padding: "8px 12px", fontSize: "14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "8px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
 const lbl = { fontSize: "13px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }
 
@@ -429,6 +412,8 @@ export default function RackDiagram({ racks, locations, networkDevices, assets, 
               <div style={{ display: "flex", gap: "10px" }}>
                 <button onClick={() => { setEditingRack(rack.id); setRackEditForm({ name: rack.name, totalU: rack.totalU, notes: rack.notes ?? "" }) }}
                   style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
+                <a href={`/clients/${clientId}/racks/${rack.id}`}
+                  style={{ fontSize: "12px", color: "var(--accent)", textDecoration: "none" }}>Open editor →</a>
                 <button onClick={() => deleteRack(rack.id)}
                   style={{ fontSize: "12px", color: "var(--color-text-danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Delete</button>
               </div>

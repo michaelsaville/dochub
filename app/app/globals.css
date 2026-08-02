@@ -71,6 +71,10 @@
   --color-fill-inuse:   #166534;  --color-on-inuse:  #bbf7d0;
   --color-fill-uplink:  #374151;  --color-on-uplink: #d1d5db;
   --color-fill-empty:   #111827;  --color-on-empty:  #9ca3af;
+  /* "Cabled but not patched" — the keystone is in, nothing is plugged into it.
+     Must read as distinct from BOTH empty and in-use, or the one state that
+     makes physical-layer documentation worth having is invisible. */
+  --color-fill-cabled:  #1e3a5f;  --color-on-cabled: #93c5fd;
   --color-chassis:      #1a1a1a;
 }
 
@@ -362,6 +366,7 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
     --color-fill-inuse:  #d4f4e2 !important;  --color-on-inuse:  #0a3d24 !important;
     --color-fill-uplink: #e5e7eb !important;  --color-on-uplink: #1f2937 !important;
     --color-fill-empty:  #ffffff !important;  --color-on-empty:  #4b5563 !important;
+    --color-fill-cabled: #dbeafe !important;  --color-on-cabled: #1e3a8a !important;
     --color-chassis:     #ffffff !important;
   }
 
