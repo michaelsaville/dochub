@@ -15,7 +15,7 @@ import path from "node:path"
 import crypto from "node:crypto"
 import Anthropic from "@anthropic-ai/sdk"
 import { PrismaClient } from "@prisma/client"
-import { sealEntities, sealValue } from "../lib/notes-intake-secrets.mjs"
+import { sealEntities, sealValue } from "../lib/notes-intake-secrets.cli.mjs"
 
 // ---------- args ----------
 function arg(name, def = undefined) {
