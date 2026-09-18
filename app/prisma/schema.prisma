@@ -2374,6 +2374,18 @@ model NoteSuggestion {
   committedBy String?
   committedAt DateTime?
 
+  // multi-customer / multi-topic page segmentation (2026-07-25) — see
+  // docs/memories/2026-07-25-multi-customer-page-segmentation-PROPOSAL.md.
+  // A source page that mixes >1 client/topic is segmented pre-classification;
+  // the original upload/note becomes a SEGMENTED parent (excluded from the
+  // normal review tabs) and each segment gets its own child row that flows
+  // through the existing review/commit pipeline unchanged.
+  parentSuggestionId String?
+  parent             NoteSuggestion?  @relation("NoteSegments", fields: [parentSuggestionId], references: [id])
+  children           NoteSuggestion[] @relation("NoteSegments")
+  segmentIndex       Int?
+  segmentLabel       String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -16,6 +16,7 @@ import crypto from "node:crypto"
 import Anthropic from "@anthropic-ai/sdk"
 import { PrismaClient } from "@prisma/client"
 import { sealEntities, sealValue } from "../lib/notes-intake-secrets.cli.mjs"
+import { segmentText } from "../lib/notes-segment.mjs"
 
 // ---------- args ----------
 function arg(name, def = undefined) {
@@ -134,65 +135,117 @@ for (const file of files) {
   const body = fs.readFileSync(file, "utf8").slice(0, 12000)
   const hash = crypto.createHash("sha256").update(body).digest("hex").slice(0, 16)
 
-  const userText = `FOLDER: ${folder}\nTITLE: ${title}\n\n----- NOTE -----\n${body}`
-
+  // ---- segmentation pre-pass: split a page that mixes >1 client/topic ----
+  let segments
   try {
-    const resp = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4000,
-      system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userText }],
-    })
-    const textBlock = resp.content.find((b) => b.type === "text")
-    const parsed = parseModelJson(textBlock.text)
-    results.push({
-      sourcePath: rel,
-      sourceFolder: folder,
-      noteTitle: title,
-      noteHash: hash,
-      rawText: body,
-      ai: parsed,
-      usage: { in: resp.usage.input_tokens, cacheRead: resp.usage.cache_read_input_tokens, out: resp.usage.output_tokens },
-    })
-
-    if (WRITE_DB) {
-      // reconcile: skip if an identical note (same content hash) is already staged
-      const dup = await prisma.noteSuggestion.findFirst({ where: { noteHash: hash }, select: { id: true } })
-      if (dup) {
-        skippedDup++
-      } else {
-        const entities = sealEntities((parsed.entities || []).map((e) => ({ ...e, include: true })))
-        await prisma.noteSuggestion.create({
-          data: {
-            batchId: batch.id,
-            origin: "ingest",
-            sourceType: SOURCE === "vault" ? "obsidian" : "apple-notes",
-            sourceAbsPath: path.resolve(file),
-            sourcePath: rel,
-            sourceFolder: folder,
-            noteTitle: title,
-            noteHash: hash,
-            rawText: sealValue(body),
-            status: parsed.isRelevant ? "PENDING" : "SKIPPED",
-            isRelevant: !!parsed.isRelevant,
-            relevanceReason: parsed.relevanceReason || null,
-            matchedClientId: parsed.clientId || null,
-            matchedClientName: parsed.clientName || null,
-            clientConfidence: typeof parsed.clientConfidence === "number" ? parsed.clientConfidence : null,
-            clientReasoning: parsed.clientReasoning || null,
-            clientCandidatesJson: parsed.clientAlternatives || [],
-            entitiesJson: entities,
-            aiModel: MODEL,
-            aiTokensIn: resp.usage.input_tokens,
-            aiTokensOut: resp.usage.output_tokens,
-          },
-        })
-        inserted++
-      }
-    }
+    segments = await segmentText(client, { title, text: body, folderHint: folder, model: MODEL })
   } catch (err) {
-    results.push({ sourcePath: rel, sourceFolder: folder, noteTitle: title, noteHash: hash, error: String(err?.message || err) })
-    console.error(`[ingest] ERROR ${rel}: ${err?.message || err}`)
+    console.error(`[ingest] segment ERROR ${rel}: ${err?.message || err} — falling back to whole-note`)
+    segments = [{ label: title, clientHint: folder, text: body }]
+  }
+  const isSplit = segments.length > 1
+
+  let parentBatchRowId = null
+  if (WRITE_DB && isSplit) {
+    // Reconcile: skip the whole page if already staged under this hash.
+    const dup = await prisma.noteSuggestion.findFirst({ where: { noteHash: hash }, select: { id: true } })
+    if (dup) {
+      skippedDup++
+      done++
+      if (done % 10 === 0 || done === files.length) console.error(`[ingest] ${done}/${files.length}`)
+      continue
+    }
+    const parentRow = await prisma.noteSuggestion.create({
+      data: {
+        batchId: batch.id,
+        origin: "ingest",
+        sourceType: SOURCE === "vault" ? "obsidian" : "apple-notes",
+        sourceAbsPath: path.resolve(file),
+        sourcePath: rel,
+        sourceFolder: folder,
+        noteTitle: title,
+        noteHash: hash,
+        rawText: sealValue(body),
+        status: "SEGMENTED", // excluded from normal review tabs — provenance only
+        isRelevant: true,
+        relevanceReason: `Split into ${segments.length} segments (multi-client/multi-topic page)`,
+      },
+    })
+    parentBatchRowId = parentRow.id
+    console.error(`[ingest] ${rel}: split into ${segments.length} segments`)
+  } else if (isSplit) {
+    console.error(`[ingest] ${rel}: split into ${segments.length} segments (dry-run, no --db)`)
+  }
+
+  for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+    const seg = segments[segIdx]
+    const segHash = isSplit ? crypto.createHash("sha256").update(seg.text).digest("hex").slice(0, 16) : hash
+    const segTitle = isSplit ? seg.label || `${title} (${segIdx + 1})` : title
+    const segFolder = seg.clientHint || folder
+    const userText = `FOLDER: ${segFolder}\nTITLE: ${segTitle}\n\n----- NOTE -----\n${seg.text}`
+
+    try {
+      const resp = await client.messages.create({
+        model: MODEL,
+        max_tokens: 4000,
+        system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: userText }],
+      })
+      const textBlock = resp.content.find((b) => b.type === "text")
+      const parsed = parseModelJson(textBlock.text)
+      results.push({
+        sourcePath: rel,
+        sourceFolder: segFolder,
+        noteTitle: segTitle,
+        noteHash: segHash,
+        segmentIndex: isSplit ? segIdx : null,
+        parentSourcePath: isSplit ? rel : null,
+        rawText: seg.text,
+        ai: parsed,
+        usage: { in: resp.usage.input_tokens, cacheRead: resp.usage.cache_read_input_tokens, out: resp.usage.output_tokens },
+      })
+
+      if (WRITE_DB) {
+        const dup = isSplit ? null : await prisma.noteSuggestion.findFirst({ where: { noteHash: segHash }, select: { id: true } })
+        if (dup) {
+          skippedDup++
+        } else {
+          const entities = sealEntities((parsed.entities || []).map((e) => ({ ...e, include: true })))
+          await prisma.noteSuggestion.create({
+            data: {
+              batchId: batch.id,
+              origin: "ingest",
+              sourceType: SOURCE === "vault" ? "obsidian" : "apple-notes",
+              sourceAbsPath: path.resolve(file),
+              sourcePath: isSplit ? `${rel}#segment${segIdx}` : rel,
+              sourceFolder: segFolder,
+              noteTitle: segTitle,
+              noteHash: segHash,
+              rawText: sealValue(seg.text),
+              status: parsed.isRelevant ? "PENDING" : "SKIPPED",
+              isRelevant: !!parsed.isRelevant,
+              relevanceReason: parsed.relevanceReason || null,
+              matchedClientId: parsed.clientId || null,
+              matchedClientName: parsed.clientName || null,
+              clientConfidence: typeof parsed.clientConfidence === "number" ? parsed.clientConfidence : null,
+              clientReasoning: parsed.clientReasoning || null,
+              clientCandidatesJson: parsed.clientAlternatives || [],
+              entitiesJson: entities,
+              aiModel: MODEL,
+              aiTokensIn: resp.usage.input_tokens,
+              aiTokensOut: resp.usage.output_tokens,
+              parentSuggestionId: parentBatchRowId,
+              segmentIndex: isSplit ? segIdx : null,
+              segmentLabel: isSplit ? segTitle : null,
+            },
+          })
+          inserted++
+        }
+      }
+    } catch (err) {
+      results.push({ sourcePath: rel, sourceFolder: segFolder, noteTitle: segTitle, noteHash: segHash, error: String(err?.message || err) })
+      console.error(`[ingest] ERROR ${rel}${isSplit ? ` (segment ${segIdx})` : ""}: ${err?.message || err}`)
+    }
   }
   done++
   if (done % 10 === 0 || done === files.length) console.error(`[ingest] ${done}/${files.length}`)
