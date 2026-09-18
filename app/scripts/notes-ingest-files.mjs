@@ -15,7 +15,7 @@ import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import Anthropic from "@anthropic-ai/sdk"
 import { PrismaClient } from "@prisma/client"
-import { sealEntities } from "../lib/notes-intake-secrets.mjs"
+import { sealEntities } from "../lib/notes-intake-secrets.cli.mjs"
 
 const execFileP = promisify(execFile)
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : d }

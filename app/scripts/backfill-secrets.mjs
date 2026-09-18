@@ -4,7 +4,7 @@
 // round-trips back to the original. Nothing is dropped.
 //   ANTHROPIC unused; needs ENCRYPTION_KEY + DATABASE_URL.
 import { PrismaClient } from "@prisma/client"
-import { sealEntities, sealValue, openValue, isSealed, SECRET_KEYS_BY_KIND } from "../lib/notes-intake-secrets.mjs"
+import { sealEntities, sealValue, openValue, isSealed, SECRET_KEYS_BY_KIND } from "../lib/notes-intake-secrets.cli.mjs"
 
 const APPLY = process.argv.includes("--apply")
 const prisma = new PrismaClient()

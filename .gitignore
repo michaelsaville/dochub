@@ -22,3 +22,6 @@ Thumbs.db
 # source dirs like app/app/admin/backups and app/app/api/**/backups, silently
 # excluding the entire DR/backups feature from git + CI. Keep it anchored.
 /backups/
+
+cron.log*
+reaper.log

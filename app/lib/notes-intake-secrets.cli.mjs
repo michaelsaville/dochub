@@ -1,4 +1,6 @@
-// Plain-JS twin of lib/notes-intake-secrets.ts for host CLI scripts
+// Plain-JS twin of lib/notes-intake-secrets.ts for host CLI scripts.
+// Named .cli.mjs on purpose: a sibling `notes-intake-secrets.mjs` shadows the .ts in the Next build
+// (webpack resolves .mjs before .ts) and the API routes lose redactEntities/openEntities.
 // (notes-ingest.mjs, notes-ingest-files.mjs, backfill). Same AES-256-GCM
 // format + "enc:v1:" marker as the vault (lib/crypto). Keep in sync.
 import crypto from "node:crypto"
