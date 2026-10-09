@@ -70,6 +70,9 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // proxy.ts matches /api, and Next caps bodies it buffers for the proxy at 10MB
+  // (truncating larger uploads). Keep just above the 25MB per-file route limit.
+  experimental: { proxyClientMaxBodySize: "30mb" },
 };
 
 module.exports = withPWA(nextConfig);

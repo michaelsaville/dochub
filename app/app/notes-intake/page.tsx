@@ -101,8 +101,24 @@ function UploadDropzone({ onUploaded }: { onUploaded: () => void }) {
     try {
       setPhase({ kind: "uploading", name }); let created = 0
       for (const f of csvs) { const fd = new FormData(); fd.append("file", f); const r = await fetch("/api/notes-intake/import-csv", { method: "POST", body: fd }); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "CSV import failed"); created += d.created ?? 0 }
-      if (others.length) { setPhase({ kind: "analyzing", name }); const fd = new FormData(); others.forEach((f) => fd.append("files", f)); const r = await fetch("/api/notes-intake/upload", { method: "POST", body: fd }); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "Upload failed"); created += d.created ?? 0 }
-      setPhase({ kind: "done", count: created }); onUploaded(); setTimeout(() => setPhase({ kind: "idle" }), 2600)
+      // One file per request: each photo is AV-scanned + AI-classified server-side, so a
+      // big batch in one POST blows past the proxy body limit and read timeout.
+      const failed: string[] = []
+      for (let i = 0; i < others.length; i++) {
+        const f = others[i]
+        setPhase({ kind: "analyzing", name: others.length > 1 ? `${f.name} (${i + 1}/${others.length})` : f.name })
+        try {
+          const fd = new FormData(); fd.append("files", f)
+          const r = await fetch("/api/notes-intake/upload", { method: "POST", body: fd })
+          const d = await r.json().catch(() => ({}))
+          if (!r.ok) throw new Error(d.error || (r.status === 413 ? "file too large" : `HTTP ${r.status}`))
+          created += d.created ?? 0
+          for (const e of d.errors ?? []) failed.push(`${e.name}: ${e.error}`)
+        } catch (e: any) { failed.push(`${f.name}: ${e.message || "upload failed"}`) }
+      }
+      onUploaded()
+      if (failed.length) { setPhase({ kind: "error", msg: `${created} added, ${failed.length} failed — ${failed.join("; ")}` }); return }
+      setPhase({ kind: "done", count: created }); setTimeout(() => setPhase({ kind: "idle" }), 2600)
     } catch (e: any) { setPhase({ kind: "error", msg: e.message || "Failed" }) }
   }
   const active = phase.kind === "drag"
