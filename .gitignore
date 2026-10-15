@@ -25,3 +25,6 @@ Thumbs.db
 
 cron.log*
 reaper.log
+
+# Notes Intake source copies + HEIC→JPEG cache (host data, not code)
+/notes-sources/

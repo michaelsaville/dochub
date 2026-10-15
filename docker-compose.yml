@@ -5,9 +5,17 @@ services:
     ports:
       - "3000:3000"
     env_file: .env
+    environment:
+      # Notes Intake source preview: host path prefix (as stored in sourceAbsPath) → read-only mount.
+      # The ingest folders were archived 2026-09-27; local copies live in ./notes-sources/archive.
+      NOTES_SRC_MAP: "/home/msaville/Notes/=/notes-src/notes/;/home/msaville/notes-intake-work/=/notes-src/archive/notes-intake-work/;/home/msaville/freeform-notes/=/notes-src/archive/freeform-notes/"
+      NOTES_HEIC_CACHE: /notes-src/heic-cache
     volumes:
       - uploads:/uploads
       - ./backups/platform:/app/data/backups
+      - /home/msaville/Notes:/notes-src/notes:ro
+      - ./notes-sources/archive:/notes-src/archive:ro
+      - ./notes-sources/heic-cache:/notes-src/heic-cache:ro
     depends_on:
       - db
       - clamav

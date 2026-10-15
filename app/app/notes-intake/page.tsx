@@ -168,6 +168,40 @@ function StateBox({ icon, title, body, spinner }: { icon?: string; title: string
 }
 
 // ── Detail panel ──
+// Original source for review: the uploaded/ingested PDF or image itself, plus any
+// photos embedded in a markdown note (Apple Notes / Obsidian attachments).
+function SourcePreview({ id, sourceType, hasText }: { id: string; sourceType: string | null; hasText: boolean }) {
+  // Keyed by id so switching notes never flashes the previous note's files.
+  const [loaded, setLoaded] = useState<{ id: string; main: { mime: string } | null; attachments: { name: string; mime: string }[]; missing: boolean } | null>(null)
+  useEffect(() => {
+    let live = true
+    fetch(`/api/notes-intake/${id}/file?list=1`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (live && d) setLoaded({ id, ...d }) }).catch(() => {})
+    return () => { live = false }
+  }, [id])
+  const info = loaded?.id === id ? loaded : null
+  if (!info) return null
+  const base = `/api/notes-intake/${id}/file`
+  const frame = { borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)" }
+  const link = { color: "var(--accent)", fontSize: 11, fontFamily: "var(--mono)" }
+  const mdNote = sourceType === "apple-notes" || sourceType === "obsidian"
+  return (
+    <div style={{ marginBottom: hasText ? 10 : 0, display: "grid", gap: 8 }}>
+      {info.missing && <div style={{ fontSize: 11, color: WARN, fontFamily: "var(--mono)" }}>Original file not found on the server — only the extracted text is available.</div>}
+      {info.main && (info.main.mime.includes("pdf")
+        ? <div><object data={base} type="application/pdf" style={{ width: "100%", height: 480, ...frame }}><a href={base} target="_blank" rel="noreferrer" style={link}>Open PDF</a></object><a href={base} target="_blank" rel="noreferrer" style={link}>Open PDF in new tab ↗</a></div>
+        : <a href={base} target="_blank" rel="noreferrer"><img src={base} alt="source" style={{ maxWidth: "100%", maxHeight: 480, display: "block", ...frame }} /></a>)}
+      {info.attachments.length > 0 && (<div>
+        <div style={{ fontSize: 10.5, color: "var(--muted)", fontFamily: "var(--mono)", marginBottom: 6 }}>{info.attachments.length} attachment{info.attachments.length === 1 ? "" : "s"} in this note{mdNote ? " — the AI read only the text, not these" : ""} · click to open full size</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 6 }}>
+          {info.attachments.map((a, n) => a.mime.startsWith("image/")
+            ? <a key={n} href={`${base}?att=${n}`} target="_blank" rel="noreferrer" title={a.name}><img src={`${base}?att=${n}`} alt={a.name} loading="lazy" style={{ width: "100%", height: 120, objectFit: "cover", display: "block", background: "var(--color-background-secondary)", ...frame }} /></a>
+            : <a key={n} href={`${base}?att=${n}`} target="_blank" rel="noreferrer" style={{ ...link, ...frame, display: "flex", alignItems: "center", justifyContent: "center", height: 120, padding: 6, textAlign: "center", wordBreak: "break-all" }}>📄 {a.name}</a>)}
+        </div>
+      </div>)}
+    </div>
+  )
+}
+
 function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile, onBack }: {
   suggestion: Suggestion; clients: { id: string; name: string }[]; clientById: Record<string, string>
   onDone: (msg: string, opts?: { type?: string; undo?: () => void; advance?: boolean }) => void; toast: (m: string, type?: string) => void; isMobile: boolean; onBack: () => void
@@ -332,7 +366,7 @@ function DetailPanel({ suggestion, clients, clientById, onDone, toast, isMobile,
             </div>
           </div>
           {srcOpen && (<div style={{ padding: "0 10px 10px" }}>
-            {draft.origin === "upload" && (<div style={{ marginBottom: draft.rawText ? 10 : 0 }}>{String(draft.uploadDetectedMime || "").includes("pdf") ? <object data={`/api/notes-intake/${draft.id}/file`} type="application/pdf" style={{ width: "100%", height: 420, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)" }}><a href={`/api/notes-intake/${draft.id}/file`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open file</a></object> : <img src={`/api/notes-intake/${draft.id}/file`} alt="source" style={{ maxWidth: "100%", maxHeight: 480, borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", display: "block" }} />}</div>)}
+            <SourcePreview id={draft.id} sourceType={draft.sourceType} hasText={!!draft.rawText} />
             {draft.rawText ? (<>
               <pre style={{ fontSize: 11.5, color: "var(--text)", whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0, fontFamily: "var(--mono)", background: "var(--color-background-secondary)", padding: 10, borderRadius: 6, maxHeight: 320, overflowY: "auto" }}>{draft.rawText}</pre>
               {draft.rawTextRedacted && !revealed && <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "var(--mono)", marginTop: 4 }}>•••••• marks a hidden secret value — Reveal (audited) to see it</div>}
