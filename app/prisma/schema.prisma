@@ -2411,3 +2411,58 @@ model ClientAlias {
   @@unique([alias, clientId])
   @@index([alias])
 }
+
+// ── Pile Agent (2026-10-16): conversational notes-backlog cleanup ──
+// One conversation per pile item (NoteSuggestion) per staff user. The raw
+// Anthropic message history is sealed (AES-256-GCM via lib/crypto) because the
+// model sees source images that may contain secrets; the UI only ever reads
+// displayJson, which is redacted. Proposals are the ONLY write path: the model
+// queues them, a human approves, the server applies the stored payload.
+model AgentConversation {
+  id            String   @id @default(cuid())
+  suggestionId  String?
+  staffUserId   String
+  staffEmail    String?
+  model         String
+  status        String   @default("OPEN") // OPEN | CLOSED
+  historySealed String?  @db.Text // encrypt(JSON MessageParam[]) — images stored as refs
+  secretsSealed String?  @db.Text // encrypt(JSON {handle: value}) — ⟦secret:N⟧ map
+  displayJson   Json?    // redacted transcript for the UI
+  tokensIn      Int      @default(0)
+  tokensOut     Int      @default(0)
+  cacheRead     Int      @default(0)
+  cacheWrite    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  proposals AgentProposal[]
+
+  @@index([suggestionId, staffUserId])
+}
+
+model AgentProposal {
+  id             String    @id @default(cuid())
+  conversationId String
+  suggestionId   String?
+  toolUseId      String
+  kind           String // asset_create | asset_update | credential_create
+  clientId       String
+  locationId     String?
+  targetId       String? // existing record for *_update
+  payloadSealed  String    @db.Text // encrypt(JSON payload) — secrets resolved, never plaintext at rest
+  displayJson    Json // redacted card: {title, breadcrumb, rows:[{field,before,after,secret?,warn?}]}
+  opHash         String
+  status         String    @default("PROPOSED") // PROPOSED | APPLIED | REJECTED | FAILED | SUPERSEDED
+  resultJson     Json?
+  error          String?
+  rejectReason   String?
+  decidedBy      String?
+  decidedAt      DateTime?
+  reportedAt     DateTime? // decision fed back to the model
+  createdAt      DateTime  @default(now())
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, opHash])
+  @@index([suggestionId, status])
+}

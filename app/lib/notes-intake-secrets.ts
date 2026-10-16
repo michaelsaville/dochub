@@ -29,8 +29,15 @@ export function sealEntities(entities: any[]): any[] {
     const keys = SECRET_KEYS_BY_KIND[e?.kind] || []
     if (!keys.length || !e?.fields) return { ...e, eid }
     const f = { ...e.fields }
-    for (const k of keys) if (f[k]) f[k] = sealValue(f[k])
-    return { ...e, eid, fields: f }
+    // The AI's sourceSnippet quotes the note line the secret came from — mask the
+    // plaintext there too, or the "sealed" secret leaks right next to its seal.
+    let snippet = e.sourceSnippet
+    for (const k of keys) {
+      const plain = isSealed(f[k]) ? openValue(f[k]) : f[k]
+      if (typeof snippet === "string" && typeof plain === "string" && plain.trim().length >= 4) snippet = snippet.split(plain).join("••••••")
+      if (f[k]) f[k] = sealValue(f[k])
+    }
+    return { ...e, eid, fields: f, ...(snippet !== e.sourceSnippet ? { sourceSnippet: snippet } : {}) }
   })
 }
 // Decrypt secret fields (for reveal / commit).

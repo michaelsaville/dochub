@@ -1,0 +1,8 @@
+# Keep secrets and local build output out of the image (Next standalone copies
+# the build context; a local `docker build` would otherwise bake .env in).
+.env
+.env.*
+node_modules
+.next
+npm-debug.log*
+.git
