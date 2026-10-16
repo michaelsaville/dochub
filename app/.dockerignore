@@ -1,8 +1,7 @@
-# Keep secrets and local build output out of the image (Next standalone copies
-# the build context; a local `docker build` would otherwise bake .env in).
+# Keep secrets out of the image (Next standalone copies the build context; a
+# local `docker build` would otherwise bake .env in). node_modules is NOT ignored:
+# the builder stage relies on the CI runner's node_modules (generated Prisma client).
 .env
 .env.*
-node_modules
-.next
-npm-debug.log*
 .git
+npm-debug.log*
