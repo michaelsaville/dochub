@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useTheme } from "@/components/ThemeProvider"
+import AppSwitcher from "@/components/AppSwitcher"
 
 const nav = [
   { label: "Dashboard",   href: "/dashboard"      },
@@ -68,6 +69,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void })
           </div>
         )}
       </div>
+
+      <AppSwitcher current="dochub" />
 
       {/* Search button */}
       <div style={{ padding: "8px 8px 4px" }}>
