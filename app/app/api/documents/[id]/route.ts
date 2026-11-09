@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { nextReviewDue, parseInterval } from "@/lib/ticketlink-text"
 
 const include = {
   attachments: { orderBy: { createdAt: "asc" as const } },
+  owner: { select: { id: true, name: true, email: true } },
+}
+
+/** reviewDueAt patch for a save: recompute from the (new or existing) interval; clear when the interval was cleared. */
+function reviewDueData(sent: number | null | undefined, existing: number | null, restart: boolean): { reviewDueAt?: Date | null } {
+  if (sent === null) return { reviewDueAt: null }
+  if (!restart) return {}
+  const interval = sent ?? existing
+  return interval ? { reviewDueAt: nextReviewDue(interval) } : {}
 }
 
 export async function GET(
@@ -30,13 +40,20 @@ export async function PUT(
   if (error) return error
   try {
     const { id } = await params
-    const { title, content, category, isPinned, folderId, portalVisible } = await req.json()
+    const body = await req.json()
+    const { title, content, category, isPinned, folderId, portalVisible } = body
+    // Review cycle: undefined = leave as is, null = clear.
+    const reviewIntervalDays = parseInterval(body.reviewIntervalDays)
+    const ownerId: string | null | undefined =
+      body.ownerId === undefined ? undefined : typeof body.ownerId === "string" && body.ownerId ? body.ownerId : null
 
     // Snapshot current content before overwriting (only if title or content changed)
-    const current = await prisma.clientDocument.findUnique({ where: { id }, select: { title: true, content: true } })
+    const current = await prisma.clientDocument.findUnique({ where: { id }, select: { title: true, content: true, reviewIntervalDays: true } })
+    let edited = false
     if (current) {
       const titleChanged = title?.trim() !== undefined && title.trim() !== current.title
       const contentChanged = content !== undefined && (content?.trim() ?? null) !== current.content
+      edited = titleChanged || contentChanged
       if (titleChanged || contentChanged) {
         await prisma.documentVersion.create({
           data: {
@@ -60,6 +77,15 @@ export async function PUT(
         isPinned: isPinned ?? undefined,
         portalVisible: portalVisible ?? undefined,
         ...(folderId !== undefined ? { folderId: folderId ?? null } : {}),
+        ...(reviewIntervalDays !== undefined ? { reviewIntervalDays } : {}),
+        ...(ownerId !== undefined ? { ownerId } : {}),
+        // An edit (or a changed interval) restarts the review clock. Metadata
+        // toggles (pin / portal) send the whole doc back and must not.
+        ...reviewDueData(
+          reviewIntervalDays,
+          current?.reviewIntervalDays ?? null,
+          edited || (reviewIntervalDays !== undefined && reviewIntervalDays !== (current?.reviewIntervalDays ?? null)),
+        ),
       },
       include,
     })
@@ -95,8 +121,11 @@ export async function PATCH(
       data.flaggedBy = session?.user?.name ?? "unknown"
       data.reviewedAt = null
     } else if (body.needsReview === false) {
+      // "Mark reviewed" — also restarts the review cycle when one is set.
       data.needsReview = false
       data.reviewedAt = new Date()
+      const cur = await prisma.clientDocument.findUnique({ where: { id }, select: { reviewIntervalDays: true } })
+      if (cur?.reviewIntervalDays) data.reviewDueAt = nextReviewDue(cur.reviewIntervalDays)
     }
 
     const doc = await prisma.clientDocument.update({ where: { id }, data, include })

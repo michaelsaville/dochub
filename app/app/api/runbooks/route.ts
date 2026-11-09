@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { nextReviewDue, parseInterval } from "@/lib/ticketlink-text"
 
 const include = {
   category: true,
@@ -45,9 +46,13 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { title, summary, content, categoryId, clientId, tagIds, steps } = body
     if (!title?.trim()) return NextResponse.json({ error: "Title is required" }, { status: 400 })
+    const reviewIntervalDays = parseInterval(body.reviewIntervalDays) ?? null
 
     const runbook = await prisma.runbook.create({
       data: {
+        reviewIntervalDays,
+        reviewDueAt: nextReviewDue(reviewIntervalDays),
+        ownerId: typeof body.ownerId === "string" && body.ownerId ? body.ownerId : null,
         title: title.trim(),
         summary: summary?.trim() || null,
         content: content?.trim() || null,

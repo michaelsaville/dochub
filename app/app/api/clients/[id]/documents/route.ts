@@ -2,9 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { getClientScope, scopeAllows } from "@/lib/client-scope"
+import { nextReviewDue, parseInterval } from "@/lib/ticketlink-text"
 
 const include = {
   attachments: { orderBy: { createdAt: "asc" as const } },
+  owner: { select: { id: true, name: true, email: true } },
 }
 
 export async function GET(
@@ -36,8 +38,11 @@ export async function POST(
   try {
     const { id } = await params
     if (!scopeAllows(await getClientScope(), id)) return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
-    const { title, content, category, isPinned, folderId } = await req.json()
+    const body = await req.json()
+    const { title, content, category, isPinned, folderId } = body
     if (!title?.trim()) return NextResponse.json({ error: "Title required" }, { status: 400 })
+    const reviewIntervalDays = parseInterval(body.reviewIntervalDays) ?? null
+    const ownerId = typeof body.ownerId === "string" && body.ownerId ? body.ownerId : null
     const doc = await prisma.clientDocument.create({
       data: {
         clientId: id,
@@ -46,6 +51,9 @@ export async function POST(
         category: category?.trim() || null,
         isPinned: isPinned ?? false,
         folderId: folderId ?? null,
+        reviewIntervalDays,
+        reviewDueAt: nextReviewDue(reviewIntervalDays),
+        ownerId,
       },
       include,
     })

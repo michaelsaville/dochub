@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { nextReviewDue, parseInterval } from "@/lib/ticketlink-text"
 
 const include = {
   category: true,
@@ -37,7 +38,15 @@ export async function PUT(
     const { title, summary, content, categoryId, clientId, tagIds, steps } = body
 
     // Snapshot the current version before overwriting (SOP/runbook change history)
-    const current = await prisma.runbook.findUnique({ where: { id }, select: { title: true, summary: true, content: true } })
+    const current = await prisma.runbook.findUnique({ where: { id }, select: { title: true, summary: true, content: true, reviewIntervalDays: true } })
+    // Review cycle: undefined = leave as is, null = clear. A save restarts the clock.
+    const sentInterval = parseInterval(body.reviewIntervalDays)
+    const interval = sentInterval === undefined ? current?.reviewIntervalDays ?? null : sentInterval
+    const reviewData = {
+      ...(sentInterval !== undefined ? { reviewIntervalDays: sentInterval } : {}),
+      ...(body.ownerId !== undefined ? { ownerId: typeof body.ownerId === "string" && body.ownerId ? body.ownerId : null } : {}),
+      reviewDueAt: nextReviewDue(interval),
+    }
     if (current) {
       await prisma.runbookVersion.create({
         data: { runbookId: id, title: current.title, summary: current.summary, content: current.content, savedBy: session?.user?.name ?? "unknown" },
@@ -58,6 +67,7 @@ export async function PUT(
         content: content?.trim() ?? null,
         categoryId: categoryId ?? null,
         clientId: clientId ?? null,
+        ...reviewData,
         tags: tagIds?.length ? { create: tagIds.map((tid: string) => ({ tagId: tid })) } : undefined,
         steps: steps?.length ? {
           create: steps.map((s: any, i: number) => ({
@@ -67,6 +77,34 @@ export async function PUT(
           })),
         } : undefined,
       },
+      include,
+    })
+    return NextResponse.json(runbook)
+  } catch (e) {
+    return NextResponse.json({ error: "Failed to update runbook" }, { status: 500 })
+  }
+}
+
+/**
+ * PATCH /api/runbooks/:id  { reviewed: true }
+ * "Mark reviewed" from /docs/review — restarts the review cycle without
+ * touching content (PUT replaces steps/tags wholesale).
+ */
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { error } = await requireAuth()
+  if (error) return error
+  try {
+    const { id } = await params
+    const body = await req.json().catch(() => ({}))
+    if (body?.reviewed !== true) return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+    const cur = await prisma.runbook.findUnique({ where: { id }, select: { reviewIntervalDays: true } })
+    if (!cur) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const runbook = await prisma.runbook.update({
+      where: { id },
+      data: { reviewDueAt: nextReviewDue(cur.reviewIntervalDays) },
       include,
     })
     return NextResponse.json(runbook)

@@ -32,6 +32,8 @@ model StaffUser {
   passkeys            StaffUserPasskey[]
   clientAssignments   StaffClientAssignment[]
   vaultSession        PersonalVaultSession?
+  ownedDocuments      ClientDocument[]      @relation("DocumentOwner")
+  ownedRunbooks       Runbook[]             @relation("RunbookOwner")
 }
 
 model PersonalCredential {
@@ -1072,6 +1074,17 @@ model ClientDocument {
   flaggedAt   DateTime?
   flaggedBy   String? // staff user name who flagged
   reviewedAt  DateTime?
+  /// Doc review cycle (2026-11-09, feat/ticketlink). When reviewIntervalDays is
+  /// set, every save (and every "Mark reviewed") stamps reviewDueAt = now +
+  /// interval. Past-due docs show in /docs/review and roll up into ONE internal
+  /// TicketHub ticket per client per week (cron/staleness, flag-gated).
+  reviewIntervalDays Int?
+  reviewDueAt        DateTime?
+  ownerId            String?
+  owner              StaffUser? @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  /// TicketHub ticket id this draft was written from ("Write a doc from this
+  /// ticket"). Soft pointer, no FK — the ticket lives in the tickethub schema.
+  sourceTicketId     String?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   assetId     String?
@@ -1080,6 +1093,9 @@ model ClientDocument {
   asset       Asset?             @relation("DocumentAsset", fields: [assetId], references: [id])
   client      Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   folder      DocumentFolder?    @relation(fields: [folderId], references: [id])
+
+  @@index([reviewDueAt])
+  @@index([sourceTicketId])
 }
 
 model DocumentVersion {
@@ -1223,6 +1239,13 @@ model Runbook {
   runs        RunbookRun[]
   versions    RunbookVersion[]
   sourceTemplateId String? // soft pointer to Template (no FK)
+  // Review cycle — same semantics as ClientDocument.reviewIntervalDays.
+  reviewIntervalDays Int?
+  reviewDueAt        DateTime?
+  ownerId            String?
+  owner              StaffUser? @relation("RunbookOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([reviewDueAt])
 
   // Reverse sides for the Client lifecycle hooks.
   onboardingForClients   Client[] @relation("ClientOnboardingRunbook")
