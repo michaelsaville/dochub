@@ -146,9 +146,12 @@ export async function POST() {
           select: { id: true },
         })
         if (linked) {
+          // Never wipe notes a tech typed in DocHub when Syncro has none, and
+          // label the row as Syncro-sourced (503 rows were stuck on MANUAL).
+          const { notes, ...rest } = fields
           await prisma.asset.update({
             where: { id: linked.id },
-            data: { ...fields, updatedAt: new Date() },
+            data: { ...rest, ...(notes ? { notes } : {}), dataSource: "SYNCRO", updatedAt: new Date() },
           })
           results.assets++
           continue

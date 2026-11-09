@@ -30,6 +30,10 @@ import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import ClientOverview from "@/components/client/ClientOverview"
 import SecretCopy from "@/components/client/SecretCopy"
+import StatusTiles from "@/components/client/StatusTiles"
+import ChangesCard from "@/components/client/ChangesCard"
+import AssetDuplicatesBanner from "@/components/client/AssetDuplicatesBanner"
+import { rotationBadge } from "@/lib/rotation-policy"
 import { pushRecent } from "@/lib/recents"
 import { NETWORK_SUBS } from "@/components/Sidebar"
 import { ipInCidr } from "@/lib/cidr"
@@ -46,29 +50,10 @@ import Sheet from "@/components/Sheet"
 // server-side with the live AppSetting policy.
 const ROTATION_DEFAULT_DAYS = 90
 const ROTATION_WARN_DAYS = 14
-function computeCredRotation(cred: any): {
-  status: "exempt" | "snoozed" | "ok" | "dueSoon" | "overdue"
-  text: string
-  tone: "danger" | "warn" | "muted"
-} {
-  if (cred?.rotationExempt) return { status: "exempt", text: "No rotation", tone: "muted" }
-  const interval = cred?.rotationIntervalDays && cred.rotationIntervalDays > 0 ? cred.rotationIntervalDays : ROTATION_DEFAULT_DAYS
-  const baseRaw = cred?.lastRotated ?? cred?.createdAt
-  if (!baseRaw) return { status: "ok", text: "", tone: "muted" }
-  const base = new Date(baseRaw)
-  if (Number.isNaN(base.getTime())) return { status: "ok", text: "", tone: "muted" }
-  const now = Date.now()
-  const snooze = cred?.rotationSnoozedUntil ? new Date(cred.rotationSnoozedUntil) : null
-  if (snooze && snooze.getTime() > now) {
-    return { status: "snoozed", text: `Snoozed ${Math.ceil((snooze.getTime() - now) / 86400000)}d`, tone: "muted" }
-  }
-  const due = base.getTime() + interval * 86400000
-  const remaining = due - now
-  if (remaining < 0) return { status: "overdue", text: `Rotate · ${Math.ceil(-remaining / 86400000)}d overdue`, tone: "danger" }
-  const days = Math.ceil(remaining / 86400000)
-  if (days <= ROTATION_WARN_DAYS) return { status: "dueSoon", text: `Rotate in ${days}d`, tone: "warn" }
-  const ago = Math.floor((now - base.getTime()) / 86400000)
-  return { status: "ok", text: cred?.lastRotated ? `Rotated ${ago}d ago` : `Set ${ago}d ago`, tone: "muted" }
+// Shared with the alerts feed + nightly digest (lib/rotation-policy.ts):
+// never-rotated credentials are "unknown" (muted), not overdue.
+function computeCredRotation(cred: any) {
+  return rotationBadge(cred)
 }
 
 type Person = {
@@ -1808,6 +1793,8 @@ export default function ClientDetailPage() {
             clientId={client.id}
             counts={tabCounts}
             completeness={completeness}
+            statusSlot={<><div style={{ marginBottom: 10 }}><AssetDuplicatesBanner clientId={client.id} /></div><div style={{ marginBottom: 14 }}><StatusTiles clientId={client.id} isAdmin={isAdmin} /></div></>}
+            changesSlot={<ChangesCard clientId={client.id} limit={12} days={14} />}
           />
         )}
 
@@ -2211,6 +2198,7 @@ export default function ClientDetailPage() {
 
         {activeTab === "Assets" && (
           <div style={{ maxWidth: "960px" }}>
+            <AssetDuplicatesBanner clientId={client.id} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes(); if (subnets.length === 0) fetchSubnets() }} className="btn btn-secondary">
                 New asset
@@ -2733,7 +2721,7 @@ export default function ClientDetailPage() {
               const expanded = !!expandedCreds[cred.id] || isEditing
               // Only nag in the row for passwords that HAVE a rotation history;
               // "never rotated" imports are surfaced once per client in Alerts.
-              const rowRot = cred.lastRotated && (rot.status === "overdue" || rot.status === "dueSoon")
+              const rowRot = rot.status === "overdue" || rot.status === "dueSoon"
               const toggle = () => setExpandedCreds((e) => ({ ...e, [cred.id]: !e[cred.id] }))
               return (
                 <div key={cred.id} id={`cred-${cred.id}`} className={`dh-cred${expanded ? " open" : ""}${highlightCred === cred.id ? " flash" : ""}`}>
@@ -2750,8 +2738,8 @@ export default function ClientDetailPage() {
                     <button type="button" className="dh-cred-main" onClick={toggle} aria-expanded={expanded}>
                       <span className="dh-cred-label">
                         {cred.label}
-                        {!cred.allowTechReveal && <span className="dh-cred-chip" title="Only admins can reveal">ADMIN</span>}
-                        {rowRot && <span className="dh-cred-chip warn" title="Password is past (or near) its rotation policy">{rot.text}</span>}
+                        {!cred.allowTechReveal && !isAdmin && <span className="dh-cred-chip" title="Only admins can reveal this one">ADMIN ONLY</span>}
+                        {rowRot && <span className="dh-cred-chip warn" title={rot.title}>{rot.text}</span>}
                       </span>
                       <span className="dh-cred-user">{cred.username || (cred.user?.name ?? "")}</span>
                     </button>
@@ -2809,7 +2797,7 @@ export default function ClientDetailPage() {
                       {rot.text && (
                         <span
                           className={rot.tone === "danger" ? "badge-danger" : rot.tone === "warn" ? "badge-warn" : undefined}
-                          title={rot.status === "overdue" ? "Password is past its rotation policy" : rot.status === "dueSoon" ? "Password is due for rotation soon" : rot.status === "exempt" ? "Excluded from rotation reminders" : rot.status === "snoozed" ? "Rotation reminder snoozed" : "Rotation up to date"}
+                          title={rot.title}
                           style={rot.tone === "muted"
                             ? { fontSize: "10px", fontWeight: 600, padding: "1px 6px", borderRadius: "4px", background: "rgba(148,163,184,0.14)", color: "var(--muted)" }
                             : undefined}

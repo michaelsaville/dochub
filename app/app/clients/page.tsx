@@ -101,7 +101,7 @@ function ClientsPageInner() {
 
   async function fetchScores() {
     try {
-      const res = await fetch("/api/clients/completeness")
+      const res = await fetch("/api/clients/completeness?detail=1")
       if (!res.ok) return
       const data = await res.json()
       const sc: Record<string, number> = {}

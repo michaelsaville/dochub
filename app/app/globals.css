@@ -606,3 +606,4 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
   .dh-clients-grid > :nth-child(3), .dh-clients-grid > :nth-child(4), .dh-clients-grid > :nth-child(5),
   .dh-clients-grid > :nth-child(6), .dh-clients-grid > :nth-child(7), .dh-clients-grid > :nth-child(9) { display: none; }
 }
+.dh-nav-badge.info { background: rgba(61,111,255,0.18); color: var(--accent); }

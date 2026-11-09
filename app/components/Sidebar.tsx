@@ -123,9 +123,9 @@ function isActive(pathname: string, href: string, also: string[] = []) {
 
 // Module-scope pieces (inline components remount on every render — DocHub gotcha)
 function NavItem({
-  href, label, active, count, badge, indent, onNavigate, title,
+  href, label, active, count, badge, badgeTone, indent, onNavigate, title,
 }: {
-  href: string; label: string; active: boolean; count?: number; badge?: number
+  href: string; label: string; active: boolean; count?: number; badge?: number; badgeTone?: "alert" | "info"
   indent?: boolean; onNavigate?: () => void; title?: string
 }) {
   return (
@@ -137,7 +137,7 @@ function NavItem({
       className={`dh-nav-item${active ? " active" : ""}${indent ? " indent" : ""}`}
     >
       <span className="dh-nav-label">{label}</span>
-      {badge ? <span className="dh-nav-badge">{badge > 99 ? "99+" : badge}</span> : null}
+      {badge ? <span className={`dh-nav-badge${badgeTone === "info" ? " info" : ""}`}>{badge > 99 ? "99+" : badge}</span> : null}
       {count !== undefined && count > 0 && !badge ? <span className="dh-nav-count">{count}</span> : null}
     </Link>
   )
@@ -425,6 +425,7 @@ export default function Sidebar({
                   label={item.label}
                   active={isActive(pathname, item.href, item.also)}
                   badge={item.badge === "alerts" ? alertCount : item.badge === "inbox" ? inboxCount : undefined}
+                  badgeTone={item.badge === "inbox" ? "info" : "alert"}
                   onNavigate={onNavigate}
                 />
                 {item.href === "/clients" && (pinned.length > 0 || recent.length > 0) && (
