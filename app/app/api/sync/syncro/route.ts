@@ -106,6 +106,13 @@ export async function POST() {
       }
     }
 
+    // Breeze owns device inventory once Settings → Breeze flips this switch;
+    // Syncro then only keeps the client roster in step.
+    const assetsOff = await prisma.appSetting.findUnique({ where: { key: "integration:syncro:assetsDisabled" } })
+    if (assetsOff?.value === "true") {
+      return NextResponse.json({ success: results.errors.length === 0, ...results, assetsSkipped: "Breeze owns assets" })
+    }
+
     const assets = await fetchAllPages("/customer_assets")
     for (const a of assets) {
       try {

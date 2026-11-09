@@ -36,7 +36,7 @@ const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual", SYNCRO: "Syncro", UNIFI: "Unifi",
   ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
   MERAKI: "Meraki", HPINSTANTON: "HP Instant On", SONICWALL: "SonicWall",
-  SCOUT: "Scout",
+  SCOUT: "Scout", BREEZE: "Breeze",
 }
 
 // SOURCE_DEFAULTS + SOURCE_DOMAINS now live in @/lib/source-colors (one source of truth)

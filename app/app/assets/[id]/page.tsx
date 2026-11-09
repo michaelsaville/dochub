@@ -174,6 +174,10 @@ export default function AssetDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const [asset, setAsset] = useState<Asset | null>(null)
+  const [breeze, setBreeze] = useState<{ linked: boolean; status?: string | null; lastSeenAt?: string | null; deviceUrl?: string; terminalUrl?: string } | null>(null)
+  useEffect(() => {
+    fetch(`/api/assets/${id}/breeze`).then((r) => (r.ok ? r.json() : null)).then(setBreeze).catch(() => {})
+  }, [id])
   const [loading, setLoading] = useState(true)
 
   const [interfaces, setInterfaces] = useState<AssetInterface[]>([])
@@ -537,7 +541,7 @@ export default function AssetDetailPage() {
 
   const displayName = asset.friendlyName || asset.name
   const hostname = asset.friendlyName ? asset.name : null
-  const hasRemoteAccess = asset.splashtopUrl || asset.rdpEnabled || asset.vncEnabled || asset.managementUrl
+  const hasRemoteAccess = asset.splashtopUrl || asset.rdpEnabled || asset.vncEnabled || asset.managementUrl || breeze?.linked
   const vncTarget = `vnc://${asset.vncHost || asset.ipAddress}:${asset.vncPort ?? 5900}`
   const warrantyExpired = asset.warrantyExpiry && new Date(asset.warrantyExpiry) < new Date()
 
@@ -650,10 +654,19 @@ export default function AssetDetailPage() {
         {hasRemoteAccess && (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px", padding: "12px 16px", background: "var(--color-background-secondary)", borderRadius: "10px", border: "0.5px solid var(--color-border-tertiary)" }}>
             <span style={{ fontSize: "12px", color: "var(--color-text-muted)", alignSelf: "center", marginRight: "4px" }}>Remote access</span>
-            {asset.splashtopUrl && <ActionButton href={asset.splashtopUrl} label="Splashtop" variant="primary" />}
+            {breeze?.linked && (
+              <span title={breeze.lastSeenAt ? `Last seen ${new Date(breeze.lastSeenAt).toLocaleString()}` : "Breeze agent"}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--color-text-secondary)", marginRight: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: breeze.status === "online" ? "var(--accent2)" : breeze.status ? "var(--color-text-muted)" : "var(--warn)" }} />
+                {breeze.status ?? "status unknown"}
+              </span>
+            )}
+            {breeze?.linked && breeze.deviceUrl && <ActionButton href={breeze.deviceUrl} label="Breeze ↗" variant="primary" />}
+            {breeze?.linked && breeze.terminalUrl && breeze.status === "online" && <ActionButton href={breeze.terminalUrl} label="Terminal ↗" />}
+            {asset.splashtopUrl && <ActionButton href={asset.splashtopUrl} label="Splashtop" variant={breeze?.linked ? undefined : "primary"} />}
             {asset.rdpEnabled && <ActionButton href={`/api/assets/${asset.id}/rdp`} download label="RDP" />}
             {asset.vncEnabled && asset.ipAddress && <ActionButton href={vncTarget} label="VNC" />}
-            {asset.managementUrl && <ActionButton href={asset.managementUrl} label="Management ↗" />}
+            {asset.managementUrl && asset.managementUrl !== breeze?.deviceUrl && <ActionButton href={asset.managementUrl} label="Management ↗" />}
           </div>
         )}
 

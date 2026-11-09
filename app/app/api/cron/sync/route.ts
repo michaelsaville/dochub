@@ -48,6 +48,16 @@ export async function GET(req: Request) {
   }
 
   try {
+    const res = await fetch("http://localhost:3000/api/integrations/breeze/sync", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    })
+    results.breeze = await res.json()
+  } catch (e: any) {
+    results.breeze = { success: false, error: e.message }
+  }
+
+  try {
     const res = await fetch("http://localhost:3000/api/cron/domains", {
       headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
     })
@@ -145,6 +155,7 @@ export async function GET(req: Request) {
   // Persist per-integration status so Settings can render last-run + last-error.
   await Promise.all([
     recordSyncStatus("syncro",       ...statusFor(results.syncro)),
+    recordSyncStatus("breeze",       ...statusFor(results.breeze)),
     recordSyncStatus("domains",      ...statusFor(results.domains)),
     recordSyncStatus("alerts",       ...statusFor(results.alerts)),
     recordSyncStatus("synology",     ...statusFor(results.synology)),

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { breezeConfigured, liveStatuses } from "@/lib/breeze"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { getClientScope, scopeAllows } from "@/lib/client-scope"
@@ -48,7 +49,7 @@ export async function GET(
   try {
     const client = await prisma.client.findUnique({
       where: { id },
-      select: { id: true, syncroId: true, lastSyncedAt: true },
+      select: { id: true, syncroId: true, lastSyncedAt: true, breezeOrgId: true },
     })
     if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -109,6 +110,7 @@ export async function GET(
       getRotationSettings(),
     ])
 
+    const syncroAssetsOff = (await prisma.appSetting.findUnique({ where: { key: "integration:syncro:assetsDisabled" } }))?.value === "true"
     const tiles: StatusTile[] = []
     const status = new Map(syncStatuses.map((s) => [s.key, s]))
 
@@ -247,6 +249,33 @@ export async function GET(
       })
     }
 
+    // ── Breeze devices (live agent status, 2-min cache) ─────────────────────
+    if (client.breezeOrgId && breezeConfigured()) {
+      const linked = await prisma.asset.findMany({
+        where: { location: { clientId: id }, breezeDeviceId: { not: null }, status: { notIn: ["RETIRED", "DISPOSED"] } },
+        select: { breezeDeviceId: true, lastSeenAt: true },
+      })
+      try {
+        const live = await liveStatuses()
+        const st = linked.map((a) => live.get(a.breezeDeviceId!))
+        const online = st.filter((x) => x?.status === "online").length
+        const stale = linked.filter((a, i) => {
+          const seen = st[i]?.lastSeenAt ? new Date(st[i]!.lastSeenAt!) : a.lastSeenAt
+          return !seen || now.getTime() - seen.getTime() > 7 * DAY
+        }).length
+        tiles.push({
+          key: "breeze",
+          label: "Devices online",
+          value: linked.length ? `${online}/${linked.length}` : "0",
+          sub: linked.length === 0 ? "No Breeze agents synced yet" : stale ? `${stale} not seen in 7d+` : "All checked in this week",
+          tone: linked.length === 0 ? "neutral" : stale > 0 ? "warn" : "ok",
+          href: `${base}Assets`,
+        })
+      } catch {
+        tiles.push({ key: "breeze", label: "Devices online", value: "—", sub: "Breeze unreachable", tone: "warn", href: `${base}Assets` })
+      }
+    }
+
     // ── Syncro sync health ──────────────────────────────────────────────────
     if (client.syncroId) {
       const s = status.get("syncro")
@@ -256,7 +285,7 @@ export async function GET(
         key: "syncro",
         label: "Syncro sync",
         value: last ? ago(last, now) : "never",
-        sub: s?.status === "ERROR" ? (isAdmin ? `Error: ${s.message ?? "unknown"}`.slice(0, 80) : "Last run failed") : "Contacts + assets",
+        sub: s?.status === "ERROR" ? (isAdmin ? `Error: ${s.message ?? "unknown"}`.slice(0, 80) : "Last run failed") : syncroAssetsOff ? "Client roster (Breeze owns assets)" : "Contacts + assets",
         tone: s?.status === "ERROR" || ageH > 72 ? "bad" : ageH > 36 ? "warn" : "ok",
         href: isAdmin ? "/settings" : undefined,
       })

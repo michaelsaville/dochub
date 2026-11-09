@@ -4,33 +4,19 @@ import { requireAuth } from "@/lib/auth"
 import { getClientScope, scopeAllows } from "@/lib/client-scope"
 import { writeActivity } from "@/lib/activity"
 import { isIpv4, ipInCidr } from "@/lib/cidr"
+import { undocumentedNetworkEquipment } from "@/lib/breeze-sync"
 
 /**
  * POST /api/clients/:id/discovered/promote   { deviceId, locationId? }
  *
- * The "confirm" step of FleetHub discovery: turn a discovered device into a
- * real DocHub asset, prefilled from the FleetHub inventory (hostname, OS, IP,
- * warranty, asset tag, purchase date). Reuses the Wave-1 "enter once" spawn so
- * the primary interface + IPAM row are created too. dataSource = FLEETHUB.
+ * The "confirm" step of Breeze network discovery: turn a printer / switch /
+ * AP / firewall / NAS Breeze found at the client's site into a real DocHub
+ * asset (name, IP, MAC, make/model, mgmt URL). Reuses the "enter once" spawn
+ * so the primary interface + IPAM row are created too. dataSource = BREEZE.
  */
-type FlDevice = {
-  id: string
-  hostname: string | null
-  friendlyName: string | null
-  os: string | null
-  osVersion: string | null
-  role: string | null
-  ipAddress: string | null
-  assetTag: string | null
-  warrantyExpiresAt: Date | null
-  purchasedAt: Date | null
-}
-
-function roleToCategory(role: string | null): "SERVER" | "COMPUTER" | "OTHER" {
-  const r = (role || "").toLowerCase()
-  if (r === "server") return "SERVER"
-  if (r === "workstation" || r === "desktop" || r === "laptop") return "COMPUTER"
-  return "OTHER"
+const CATEGORY: Record<string, string> = {
+  printer: "PRINTER", router: "NETWORK_GEAR", switch: "NETWORK_GEAR", firewall: "NETWORK_GEAR",
+  access_point: "WIRELESS", nas: "NAS",
 }
 
 export async function POST(
@@ -53,34 +39,34 @@ export async function POST(
   const locationId: string | undefined = body.locationId || client.locations[0]?.id
   if (!locationId) return NextResponse.json({ error: "Client has no location — create one first" }, { status: 400 })
 
-  // Pull the device from FleetHub, scoped to this client (no cross-client promote).
-  const rows = await prisma.$queryRaw<FlDevice[]>`
-    SELECT id, hostname, "friendlyName", os, "osVersion", role, "ipAddress",
-           "assetTag", "warrantyExpiresAt", "purchasedAt"
-    FROM fleethub.fl_devices
-    WHERE id = ${body.deviceId} AND LOWER(TRIM("clientName")) = LOWER(TRIM(${client.name}))
-    LIMIT 1
-  `
-  const dev = rows[0]
-  if (!dev) return NextResponse.json({ error: "Device not found for this client" }, { status: 404 })
+  // Pull the item from Breeze, scoped to this client's org (no cross-client promote).
+  const org = await prisma.client.findUnique({ where: { id }, select: { breezeOrgId: true } })
+  if (!org?.breezeOrgId) return NextResponse.json({ error: "Client isn't linked to a Breeze organization" }, { status: 400 })
+  let dev: Awaited<ReturnType<typeof undocumentedNetworkEquipment>>[number] | undefined
+  try {
+    dev = (await undocumentedNetworkEquipment(id, org.breezeOrgId)).find((e) => e.id === body.deviceId)
+  } catch {
+    return NextResponse.json({ error: "Breeze unreachable" }, { status: 502 })
+  }
+  if (!dev) return NextResponse.json({ error: "Device not found for this client (or already documented)" }, { status: 404 })
 
-  const name = (dev.hostname || dev.friendlyName || "Discovered device").trim()
-  const ip = dev.ipAddress?.trim() || null
-  const os = [dev.os, dev.osVersion].filter(Boolean).join(" ").trim() || null
+  const ip = dev.address?.trim() || null
+  const makeModel = [dev.manufacturer, dev.model].filter(Boolean).join(" ") || null
+  const name = (dev.name || makeModel || ip || "Discovered device").trim()
+  const os = null
 
   const asset = await prisma.asset.create({
     data: {
       locationId,
       name,
-      friendlyName: dev.friendlyName?.trim() || null,
-      category: roleToCategory(dev.role),
+      category: (CATEGORY[dev.type] ?? "OTHER") as never,
       ipAddress: ip,
-      os,
-      assetTag: dev.assetTag?.trim() || null,
-      warrantyExpiry: dev.warrantyExpiresAt ?? null,
-      purchaseDate: dev.purchasedAt ?? null,
-      dataSource: "FLEETHUB",
-      notes: "Imported from FleetHub discovery",
+      macAddress: dev.macAddress || null,
+      make: dev.manufacturer || null,
+      model: dev.model || null,
+      managementUrl: dev.url || null,
+      dataSource: "BREEZE",
+      notes: `Confirmed from Breeze network discovery (${dev.type.replace("_", " ")}, ${dev.source})`,
     },
   })
 
@@ -88,8 +74,8 @@ export async function POST(
     clientId: id,
     staffUserId: session!.user.id,
     eventType: "ASSET_ADDED",
-    title: `Asset confirmed from FleetHub: ${name}`,
-    body: os,
+    title: `Asset confirmed from Breeze discovery: ${name}`,
+    body: makeModel,
   })
 
   // "Enter once" spawn — primary interface + IPAM match (best-effort, never fatal).

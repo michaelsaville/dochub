@@ -118,6 +118,7 @@ model Client {
   name              String
   type              ClientType         @default(BUSINESS)
   syncroId          String?            @unique
+  breezeOrgId     String? // Breeze RMM organization id (mapping for the device sync)
   notes             String?
   isActive          Boolean            @default(true)
   lastSyncedAt      DateTime?
@@ -168,6 +169,7 @@ model Client {
   backupConfigs     BackupConfig[]
   intakeSuggestions IntakeSuggestion[]
   internetCircuits  InternetCircuit[]
+  @@index([breezeOrgId])
 }
 
 model Location {
@@ -284,6 +286,8 @@ model Asset {
   cost               Int?
   room               String?
   syncroAssetId      String?                @unique
+  breezeDeviceId     String?                @unique // Breeze RMM device id (partner API)
+  lastSeenAt         DateTime? // Breeze agent last check-in (nightly sync)
   notes              String?
   successorId        String?                @unique
   createdAt          DateTime               @default(now())

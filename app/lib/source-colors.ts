@@ -16,6 +16,7 @@ export const SOURCE_DEFAULTS: Record<string, string> = {
   HPINSTANTON: "#0096d6",
   SONICWALL:   "#e8521a",
   SCOUT:       "#14b8a6",
+  BREEZE:      "#38bdf8",
 }
 
 export const SOURCE_DOMAINS: Record<string, string> = {
@@ -27,4 +28,5 @@ export const SOURCE_DOMAINS: Record<string, string> = {
   MERAKI:      "meraki.cisco.com",
   HPINSTANTON: "arubainstanton.com",
   SONICWALL:   "sonicwall.com",
+  BREEZE:      "breeze.pcc2k.com",
 }

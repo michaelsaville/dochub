@@ -33,6 +33,7 @@ import SecretCopy from "@/components/client/SecretCopy"
 import StatusTiles from "@/components/client/StatusTiles"
 import ChangesCard from "@/components/client/ChangesCard"
 import AssetDuplicatesBanner from "@/components/client/AssetDuplicatesBanner"
+import BreezeOrgPicker from "@/components/client/BreezeOrgPicker"
 import { rotationBadge } from "@/lib/rotation-policy"
 import { pushRecent } from "@/lib/recents"
 import { NETWORK_SUBS } from "@/components/Sidebar"
@@ -184,7 +185,7 @@ const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "Manual", SYNCRO: "Syncro", UNIFI: "Unifi",
   ITFLOW: "ITFlow", PAX8: "Pax8", PULSEWAY: "Pulseway",
   MERAKI: "Meraki", HPINSTANTON: "HP Instant On", SONICWALL: "SonicWall",
-  SCOUT: "Scout",
+  SCOUT: "Scout", BREEZE: "Breeze",
 }
 
 // Metadata for all standard asset fields
@@ -302,7 +303,7 @@ export default function ClientDetailPage() {
   } | null>(null)
   const [completenessOpen, setCompletenessOpen] = useState(false)
   const [tabCounts, setTabCounts] = useState<Record<string, number>>({})
-  // FleetHub discovery — devices the agent sees that aren't documented yet
+  // Breeze network discovery — gear Breeze sees at the site that isn't documented yet
   const [discovered, setDiscovered] = useState<any[]>([])
   const [promotingId, setPromotingId] = useState<string | null>(null)
   const [scopedSearchOpen, setScopedSearchOpen] = useState(false)
@@ -1427,7 +1428,7 @@ export default function ClientDetailPage() {
     } catch {}
   }
 
-  // Confirm a FleetHub-discovered device into a real, prefilled asset.
+  // Confirm a Breeze-discovered network device into a real, prefilled asset.
   async function promoteDiscovered(deviceId: string) {
     setPromotingId(deviceId)
     try {
@@ -1868,6 +1869,7 @@ export default function ClientDetailPage() {
                 newClientRunbookId:   client.newClientRunbookId,
               }}
             />
+            {isAdmin && <BreezeOrgPicker clientId={client.id} />}
             {isAdmin && (
               <section className="dh-card">
                 <div className="dh-card-head"><span className="dh-card-title">Export</span></div>
@@ -2209,11 +2211,11 @@ export default function ClientDetailPage() {
             {discovered.length > 0 && (
               <div style={{ background: "rgba(61,111,255,0.06)", border: "0.5px solid rgba(61,111,255,0.3)", borderRadius: "10px", padding: "14px 16px", marginBottom: "20px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)" }}>Discovered by FleetHub</span>
+                  <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-primary)" }}>Discovered by Breeze</span>
                   <span style={{ fontSize: "11px", padding: "1px 7px", borderRadius: "4px", background: "rgba(61,111,255,0.15)", color: "var(--accent)" }}>{discovered.length}</span>
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginBottom: "10px" }}>
-                  The FleetHub agent sees these machines but they aren&apos;t documented yet. Confirm to create a prefilled asset.
+                  Breeze found this network gear at the client&apos;s site, but it isn&apos;t documented yet. Confirm to create a prefilled asset. (Computers with the Breeze agent sync automatically.)
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {discovered.map((d: any) => (

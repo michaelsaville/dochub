@@ -1,5 +1,6 @@
 "use client"
 
+import BreezeSettings from "@/components/settings/BreezeSettings"
 import AppShell from "@/components/AppShell"
 import { SOURCE_DEFAULTS } from "@/lib/source-colors"
 import { useState, useEffect } from "react"
@@ -71,7 +72,7 @@ const SOURCE_DOMAINS: Record<string, string> = {
   ITFLOW: "itflow.org", PAX8: "pax8.com", PULSEWAY: "pulseway.com",
 }
 
-type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "sync-status" | "security" | "syncro" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
+type Section = "platform" | "appearance" | "asset-types" | "data-sources" | "data-management" | "sync-status" | "security" | "syncro" | "breeze" | "unifi" | "meraki" | "sonicwall" | "pax8" | "api-keys" | "alerts" | "teams" | "synology" | "my-vault"
 
 const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "platform", label: "Platform" },
@@ -85,6 +86,7 @@ const NAV: { id: Section; label: string; group?: string }[] = [
   { id: "my-vault", label: "My Vault", group: "Personal" },
   { id: "alerts", label: "Email Alerts", group: "Notifications" },
   { id: "teams",    label: "Microsoft Teams", group: "Notifications" },
+  { id: "breeze", label: "Breeze RMM", group: "Integrations" },
   { id: "synology", label: "Synology",        group: "Integrations" },
   { id: "syncro", label: "SyncroMSP", group: "Integrations" },
   { id: "unifi", label: "Ubiquiti / Unifi", group: "Integrations" },
@@ -148,7 +150,7 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>(() => {
     if (typeof window === "undefined") return "platform"
     const q = new URLSearchParams(window.location.search).get("section")
-    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","sync-status","security","syncro","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
+    const valid: Section[] = ["platform","appearance","asset-types","data-sources","data-management","sync-status","security","syncro","breeze","unifi","meraki","sonicwall","pax8","api-keys","alerts","teams","synology","my-vault"]
     return (q && valid.includes(q as Section)) ? (q as Section) : "platform"
   })
   const { themeId, setThemeId } = useTheme()
@@ -1129,6 +1131,8 @@ export default function SettingsPage() {
               </SectionCard>
             )}
 
+            {activeSection === "breeze" && <BreezeSettings />}
+
             {activeSection === "syncro" && (
               <SectionCard title="SyncroMSP" description="Sync all customers, assets, and contacts from Syncro. Existing records will be updated. Credentials are configured via environment variables.">
                 <button onClick={runSyncroSync} disabled={syncing} className="btn btn-secondary" style={{ opacity: syncing ? 0.6 : 1 }}>
@@ -1721,6 +1725,7 @@ const INTEGRATION_LABELS: Record<string, string> = {
   pax8:         "Pax8 licenses",
   sonicwall:    "SonicWall firewalls",
   unifiCloud:   "UniFi (cloud / controller)",
+  breeze:       "Breeze RMM devices",
 }
 
 const STATUS_STYLES: Record<SyncStatusRow["status"], { bg: string; fg: string; label: string }> = {
