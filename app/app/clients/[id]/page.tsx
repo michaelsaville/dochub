@@ -1793,7 +1793,7 @@ export default function ClientDetailPage() {
             clientId={client.id}
             counts={tabCounts}
             completeness={completeness}
-            statusSlot={<><div style={{ marginBottom: 10 }}><AssetDuplicatesBanner clientId={client.id} /></div><div style={{ marginBottom: 14 }}><StatusTiles clientId={client.id} isAdmin={isAdmin} /></div></>}
+            statusSlot={<><div style={{ marginBottom: 10 }}><AssetDuplicatesBanner clientId={client.id} isAdmin={isAdmin} /></div><div style={{ marginBottom: 14 }}><StatusTiles clientId={client.id} isAdmin={isAdmin} /></div></>}
             changesSlot={<ChangesCard clientId={client.id} limit={12} days={14} />}
           />
         )}
@@ -2198,7 +2198,7 @@ export default function ClientDetailPage() {
 
         {activeTab === "Assets" && (
           <div style={{ maxWidth: "960px" }}>
-            <AssetDuplicatesBanner clientId={client.id} />
+            <AssetDuplicatesBanner clientId={client.id} isAdmin={isAdmin} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <button onClick={() => { setShowAddAsset(true); if (assetTypes.length === 0) fetchAssetTypes(); if (subnets.length === 0) fetchSubnets() }} className="btn btn-secondary">
                 New asset
