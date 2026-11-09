@@ -255,6 +255,55 @@
       cursor: pointer;
     }
     .btn-fill:hover { background: #15803d; }
+    .cred-item.selected { background: #1e293b; box-shadow: inset 3px 0 0 #3b82f6; }
+    .section-title {
+      padding: 8px 14px 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: #0b1222;
+      border-bottom: 1px solid #1e293b;
+    }
+    .section-more { padding: 6px 14px; font-size: 10px; color: #64748b; border-bottom: 1px solid #1e293b; }
+    .tag-last {
+      font-size: 9px;
+      background: #3b0764;
+      color: #e9d5ff;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .tag-totp {
+      font-size: 9px;
+      background: #134e4a;
+      color: #99f6e4;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .secret-hint { font-size: 10px; color: #64748b; margin-top: 4px; }
+    .pending-bar {
+      align-items: center;
+      gap: 8px;
+      justify-content: space-between;
+      padding: 6px 14px;
+      font-size: 11px;
+      color: #fde68a;
+      background: #422006;
+      border-bottom: 1px solid #334155;
+    }
+    .kbd-hints { display: inline-flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+    kbd {
+      font-family: inherit;
+      font-size: 9px;
+      padding: 0 4px;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      color: #94a3b8;
+      background: #0f172a;
+    }
+    .btn-copy:focus-visible, .btn-sm:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
     #toast {
       display: none;
       position: fixed;
@@ -272,6 +321,8 @@
 <body>
   <div id="toast"></div>
   <div id="app"></div>
+  <script src="lib/domain.js"></script>
+  <script src="lib/totp.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
