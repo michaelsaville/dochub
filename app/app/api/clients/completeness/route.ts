@@ -1,64 +1,27 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
+import { getClientScope } from "@/lib/client-scope"
+import { getAllClientCompleteness } from "@/lib/client-completeness"
 
-export async function GET() {
+// GET /api/clients/completeness
+//   default    → { [clientId]: score }            (back-compat for /clients)
+//   ?detail=1  → { [clientId]: { score, nextAction, nextActionKey, gaps, type } }
+export async function GET(req: Request) {
   const { error } = await requireAuth()
   if (error) return error
 
-  const clients = await prisma.client.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      networkDiagram: { select: { id: true } },
-      _count: {
-        select: {
-          people: true,
-          credentials: true,
-          locations: true,
-          documents: true,
-          networkDevices: { where: { assetId: null } },
-          websites: true,
-          runbooks: true,
-          vlans: true,
-        },
-      },
-    },
-  })
+  const scope = await getClientScope()
+  const all = await getAllClientCompleteness(scope.all ? undefined : scope.clientIds)
+  const detail = new URL(req.url).searchParams.get("detail") === "1"
 
-  // Count assets per client (through locations)
-  const assetCounts = await prisma.asset.groupBy({
-    by: ["locationId"],
-    _count: true,
-  })
-  const locationClientMap = await prisma.location.findMany({
-    select: { id: true, clientId: true },
-  })
-  const clientAssetCount: Record<string, number> = {}
-  for (const lc of locationClientMap) {
-    const ac = assetCounts.find(a => a.locationId === lc.id)
-    clientAssetCount[lc.clientId] = (clientAssetCount[lc.clientId] || 0) + (ac?._count || 0)
+  if (!detail) {
+    const scores: Record<string, number> = {}
+    for (const [id, r] of Object.entries(all)) scores[id] = r.score
+    return NextResponse.json(scores)
   }
-
-  const scores: Record<string, number> = {}
-  for (const c of clients) {
-    const checks = [
-      c._count.locations > 0,
-      c._count.people > 0,
-      (clientAssetCount[c.id] || 0) > 0,
-      c._count.credentials > 0,
-      c._count.documents > 0,
-      c._count.websites > 0,
-      !!c.networkDiagram,
-      c._count.runbooks > 0,
-      c._count.vlans > 0,
-      c._count.networkDevices > 0,
-    ]
-    const weights = [10, 15, 15, 10, 10, 5, 10, 5, 5, 5]
-    const total = weights.reduce((s, w) => s + w, 0)
-    const earned = checks.reduce((s, met, i) => s + (met ? weights[i] : 0), 0)
-    scores[c.id] = Math.round((earned / total) * 100)
+  const out: Record<string, { score: number; nextAction: string | null; nextActionKey: string | null; gaps: string[]; type: string }> = {}
+  for (const [id, r] of Object.entries(all)) {
+    out[id] = { score: r.score, nextAction: r.nextAction, nextActionKey: r.nextActionKey, gaps: r.gaps, type: r.type }
   }
-
-  return NextResponse.json(scores)
+  return NextResponse.json(out)
 }

@@ -10,6 +10,7 @@ type Stats = {
   assets: number
   alarms: number
   licensesExpiring: number
+  expiringSoon: number
 }
 
 type ExpirationItem = {
@@ -107,7 +108,7 @@ export default function DashboardPage() {
       .then(r => r.json())
       .then(setStats)
       .catch(() => {})
-    fetch("/api/expirations")
+    fetch("/api/expirations?pastDays=30&nextDays=60&sort=nearest")
       .then(r => r.json())
       .then((items: ExpirationItem[]) => setExpirations(items.slice(0, 5)))
       .catch(() => {})
@@ -133,7 +134,7 @@ export default function DashboardPage() {
     { label: "Active clients", value: stats?.clients, href: "/clients" },
     { label: "Active assets", value: stats?.assets, href: "/clients" },
     { label: "Open alarms", value: stats?.alarms, href: "/alarms" },
-    { label: "Licenses expiring", value: stats?.licensesExpiring, href: "/clients" },
+    { label: "Expiring in 30 days", value: stats?.expiringSoon, href: "/expirations" },
   ]
 
   return (
@@ -178,7 +179,7 @@ export default function DashboardPage() {
             borderRadius: "10px", padding: "16px",
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <div style={{ fontSize: "13px", fontWeight: 500 }}>Soonest expirations</div>
+              <div style={{ fontSize: "13px", fontWeight: 500 }}>Soonest expirations <span style={{ fontWeight: 400, color: "var(--color-text-secondary)", fontSize: "11px" }}>· last 30d / next 60d</span></div>
               <button
                 onClick={() => router.push("/expirations")}
                 style={{ fontSize: "11px", color: "var(--color-accent, var(--accent))", background: "none", border: "none", cursor: "pointer", padding: 0 }}
@@ -187,7 +188,7 @@ export default function DashboardPage() {
               </button>
             </div>
             {expirations.length === 0 ? (
-              <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>None upcoming</div>
+              <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Nothing expired in the last 30 days or due in the next 60</div>
             ) : expirations.map(item => {
               const d = daysUntil(item.expiresAt)
               const color = expiryColor(item.expiresAt)

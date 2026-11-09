@@ -5,7 +5,8 @@ import { sendPush } from "@/lib/push"
 import { sendMessage } from "@/lib/messaging/send"
 import type { ExpirationDigestItem } from "@/lib/messaging/templates"
 import { requireCronSecret } from "@/lib/cron-auth"
-import { getRotationSettings, computeRotation } from "@/lib/rotation"
+import { getRotationSettings, computeRotation, isRotationActionable } from "@/lib/rotation"
+import { ASSET_STATUSES_WITHOUT_WARRANTY_ALERTS, isStaleExpiry } from "@/lib/alert-policy"
 
 // Called nightly by cron: GET /api/cron/alerts  (Bearer CRON_SECRET)
 export async function GET(req: Request) {
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
       orderBy: { expiresAt: "asc" },
     }) : [],
     inclWarranties ? prisma.asset.findMany({
-      where: { warrantyExpiry: { not: null, lte: inWarn }, status: { notIn: ["RETIRED", "DISPOSED"] } },
+      where: { warrantyExpiry: { not: null, lte: inWarn }, status: { notIn: [...ASSET_STATUSES_WITHOUT_WARRANTY_ALERTS] } },
       select: { id: true, name: true, friendlyName: true, warrantyExpiry: true, location: { select: { client: { select: { name: true } } } } },
       orderBy: { warrantyExpiry: "asc" },
     }) : [],
@@ -141,11 +142,17 @@ export async function GET(req: Request) {
     })
     for (const c of rotationCreds) {
       const r = computeRotation(c, rotationSettings)
-      if ((r.status === "overdue" || r.status === "dueSoon") && r.dueDate) {
+      // Never-rotated creds are status "unknown" and are deliberately skipped.
+      if (isRotationActionable(r) && r.dueDate) {
         all.push({ category: "Password rotation", label: c.label, clientName: c.client.name, expiresAt: r.dueDate })
       }
     }
   }
+
+  // Long-expired (>90d) items are informational — never in the digest. (The
+  // warranty query above has no lower bound, so this is what keeps a 2014
+  // warranty out of tonight's email.)
+  for (let i = all.length - 1; i >= 0; i--) if (isStaleExpiry(all[i].expiresAt)) all.splice(i, 1)
 
   all.sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
 

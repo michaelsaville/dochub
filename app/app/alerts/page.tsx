@@ -15,6 +15,8 @@ type UnifiedAlert = {
   severity?: string
   status?: string
   urgency: AlertUrgency
+  stale?: boolean
+  count?: number
   expiresAt: string | null
   clientId: string
   clientName: string
@@ -23,7 +25,7 @@ type UnifiedAlert = {
   createdAt?: string
 }
 
-type Stats = { total: number; expired: number; critical: number; warning: number; upcoming: number }
+type Stats = { total: number; expired: number; critical: number; warning: number; upcoming: number; info?: number; infoLongExpiredWarranty?: number; infoNoRotationDate?: number }
 
 const CATEGORIES: { key: AlertCategory | "all"; label: string }[] = [
   { key: "all", label: "All" },
@@ -37,6 +39,11 @@ const CATEGORIES: { key: AlertCategory | "all"; label: string }[] = [
   { key: "circuit", label: "Circuit" },
   { key: "operational", label: "Operational" },
 ]
+
+// Pseudo-category: warranties that ended > 90 days ago. Informational only —
+// hidden from the default view and never counted in the bell.
+const WARRANTY_STALE = "warranty-stale" as const
+type CategoryKey = AlertCategory | "all" | typeof WARRANTY_STALE
 
 const urgencyConfig: Record<AlertUrgency, { label: string; bg: string; color: string }> = {
   expired:  { label: "Expired",  bg: "rgba(255,77,109,0.12)", color: "var(--danger)" },
@@ -79,7 +86,9 @@ export default function UnifiedAlertsPage() {
   const [alerts, setAlerts] = useState<UnifiedAlert[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, expired: 0, critical: 0, warning: 0, upcoming: 0 })
   const [loading, setLoading] = useState(true)
-  const [category, setCategory] = useState<AlertCategory | "all">("all")
+  const [category, setCategory] = useState<CategoryKey>("all")
+  // Show informational items (long-expired, never-rotated rollups, resolved alarms)
+  const [showInfo, setShowInfo] = useState(false)
   const [urgencyFilter, setUrgencyFilter] = useState<AlertUrgency | "all">("all")
   const [creatingId, setCreatingId] = useState<string | null>(null)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
@@ -146,15 +155,19 @@ export default function UnifiedAlertsPage() {
   useEffect(() => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (category !== "all") params.set("category", category)
+    if (category === WARRANTY_STALE) params.set("category", "warranty")
+    else if (category !== "all") params.set("category", category)
+    if (showInfo || category === WARRANTY_STALE) params.set("includeInfo", "1")
     fetch(`/api/alerts/unified?${params}`)
       .then(r => r.json())
       .then(d => { setAlerts(d.items ?? []); setStats(d.stats ?? stats) })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [category])
+  }, [category, showInfo])
 
-  const filtered = urgencyFilter === "all" ? alerts : alerts.filter(a => a.urgency === urgencyFilter)
+  const filtered = category === WARRANTY_STALE
+    ? alerts.filter(a => a.category === "warranty" && a.stale)
+    : urgencyFilter === "all" ? alerts : alerts.filter(a => a.urgency === urgencyFilter)
 
   return (
     <AppShell>
@@ -173,11 +186,17 @@ export default function UnifiedAlertsPage() {
             { label: "Critical", value: stats.critical, color: "var(--warn)", filter: "critical" as const },
             { label: "Warning", value: stats.warning, color: "var(--warn)", filter: "warning" as const },
             { label: "Upcoming", value: stats.upcoming, color: "var(--accent2)", filter: "upcoming" as const },
-            { label: "Total", value: stats.total, color: "var(--muted)", filter: "all" as const },
+            { label: "Actionable", value: stats.total, color: "var(--muted)", filter: "all" as const },
+            { label: "Info (hidden)", value: stats.info ?? 0, color: "#818cf8", filter: "info" as const },
           ].map(s => (
             <button
               key={s.label}
-              onClick={() => setUrgencyFilter(s.filter)}
+              title={s.filter === "info" ? "Long-expired items (>90 days), credentials with no rotation date, resolved alarms — not counted in the bell" : undefined}
+              onClick={() => {
+                if (s.filter === "info") setShowInfo(true)
+                else if (category === WARRANTY_STALE) setCategory("all")
+                setUrgencyFilter(s.filter)
+              }}
               style={{
                 padding: "10px 16px", borderRadius: "8px", border: urgencyFilter === s.filter ? `2px solid ${s.color}` : "0.5px solid var(--color-border-tertiary)",
                 background: "var(--color-background-secondary)", cursor: "pointer", minWidth: "90px", textAlign: "left",
@@ -205,6 +224,22 @@ export default function UnifiedAlertsPage() {
               {c.label}
             </button>
           ))}
+          <button
+            onClick={() => { setCategory(WARRANTY_STALE); setUrgencyFilter("all") }}
+            title="Warranties that ended more than 90 days ago — informational, not counted in the bell"
+            style={{
+              padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: category === WARRANTY_STALE ? 600 : 400,
+              border: "0.5px dashed var(--color-border-tertiary)", cursor: "pointer",
+              background: category === WARRANTY_STALE ? "rgba(129,140,248,0.14)" : "transparent",
+              color: category === WARRANTY_STALE ? "#818cf8" : "var(--muted)",
+            }}
+          >
+            Warranty — long expired (info){stats.infoLongExpiredWarranty ? ` · ${stats.infoLongExpiredWarranty}` : ""}
+          </button>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--muted)", padding: "5px 8px", cursor: "pointer", minHeight: "36px" }}>
+            <input type="checkbox" checked={showInfo} onChange={e => { setShowInfo(e.target.checked); if (!e.target.checked && urgencyFilter === "info") setUrgencyFilter("all") }} />
+            Show info items
+          </label>
           {urgencyFilter !== "all" && (
             <button
               onClick={() => setUrgencyFilter("all")}
