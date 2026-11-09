@@ -82,6 +82,15 @@ export async function upsertNetworkAsset(
       where: { id: existing.id },
       data: { ...assetData, dataSource },
     })
+    // Integration syncs record what they changed so the client "What changed"
+    // feed can say "FW01: firmware 7.0.1 → 7.0.4 (UniFi sync)". Manual edits
+    // already write FieldHistory in their own routes.
+    if (dataSource !== "MANUAL") {
+      const entries = diffTracked(existing, assetData, dataSource)
+      if (entries.length) {
+        await prisma.fieldHistory.createMany({ data: entries }).catch(() => {})
+      }
+    }
     return existing.id
   }
   const created = await prisma.asset.create({
@@ -93,4 +102,40 @@ export async function upsertNetworkAsset(
     },
   })
   return created.id
+}
+
+const TRACKED_FIELDS = ["name", "model", "serial", "ipAddress", "macAddress", "firmwareVersion"] as const
+const SYNC_LABEL: Record<string, string> = {
+  UNIFI: "UniFi sync", MERAKI: "Meraki sync", SONICWALL: "SonicWall sync",
+}
+
+function diffTracked(
+  before: Record<string, unknown>,
+  after: NetworkAssetData,
+  dataSource: string,
+) {
+  const norm = (f: string, v: unknown) => {
+    if (v === null || v === undefined) return null
+    const s = String(v).trim()
+    if (!s) return null
+    return f === "macAddress" ? s.toLowerCase() : s
+  }
+  const out: { entityType: string; entityId: string; field: string; oldValue: string | null; newValue: string | null; changedBy: string }[] = []
+  for (const f of TRACKED_FIELDS) {
+    if (!(f in after)) continue
+    const nv = norm(f, after[f])
+    // A sync that simply doesn't report a value isn't a change.
+    if (nv === null) continue
+    const ov = norm(f, before[f])
+    if (ov === nv) continue
+    out.push({
+      entityType: "asset",
+      entityId: String(before.id),
+      field: f,
+      oldValue: ov,
+      newValue: nv,
+      changedBy: SYNC_LABEL[dataSource] ?? `${dataSource} sync`,
+    })
+  }
+  return out
 }
