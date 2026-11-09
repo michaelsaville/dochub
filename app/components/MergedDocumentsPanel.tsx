@@ -7,6 +7,7 @@ import ShareExternallyButton from "@/components/ShareExternallyButton"
 import AttachmentPreview, { FileThumb, canPreview, downloadHref, formatBytes, type PreviewFile } from "@/components/AttachmentPreview"
 import BuildAssetModal, { type BuildAssetFile } from "@/components/BuildAssetModal"
 import TemplatePicker from "@/components/TemplatePicker"
+import ReviewCycleFields, { reviewDueText } from "@/components/ReviewCycleFields"
 
 // =============================================================================
 // MergedDocumentsPanel — single client document library that fuses the legacy
@@ -45,6 +46,11 @@ type Doc = {
   needsReview: boolean
   reviewNote: string | null
   flaggedBy: string | null
+  reviewIntervalDays?: number | null
+  reviewDueAt?: string | null
+  ownerId?: string | null
+  owner?: { id: string; name: string | null; email: string } | null
+  sourceTicketId?: string | null
   createdAt: string
   updatedAt: string
   attachments: Attachment[]
@@ -425,6 +431,23 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
     })()
     return () => { cancelled = true }
   }, [fetchFolders, fetchDocs, fetchFiles])
+
+  // Deep link: ?doc=<id> (from /docs/review, TicketHub's DocHub panel, …)
+  // opens that note once the library has loaded.
+  const deepLinkDone = useRef(false)
+  useEffect(() => {
+    if (loading || deepLinkDone.current) return
+    deepLinkDone.current = true
+    let docId: string | null = null
+    try { docId = new URLSearchParams(window.location.search).get("doc") } catch { /* ignore */ }
+    if (!docId || !docs.some(d => d.id === docId)) return
+    setSelectedFolderId(null)
+    setSearch("")
+    setExpandedDoc(docId)
+    setTimeout(() => {
+      document.getElementById(`doc-${docId}`)?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 50)
+  }, [loading, docs])
 
   // Persist sort to localStorage.
   useEffect(() => {
@@ -935,7 +958,7 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
     const docFolder = doc.folderId ? folders.find(f => f.id === doc.folderId) : null
     const key = `n:${doc.id}`
     return (
-      <div key={doc.id} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
+      <div key={doc.id} id={`doc-${doc.id}`} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden", scrollMarginTop: "80px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", background: "var(--color-background-secondary)" }}>
           <input type="checkbox" checked={selected.has(key)} onChange={() => toggleSelect(key)} onClick={e => e.stopPropagation()} />
           <div
@@ -952,6 +975,15 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
                 {doc.needsReview && (
                   <span title={doc.reviewNote ?? "Needs review"} style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "4px", background: "rgba(245,158,11,0.16)", color: "#f59e0b", fontWeight: 600 }}>⚑ Needs review</span>
                 )}
+                {(() => {
+                  const due = reviewDueText(doc.reviewDueAt)
+                  if (!due) return null
+                  return (
+                    <span title={`${due.text}${doc.owner ? ` · owner ${doc.owner.name ?? doc.owner.email}` : ""}`} style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "4px", background: due.overdue ? "rgba(245,158,11,0.16)" : "var(--color-background-hover)", color: due.overdue ? "#f59e0b" : "var(--color-text-muted)", fontWeight: 600 }}>
+                      ⟳ {due.text}
+                    </span>
+                  )
+                })()}
                 {doc.portalVisible && (
                   <span title="Shared to customer portal" style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "6px", background: "rgba(34,197,94,0.16)", color: "#22c55e", fontWeight: 600 }}>👁 Portal</span>
                 )}
@@ -974,7 +1006,7 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
             <button onClick={() => toggleReview(doc)} style={{ fontSize: "11px", color: doc.needsReview ? "#f59e0b" : "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }} title={doc.needsReview ? "Flagged for review — click to resolve" : "Flag for review"}>
               {doc.needsReview ? "✓ Resolve" : "⚑ Flag"}
             </button>
-            <button onClick={() => { setEditingDoc(doc.id); setEditForm({ title: doc.title, content: doc.content ?? "", category: doc.category ?? "", isPinned: doc.isPinned, folderId: doc.folderId ?? null }); setExpandedDoc(doc.id) }}
+            <button onClick={() => { setEditingDoc(doc.id); setEditForm({ title: doc.title, content: doc.content ?? "", category: doc.category ?? "", isPinned: doc.isPinned, folderId: doc.folderId ?? null, reviewIntervalDays: doc.reviewIntervalDays ?? null, ownerId: doc.ownerId ?? null }); setExpandedDoc(doc.id) }}
               style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Edit</button>
             <button
               onClick={() => {
@@ -1013,6 +1045,13 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
                     <input type="checkbox" id={`pin-${doc.id}`} checked={editForm.isPinned ?? false} onChange={e => setEditForm((f: any) => ({ ...f, isPinned: e.target.checked }))} />
                     <label htmlFor={`pin-${doc.id}`} style={{ fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer" }}>Pin to top</label>
                   </div>
+                  <ReviewCycleFields
+                    idPrefix={`doc-${doc.id}`}
+                    intervalDays={editForm.reviewIntervalDays ?? null}
+                    ownerId={editForm.ownerId ?? null}
+                    dueAt={doc.reviewDueAt ?? null}
+                    onChange={next => setEditForm((f: any) => ({ ...f, ...next }))}
+                  />
                 </div>
                 <div style={{ marginBottom: "12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "0.5px solid var(--color-border-tertiary)", marginBottom: "8px" }}>

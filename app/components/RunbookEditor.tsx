@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { marked } from "marked"
+import ReviewCycleFields from "@/components/ReviewCycleFields"
 
 const PRESET_COLORS = ["#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"]
 
@@ -26,6 +27,10 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "")
   const [clientId, setClientId] = useState(initial?.clientId ?? preClientId ?? "")
   const [contentTab, setContentTab] = useState<"write" | "preview">("write")
+  const [review, setReview] = useState<{ reviewIntervalDays: number | null; ownerId: string | null }>({
+    reviewIntervalDays: initial?.reviewIntervalDays ?? null,
+    ownerId: initial?.ownerId ?? null,
+  })
 
   const [steps, setSteps] = useState<Step[]>(
     initial?.steps?.map((s: any) => ({ id: s.id, title: s.title, notes: s.notes ?? "" })) ?? []
@@ -144,7 +149,7 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
     if (!title.trim()) return alert("Title is required")
     setSaving(true)
     try {
-      const payload = { title, summary, content, categoryId: categoryId || null, clientId: clientId || null, tagIds: selectedTagIds, steps }
+      const payload = { title, summary, content, categoryId: categoryId || null, clientId: clientId || null, tagIds: selectedTagIds, steps, ...review }
       const res = await fetch(isEdit ? `/api/runbooks/${initial.id}` : "/api/runbooks", {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -217,6 +222,17 @@ export default function RunbookEditor({ initial, clientId: preClientId }: Props)
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
+      </div>
+
+      {/* Review cycle */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+        <ReviewCycleFields
+          idPrefix="runbook"
+          intervalDays={review.reviewIntervalDays}
+          ownerId={review.ownerId}
+          dueAt={initial?.reviewDueAt ?? null}
+          onChange={setReview}
+        />
       </div>
 
       {/* Tags */}
