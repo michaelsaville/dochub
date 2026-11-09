@@ -27,7 +27,11 @@ import LifecycleRunbooksCard from "@/components/LifecycleRunbooksCard"
 import IdentityPanel from "@/components/IdentityPanel"
 import { useSession } from "next-auth/react"
 import { useState, useEffect, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import ClientOverview from "@/components/client/ClientOverview"
+import SecretCopy from "@/components/client/SecretCopy"
+import { pushRecent } from "@/lib/recents"
+import { NETWORK_SUBS } from "@/components/Sidebar"
 import { ipInCidr } from "@/lib/cidr"
 import { statusColor } from "@/lib/asset-status"
 import LicenseSeats from "@/components/LicenseSeats"
@@ -161,33 +165,7 @@ type AssetTypeTemplate = {
 
 type AssetType = { id: string; name: string; template: AssetTypeTemplate | null }
 
-const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Vendor Portal", "Audit Trail"]
-
-// Two-tier grouped nav (Phase 5). Every string in `tabs` MUST appear exactly
-// once across SECTIONS — the flatten is asserted equal to `tabs` in dev below.
-const SECTIONS: { label: string; tabs: string[] }[] = [
-  { label: "Overview", tabs: ["Dashboard", "Audit Trail"] },
-  { label: "Organization", tabs: ["Locations", "People", "Vendors"] },
-  { label: "Assets & Licensing", tabs: ["Assets", "Applications", "Licenses", "Subscriptions"] },
-  { label: "Network & Telecom", tabs: ["Network", "Domains", "Remote Access", "Phone System", "Cameras"] },
-  { label: "Credentials & Vault", tabs: ["Credentials", "Portal Vault"] },
-  { label: "Docs & Client Portal", tabs: ["Documents", "SOPs", "Portal", "Vendor Portal"] },
-]
-
-const sectionOf = (tab: string) => SECTIONS.find((s) => s.tabs.includes(tab))?.label ?? SECTIONS[0].label
-
-// Dev-only correctness gate: SECTIONS must partition `tabs` exactly (no missing,
-// no extra, no dupes). If `tabs` ever changes, this fires loudly in development.
-if (process.env.NODE_ENV !== "production") {
-  const flat = SECTIONS.flatMap((s) => s.tabs)
-  const missing = tabs.filter((t) => !flat.includes(t))
-  const extra = flat.filter((t) => !tabs.includes(t))
-  const dupes = flat.filter((t, i) => flat.indexOf(t) !== i)
-  if (missing.length || extra.length || dupes.length) {
-    // eslint-disable-next-line no-console
-    console.error("[ClientTabNav] SECTIONS must cover `tabs` exactly.", { missing, extra, dupes })
-  }
-}
+const tabs = ["Dashboard", "Locations", "People", "Assets", "Credentials", "Licenses", "Subscriptions", "Applications", "Vendors", "Domains", "Network", "Remote Access", "Phone System", "Cameras", "Documents", "SOPs", "Portal", "Portal Vault", "Vendor Portal", "Audit Trail", "Client Settings"]
 
 const categoryLabel: Record<string, string> = {
   COMPUTER: "Desktop",
@@ -326,115 +304,6 @@ function vendorSupportChip(vendor?: { supportPhone?: string | null; supportEmail
   )
 }
 
-// Two-tier grouped client nav. MUST live at module scope — an inline
-// sub-component remounts on every parent render and drops input focus
-// (a known DocHub gotcha). Row 1 = section chips; Row 2 = the open section's
-// child tabs. Content rendering + deep-links are untouched: this only chooses
-// which tab strip is visible via the same setActiveTab the page already uses.
-const CLIENT_NAV_SECTION_KEY = "dochub:client-nav-section"
-function ClientTabNav({
-  activeTab,
-  setActiveTab,
-  tabCounts,
-}: {
-  activeTab: string
-  setActiveTab: (tab: string) => void
-  tabCounts: Record<string, number>
-}) {
-  // Initialized to the active tab's section so a deep-link (?tab=Network) opens
-  // "Network & Telecom" on first paint. SSR-safe: no localStorage here.
-  const [openSection, setOpenSection] = useState<string>(() => sectionOf(activeTab))
-  const restoredRef = useRef(false)
-  const activeTabInit = useRef(false)
-
-  // Restore the last-opened section from localStorage on mount. A deep-link to a
-  // non-default tab wins (its section is already open), so only restore when the
-  // active tab is the default Dashboard. Touching localStorage in an effect keeps
-  // this SSR-safe.
-  useEffect(() => {
-    if (restoredRef.current) return
-    restoredRef.current = true
-    if (activeTab !== "Dashboard") return
-    try {
-      const saved = localStorage.getItem(CLIENT_NAV_SECTION_KEY)
-      if (saved && SECTIONS.some((s) => s.label === saved)) setOpenSection(saved)
-    } catch {
-      /* localStorage unavailable — ignore */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Auto-open the section that owns the active tab whenever it changes. Skips the
-  // very first run so it doesn't clobber the localStorage restore above; the
-  // useState initializer already handled the mount case (incl. deep-links).
-  useEffect(() => {
-    if (!activeTabInit.current) {
-      activeTabInit.current = true
-      return
-    }
-    setOpenSection(sectionOf(activeTab))
-  }, [activeTab])
-
-  // Persist the last-opened section for the next visit.
-  useEffect(() => {
-    try {
-      localStorage.setItem(CLIENT_NAV_SECTION_KEY, openSection)
-    } catch {
-      /* ignore */
-    }
-  }, [openSection])
-
-  const section = SECTIONS.find((s) => s.label === openSection) ?? SECTIONS[0]
-
-  return (
-    <div className="pcc-client-nav">
-      <div className="pcc-section-row">
-        {SECTIONS.map((s) => {
-          const agg = s.tabs.reduce((sum, t) => sum + (tabCounts[t] || 0), 0)
-          const hasLive = s.tabs.some((t) => (tabCounts[t] || 0) > 0)
-          const isOpen = s.label === openSection
-          const hasActive = s.tabs.includes(activeTab)
-          return (
-            <button
-              key={s.label}
-              type="button"
-              aria-expanded={isOpen}
-              onClick={() => setOpenSection(s.label)}
-              className={`pcc-section-tab${isOpen ? " open" : ""}${hasActive ? " has-active" : ""}`}
-            >
-              {s.label}
-              {agg > 0 && <span className="pcc-section-badge">{agg}</span>}
-              {hasLive && <span className="pcc-section-dot" aria-hidden="true" />}
-            </button>
-          )
-        })}
-      </div>
-      <div className="pcc-subtab-bar-wrap">
-        <div className="pcc-tab-bar">
-          {section.tabs.map((tab) => {
-            const count = tabCounts[tab]
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`pcc-tab${activeTab === tab ? " active" : ""}`}
-              >
-                {tab}
-                {count !== undefined && count > 0 && (
-                  <span style={{ marginLeft: 5, fontSize: 10, color: "var(--color-text-muted)" }}>
-                    ({count})
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function ClientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -456,13 +325,24 @@ export default function ClientDetailPage() {
   const [loadingClient, setLoadingClient] = useState(true)
   const [sourceColors, setSourceColors] = useState<Record<string, string>>(SOURCE_DEFAULTS)
   const [loadingAssets, setLoadingAssets] = useState(false)
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== "undefined") {
-      const tab = new URLSearchParams(window.location.search).get("tab")
-      if (tab) return tab
-    }
-    return "Dashboard"
-  })
+  // The active section lives in the URL (?tab=, ?sub=) so the context sidebar,
+  // deep links, search results and the back button all drive it. In-page
+  // calls to setActiveTab push the URL; URL changes flow back into state.
+  const searchParams = useSearchParams()
+  const urlTab = searchParams.get("tab")
+  const [activeTab, setActiveTabState] = useState(() => (urlTab && tabs.includes(urlTab) ? urlTab : "Dashboard"))
+  useEffect(() => {
+    const t = urlTab && tabs.includes(urlTab) ? urlTab : "Dashboard"
+    setActiveTabState(t)
+    window.scrollTo?.({ top: 0 })
+  }, [urlTab])
+  function setActiveTab(tab: string) {
+    setActiveTabState(tab)
+    const sp = new URLSearchParams(window.location.search)
+    sp.set("tab", tab)
+    ;["new", "cred", "sub", "edit", "doc"].forEach((k) => sp.delete(k))
+    router.push(`/clients/${id}?${sp.toString()}`, { scroll: false })
+  }
   const [credentials, setCredentials] = useState<any[]>([])
   const [loadingCreds, setLoadingCreds] = useState(false)
   const [showAddCred, setShowAddCred] = useState(false)
@@ -473,6 +353,8 @@ export default function ClientDetailPage() {
   const [revealedSecureNotes, setRevealedSecureNotes] = useState<Record<string, string>>({})
   const [totpSecondsLeft, setTotpSecondsLeft] = useState<number>(30 - (Math.floor(Date.now() / 1000) % 30))
   const [copiedCreds, setCopiedCreds] = useState<Record<string, string>>({})
+  const [expandedCreds, setExpandedCreds] = useState<Record<string, boolean>>({})
+  const [highlightCred, setHighlightCred] = useState<string | null>(null)
   const [breachStatus, setBreachStatus] = useState<Record<string, { count: number; checking: boolean }>>({})
   const [editingClient, setEditingClient] = useState(false)
   const [clientForm, setClientForm] = useState({ name: "", type: "BUSINESS", notes: "" })
@@ -562,7 +444,17 @@ export default function ClientDetailPage() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [clientRunbooks, setClientRunbooks] = useState<any[]>([])
   const [loadingRunbooks, setLoadingRunbooks] = useState(false)
-  const [networkSubTab, setNetworkSubTab] = useState<"ipam" | "circuits" | "racks" | "shares" | "wireless" | "ptp" | "diagram">("ipam")
+  type NetSub = "ipam" | "circuits" | "racks" | "shares" | "wireless" | "ptp" | "diagram"
+  const urlSub = searchParams.get("sub")
+  const isNetSub = (v: string | null): v is NetSub => !!v && NETWORK_SUBS.some((x) => x.sub === v)
+  const [networkSubTab, setNetworkSubTabState] = useState<NetSub>(() => (isNetSub(urlSub) ? urlSub : "ipam"))
+  useEffect(() => { if (isNetSub(urlSub)) setNetworkSubTabState(urlSub) }, [urlSub])
+  function setNetworkSubTab(sub: NetSub) {
+    setNetworkSubTabState(sub)
+    const sp = new URLSearchParams(window.location.search)
+    sp.set("tab", "Network"); sp.set("sub", sub)
+    router.replace(`/clients/${id}?${sp.toString()}`, { scroll: false })
+  }
   const [ptpLinks, setPtpLinks] = useState<any[]>([])
   const [loadingPtp, setLoadingPtp] = useState(false)
   const [subnets, setSubnets] = useState<any[]>([])
@@ -603,6 +495,7 @@ export default function ClientDetailPage() {
   const boundSourceTag = (ds?: string | null, si?: string | null, pi?: string | null) =>
     sourceTag(ds, si, pi, sourceColors)
 
+  const newParam = searchParams.get("new")
   useEffect(() => {
     if (typeof window === "undefined") return
     const sp = new URLSearchParams(window.location.search)
@@ -618,7 +511,8 @@ export default function ClientDetailPage() {
       case "Domains":     setShowAddWebsite(true); break
       case "Network":     setShowAddAsset(true); break  // network gear is documented as an Asset
     }
-  }, [activeTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, newParam])
 
   // Honor the ?edit=<assetId> deep-link (the asset detail page's Edit button):
   // force the Assets tab and open that asset's edit form once it has loaded.
@@ -628,12 +522,24 @@ export default function ClientDetailPage() {
     if (typeof window === "undefined" || appliedAssetEditParam.current) return
     const editId = new URLSearchParams(window.location.search).get("edit")
     if (!editId) return
-    if (activeTab !== "Assets") { setActiveTab("Assets"); return }
+    if (activeTab !== "Assets") { setActiveTabState("Assets"); return }  // keep ?edit= in the URL
     const asset = assets.find(a => a.id === editId)
     if (!asset) return            // assets still loading — re-runs when `assets` populates
     appliedAssetEditParam.current = true
     openAssetEdit(asset)
   }, [assets, activeTab])
+
+  // ?cred=<id> (search results, Overview, TicketHub panel): open that row,
+  // scroll to it and flash it once the list has loaded.
+  const credParam = searchParams.get("cred")
+  useEffect(() => {
+    if (!credParam || activeTab !== "Credentials" || !credentials.some((c: any) => c.id === credParam)) return
+    setExpandedCreds((e) => ({ ...e, [credParam]: true }))
+    setHighlightCred(credParam)
+    const t = setTimeout(() => document.getElementById(`cred-${credParam}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 60)
+    const t2 = setTimeout(() => setHighlightCred(null), 2600)
+    return () => { clearTimeout(t); clearTimeout(t2) }
+  }, [credParam, activeTab, credentials])
 
   // "/" on a client page opens the client-scoped search modal. Respects
   // input focus so typing "/" in a text field doesn't hijack it.
@@ -670,7 +576,6 @@ export default function ClientDetailPage() {
   }, [id])
 
   useEffect(() => {
-    if (activeTab === "Dashboard" && !dashboardData) fetchDashboard()
     if (activeTab === "Assets" && assets.length === 0) { fetchAssets(); if (assetTypes.length === 0) fetchAssetTypes(); if (vendorsList.length === 0) fetchVendorsList(); fetchDiscovered() }
     if (activeTab === "Credentials" && credentials.length === 0) fetchCredentials()
     if (activeTab === "Licenses" && licenses.length === 0) { fetchLicenses(); if (vendorsList.length === 0) fetchVendorsList(); if (assets.length === 0) fetchAssets() }
@@ -758,7 +663,9 @@ export default function ClientDetailPage() {
     try {
       const res = await fetch("/api/clients/" + id)
       if (!res.ok) { router.push("/clients"); return }
-      setClient(await res.json())
+      const c = await res.json()
+      setClient(c)
+      pushRecent({ type: "client", id: c.id, title: c.name, href: `/clients/${c.id}`, clientId: c.id, clientName: c.name })
     } catch { router.push("/clients") }
     finally { setLoadingClient(false) }
   }
@@ -1805,8 +1712,8 @@ export default function ClientDetailPage() {
           <span style={{ fontSize: "13px", color: "var(--color-text-primary)" }}>{client.name}</span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", marginTop: "8px", position: "relative" }}>
-          <h1 style={{ fontSize: "22px", fontWeight: 500 }}>{client.name}</h1>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 12px", marginBottom: "20px", marginTop: "8px", position: "relative" }}>
+          <h1 style={{ fontSize: "22px", fontWeight: 500, minWidth: 0 }}>{client.name}</h1>
           <span style={{
             fontSize: "12px", padding: "3px 8px", borderRadius: "6px",
             background: "var(--color-background-secondary)",
@@ -1824,7 +1731,7 @@ export default function ClientDetailPage() {
               border: "0.5px solid var(--color-border-secondary)",
               background: "var(--color-background-secondary)",
               color: "var(--color-text-secondary)",
-              cursor: "pointer",
+              cursor: "pointer", whiteSpace: "nowrap",
               display: "flex", alignItems: "center", gap: "6px",
             }}
           >
@@ -1836,9 +1743,6 @@ export default function ClientDetailPage() {
               border: "0.5px solid var(--color-border-tertiary)",
             }}>/</kbd>
           </button>
-          {isAdmin && (
-            <ExportCsvMenu clientId={String(id)} />
-          )}
           {completeness && (
             <>
               <button
@@ -1892,168 +1796,96 @@ export default function ClientDetailPage() {
           )}
         </div>
 
-        <ClientTabNav activeTab={activeTab} setActiveTab={setActiveTab} tabCounts={tabCounts} />
+        {/* Desktop: the context sidebar is the client nav. Phones: this button
+            opens the same nav as a sheet. */}
+        <button type="button" className="dh-mobile-section-btn" onClick={() => window.dispatchEvent(new Event("dochub:open-nav"))}>
+          <span>{activeTab === "Dashboard" ? "Overview" : activeTab === "Network" ? `Network · ${NETWORK_SUBS.find((x) => x.sub === networkSubTab)?.label ?? ""}` : activeTab}</span>
+          <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>Sections ▾</span>
+        </button>
 
         {activeTab === "Dashboard" && (
-          <div style={{ maxWidth: "960px" }}>
-            {/* Top row: details + notes */}
-            <div className="pcc-collapse-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
-              <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "20px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "12px" }}>Details</div>
-                {[
-                  { label: "Type", value: client.type === "BUSINESS" ? "Business" : "Residential" },
-                  { label: "Syncro ID", value: client.syncroId ?? "Not linked" },
-                  { label: "Status", value: client.isActive ? "Active" : "Inactive" },
-                  { label: "Locations", value: String(client.locations.length) },
-                  { label: "People", value: String(client.people.length) },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-                    <span style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>{label}</span>
-                    <span style={{ fontSize: "13px" }}>{value}</span>
+          <ClientOverview
+            clientId={client.id}
+            counts={tabCounts}
+            completeness={completeness}
+          />
+        )}
+
+        {activeTab === "Client Settings" && (
+          <div style={{ maxWidth: 760, display: "flex", flexDirection: "column", gap: 16 }}>
+            <section className="dh-card">
+              <div className="dh-card-head"><span className="dh-card-title">Client details</span></div>
+              {!editingClient ? (
+                <>
+                  {[
+                    { label: "Name", value: client.name },
+                    { label: "Type", value: client.type === "BUSINESS" ? "Business" : "Residential" },
+                    { label: "Syncro ID", value: client.syncroId ?? "Not linked" },
+                    { label: "Status", value: client.isActive ? "Active" : "Inactive" },
+                    { label: "Locations", value: String(client.locations.length) },
+                    { label: "People", value: String(client.people.length) },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="dh-row" style={{ justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{label}</span>
+                      <span style={{ fontSize: 13 }}>{value}</span>
+                    </div>
+                  ))}
+                  <div className="dh-row" style={{ alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Notes</span>
+                    <span style={{ fontSize: 13, whiteSpace: "pre-wrap", textAlign: "right", maxWidth: "70%" }}>{client.notes || "—"}</span>
                   </div>
-                ))}
-              </div>
-              {client.notes && (
-                <div style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "20px" }}>
-                  <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: "8px" }}>Notes</div>
-                  <div style={{ fontSize: "14px", lineHeight: "1.6" }}>{client.notes}</div>
-                </div>
-              )}
-            </div>
-
-            {/* Favorited assets */}
-            <div style={{ marginBottom: "24px" }}>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
-                Quick Access — Assets
-              </div>
-              {loadingDashboard ? (
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Loading...</div>
-              ) : !dashboardData || dashboardData.favoritedAssets.length === 0 ? (
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                  No favorited assets. Star an asset on the Assets tab to pin it here.
-                </div>
+                  <button
+                    type="button"
+                    onClick={() => { setClientForm({ name: client.name, type: client.type, notes: client.notes ?? "" }); setEditingClient(true) }}
+                    style={{ marginTop: 12, fontSize: 13, padding: "8px 14px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-primary)", cursor: "pointer" }}
+                  >
+                    Edit details
+                  </button>
+                </>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "10px" }}>
-                  {dashboardData.favoritedAssets.map((a: any) => (
-                    <div key={a.id} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "14px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "6px" }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {a.friendlyName || a.name}
-                          </div>
-                          {a.friendlyName && a.friendlyName !== a.name && (
-                            <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace" }}>{a.name}</div>
-                          )}
-                          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>
-                            {[a.make, a.model].filter(Boolean).join(" ") || categoryLabel[a.category] || a.category}
-                          </div>
-                        </div>
-                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusColor[a.status] ?? "var(--muted)", flexShrink: 0, marginTop: "6px" }} />
-                      </div>
-                      {a.ipAddress && (
-                        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", fontFamily: "monospace", marginBottom: "8px" }}>{a.ipAddress}</div>
-                      )}
-                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                        {a.splashtopUrl && (
-                          <a href={a.splashtopUrl} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none", cursor: "pointer" }}>
-                            Splashtop
-                          </a>
-                        )}
-                        {a.rdpEnabled && (
-                          <a href={`/api/assets/${a.id}/rdp`} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none" }}>
-                            RDP
-                          </a>
-                        )}
-                        {a.vncEnabled && (
-                          <a href={`vnc://${a.vncHost || a.ipAddress}:${a.vncPort ?? 5900}`} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none" }}>
-                            VNC
-                          </a>
-                        )}
-                        {a.managementUrl && (
-                          <a href={a.managementUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", textDecoration: "none" }}>
-                            Syncro
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Name
+                    <input value={clientForm.name} onChange={(e) => setClientForm((f) => ({ ...f, name: e.target.value }))}
+                      style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 14 }} />
+                  </label>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Type
+                    <select value={clientForm.type} onChange={(e) => setClientForm((f) => ({ ...f, type: e.target.value }))}
+                      style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 14 }}>
+                      <option value="BUSINESS">Business</option>
+                      <option value="RESIDENTIAL">Residential</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Notes (shown on the Overview)
+                    <textarea rows={5} value={clientForm.notes} onChange={(e) => setClientForm((f) => ({ ...f, notes: e.target.value }))}
+                      style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 14, fontFamily: "var(--sans)" }} />
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={saveClient} disabled={savingClient || !clientForm.name.trim()}
+                      style={{ fontSize: 13, padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>
+                      {savingClient ? "Saving…" : "Save"}
+                    </button>
+                    <button type="button" onClick={() => setEditingClient(false)}
+                      style={{ fontSize: 13, padding: "8px 14px", borderRadius: 6, border: "0.5px solid var(--color-border-secondary)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
-            </div>
-
-            {/* Favorited credentials */}
-            <div>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
-                Quick Access — Credentials
-              </div>
-              {loadingDashboard ? (
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Loading...</div>
-              ) : !dashboardData || dashboardData.favoritedCredentials.length === 0 ? (
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                  No favorited credentials. Star a credential on the Credentials tab to pin it here.
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {dashboardData.favoritedCredentials.map((cred: any) => (
-                    <div key={cred.id} style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-                      <div style={{ fontSize: "14px", fontWeight: 500, minWidth: "120px" }}>{cred.label}</div>
-                      {cred.username && (
-                        <div style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-secondary)" }}>{cred.username}</div>
-                      )}
-                      {cred.hasPassword && (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                          <span style={{ fontSize: "13px", fontFamily: "monospace" }}>
-                            {dashRevealedPasswords[cred.id] ?? "••••••••••••"}
-                          </span>
-                          <button onClick={() => dashRevealedPasswords[cred.id]
-                            ? setDashRevealedPasswords(p => { const n = { ...p }; delete n[cred.id]; return n })
-                            : revealDashPassword(cred.id)
-                          } style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                            {dashRevealedPasswords[cred.id] ? "Hide" : "Show"}
-                          </button>
-                          {dashRevealedPasswords[cred.id] && (
-                            <button onClick={() => navigator.clipboard.writeText(dashRevealedPasswords[cred.id])} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
-                          )}
-                        </div>
-                      )}
-                      {cred.hasTotp && (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                          {dashRevealedTotps[cred.id] ? (
-                            <>
-                              <span style={{ fontSize: "15px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "3px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--accent2)" }}>{dashRevealedTotps[cred.id].code}</span>
-                              <span style={{ fontSize: "11px", color: totpSecondsLeft <= 5 ? "var(--warn)" : "var(--color-text-muted)", fontFamily: "monospace", minWidth: "28px" }}>{totpSecondsLeft}s</span>
-                              <button onClick={() => navigator.clipboard.writeText(dashRevealedTotps[cred.id].code)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Copy</button>
-                              <button onClick={() => setDashRevealedTotps(t => { const n = { ...t }; delete n[cred.id]; return n })} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Hide</button>
-                            </>
-                          ) : (
-                            <>
-                              <span style={{ fontSize: "13px", fontFamily: "monospace", color: "var(--color-text-muted)" }}>MFA</span>
-                              <button onClick={() => revealDashTotp(cred.id)} style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Show code</button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {cred.url && (
-                        <a href={cred.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", padding: "3px 10px", borderRadius: "6px", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-secondary)", textDecoration: "none" }}>
-                          Open ↗
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginTop: 16 }}>
-              <LifecycleRunbooksCard
-                clientId={client.id}
-                initial={{
-                  onboardingRunbookId:  client.onboardingRunbookId,
-                  offboardingRunbookId: client.offboardingRunbookId,
-                  newClientRunbookId:   client.newClientRunbookId,
-                }}
-              />
-            </div>
+            </section>
+            <LifecycleRunbooksCard
+              clientId={client.id}
+              initial={{
+                onboardingRunbookId:  client.onboardingRunbookId,
+                offboardingRunbookId: client.offboardingRunbookId,
+                newClientRunbookId:   client.newClientRunbookId,
+              }}
+            />
+            {isAdmin && (
+              <section className="dh-card">
+                <div className="dh-card-head"><span className="dh-card-title">Export</span></div>
+                <ExportCsvMenu clientId={String(id)} />
+              </section>
+            )}
           </div>
         )}
 
@@ -2821,7 +2653,7 @@ export default function ClientDetailPage() {
 
 
         {activeTab === "Credentials" && (
-          <div style={{ maxWidth: "700px" }}>
+          <div style={{ maxWidth: "1100px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
               <button onClick={() => setShowAddCred(true)} className="btn btn-secondary">Add credential</button>
             </div>
@@ -2898,16 +2730,47 @@ export default function ClientDetailPage() {
               const credHistory = expandedCredHistory[cred.id] ?? []
               const inpStyle = { width: "100%", padding: "7px 10px", fontSize: "13px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "7px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" as const }
               const rot = computeCredRotation(cred)
+              const expanded = !!expandedCreds[cred.id] || isEditing
+              // Only nag in the row for passwords that HAVE a rotation history;
+              // "never rotated" imports are surfaced once per client in Alerts.
+              const rowRot = cred.lastRotated && (rot.status === "overdue" || rot.status === "dueSoon")
+              const toggle = () => setExpandedCreds((e) => ({ ...e, [cred.id]: !e[cred.id] }))
               return (
-                <div key={cred.id} style={{
-                  background: "var(--color-background-secondary)",
-                  border: "0.5px solid var(--color-border-tertiary)",
-                  borderRadius: "10px", padding: "16px", marginBottom: "10px",
-                }}>
+                <div key={cred.id} id={`cred-${cred.id}`} className={`dh-cred${expanded ? " open" : ""}${highlightCred === cred.id ? " flash" : ""}`}>
+                  {/* Compact row — the 90% case: find it, copy, go. */}
+                  <div className="dh-cred-row">
+                    <button
+                      type="button"
+                      onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
+                      title={cred.isFavorite ? "Unpin from Overview" : "Pin to Overview"}
+                      aria-label={cred.isFavorite ? "Unpin from Overview" : "Pin to Overview"}
+                      className="dh-cred-star"
+                      style={{ color: cred.isFavorite ? "#f5b301" : "var(--color-text-muted)" }}
+                    >★</button>
+                    <button type="button" className="dh-cred-main" onClick={toggle} aria-expanded={expanded}>
+                      <span className="dh-cred-label">
+                        {cred.label}
+                        {!cred.allowTechReveal && <span className="dh-cred-chip" title="Only admins can reveal">ADMIN</span>}
+                        {rowRot && <span className="dh-cred-chip warn" title="Password is past (or near) its rotation policy">{rot.text}</span>}
+                      </span>
+                      <span className="dh-cred-user">{cred.username || (cred.user?.name ?? "")}</span>
+                    </button>
+                    <div className="dh-cred-actions">
+                      {cred.username && <SecretCopy credId={cred.id} field="username" plainValue={cred.username} label="User" compact />}
+                      {cred.hasPassword && <SecretCopy credId={cred.id} field="password" label="Password" compact />}
+                      {cred.hasTotp && <SecretCopy credId={cred.id} field="totp" label="2FA" compact />}
+                      {cred.url && (
+                        <a href={cred.url} target="_blank" rel="noopener noreferrer" className="dh-copy-btn compact" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Open ↗</a>
+                      )}
+                      <button type="button" onClick={toggle} className="dh-cred-chev" aria-label={expanded ? "Collapse" : "Details"} title={expanded ? "Collapse" : "Details, edit, history"}>
+                        {expanded ? "▴" : "▾"}
+                      </button>
+                    </div>
+                  </div>
+                  {expanded && (<div className="dh-cred-body">
                   {/* Header */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px", gap: "10px", flexWrap: "wrap" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                      <div style={{ fontSize: "14px", fontWeight: 500 }}>{cred.label}</div>
                       {boundSourceTag(cred.dataSource)}
                       {cred.user && (
                         <span onClick={() => { setActiveTab("People"); selectPerson(cred.user.id) }} style={{ fontSize: "11px", color: "var(--color-text-secondary)", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "4px", padding: "1px 6px", cursor: "pointer" }}>
@@ -2956,11 +2819,7 @@ export default function ClientDetailPage() {
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <button
-                        onClick={() => toggleCredFavorite(cred.id, cred.isFavorite)}
-                        title={cred.isFavorite ? "Remove from dashboard" : "Pin to dashboard"}
-                        style={{ fontSize: "16px", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: cred.isFavorite ? "var(--warn)" : "var(--color-text-muted)" }}
-                      >★</button>
+
                       {!isEditing && (
                         <button
                           onClick={() => {
@@ -2982,7 +2841,7 @@ export default function ClientDetailPage() {
                         <button
                           onClick={() => setRotateConfirmCred(cred)}
                           title="Record that this password was rotated out-of-band"
-                          style={{ fontSize: "12px", color: rot.status === "overdue" ? "var(--danger)" : rot.status === "dueSoon" ? "var(--warn)" : "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: rot.status === "overdue" ? 600 : 400 }}
+                          style={{ fontSize: "12px", color: "var(--color-text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >Mark rotated</button>
                       )}
                       {!isEditing && (rot.status === "overdue" || rot.status === "dueSoon") && (
@@ -3188,6 +3047,7 @@ export default function ClientDetailPage() {
                       </div>
                     </>
                   )}
+                  </div>)}
                 </div>
               )
             })}

@@ -2,6 +2,8 @@
 
 import AppShell from "@/components/AppShell"
 import { useState, useEffect, Suspense } from "react"
+import Link from "next/link"
+import { getRecentClients, RECENTS_EVENT } from "@/lib/recents"
 import { useRouter, useSearchParams } from "next/navigation"
 import CastButton from "@/components/CastButton"
 
@@ -41,7 +43,11 @@ function healthPillStyle(score: number | undefined): React.CSSProperties {
 // prerender doesn't bail out. Default export below wraps it.
 function ClientsPageInner() {
   const [clients, setClients] = useState<Client[]>([])
+  // /api/clients/completeness returns id → score, or id → { score, nextAction }.
   const [scores, setScores] = useState<Record<string, number>>({})
+  const [nextActions, setNextActions] = useState<Record<string, string>>({})
+  const [pinned, setPinned] = useState<{ id: string; name: string }[]>([])
+  const [recent, setRecent] = useState<{ id: string; name: string }[]>([])
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -55,7 +61,26 @@ function ClientsPageInner() {
   useEffect(() => {
     fetchClients()
     fetchScores()
+    fetch("/api/me/pinned-clients").then((r) => (r.ok ? r.json() : null)).then((d) => d && setPinned(d.pinned ?? [])).catch(() => {})
+    const load = () => setRecent(getRecentClients(8))
+    load()
+    window.addEventListener(RECENTS_EVENT, load)
+    return () => window.removeEventListener(RECENTS_EVENT, load)
   }, [])
+
+  async function togglePin(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    const isPinned = pinned.some((p) => p.id === id)
+    const res = await fetch("/api/me/pinned-clients", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: id, pinned: !isPinned }),
+    }).catch(() => null)
+    if (res?.ok) {
+      const d = await res.json()
+      setPinned(d.pinned ?? [])
+      window.dispatchEvent(new Event("dochub:pins-changed"))
+    }
+  }
 
   useEffect(() => {
     if (searchParams?.get("new") === "1") setShowAdd(true)
@@ -79,7 +104,18 @@ function ClientsPageInner() {
       const res = await fetch("/api/clients/completeness")
       if (!res.ok) return
       const data = await res.json()
-      setScores(data)
+      const sc: Record<string, number> = {}
+      const na: Record<string, string> = {}
+      for (const [id, v] of Object.entries(data ?? {})) {
+        if (typeof v === "number") sc[id] = v
+        else if (v && typeof v === "object") {
+          const o = v as { score?: number; nextAction?: string | null }
+          if (typeof o.score === "number") sc[id] = o.score
+          if (o.nextAction) na[id] = o.nextAction
+        }
+      }
+      setScores(sc)
+      setNextActions(na)
     } catch (e) {
       console.error(e)
     }
@@ -192,24 +228,44 @@ function ClientsPageInner() {
           </div>
         )}
 
+        {(pinned.length > 0 || recent.length > 0) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+            {[{ title: "Pinned", list: pinned, star: true }, { title: "Recent", list: recent.filter((r) => !pinned.some((p) => p.id === r.id)), star: false }]
+              .filter((g) => g.list.length > 0)
+              .map((g) => (
+                <div key={g.title} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, fontFamily: "var(--mono)", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--color-text-muted)", width: 56 }}>{g.title}</span>
+                  {g.list.map((c) => (
+                    <Link key={c.id} href={`/clients/${c.id}`} className="dh-client-chip">
+                      {g.star && <span style={{ color: "#f5b301" }}>★</span>}{c.name}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+          </div>
+        )}
+
         <div style={{ marginBottom: "16px", maxWidth: "400px" }}>
           <input
             type="text"
             placeholder="Search clients..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && filtered[0]) router.push("/clients/" + filtered[0].id) }}
+            autoFocus
+            aria-label="Filter clients (Enter opens the first match)"
             className="filter-input"
             style={{ width: "100%" }}
           />
         </div>
 
         <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "10px", overflow: "hidden" }}>
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 70px 80px",
+          <div className="dh-clients-grid" style={{
+            display: "grid", gridTemplateColumns: "28px 1fr 120px 60px 60px 60px 70px 70px 80px",
             padding: "10px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)",
             background: "var(--color-background-secondary)",
           }}>
-            {["Client name", "Type", "Sites", "People", "Assets", "Alarms", "Health", "Last sync"].map((h) => (
+            {["", "Client name", "Type", "Sites", "People", "Assets", "Alarms", "Health", "Last sync"].map((h) => (
               <div key={h} style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>{h}</div>
             ))}
           </div>
@@ -226,9 +282,10 @@ function ClientsPageInner() {
             filtered.map((client, i) => (
               <div
                 key={client.id}
+                className="dh-clients-grid"
                 onClick={() => router.push("/clients/" + client.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 120px 60px 60px 60px 70px 70px 80px",
+                  display: "grid", gridTemplateColumns: "28px 1fr 120px 60px 60px 60px 70px 70px 80px",
                   padding: "12px 16px", cursor: "pointer",
                   borderBottom: i < filtered.length - 1 ? "0.5px solid var(--color-border-tertiary)" : "none",
                   background: "var(--color-background-primary)",
@@ -236,6 +293,13 @@ function ClientsPageInner() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-background-secondary)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-background-primary)")}
               >
+                <button
+                  type="button"
+                  onClick={(e) => togglePin(e, client.id)}
+                  aria-label={pinned.some((p) => p.id === client.id) ? `Unpin ${client.name}` : `Pin ${client.name}`}
+                  title={pinned.some((p) => p.id === client.id) ? "Unpin" : "Pin to sidebar"}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 14, color: pinned.some((p) => p.id === client.id) ? "#f5b301" : "var(--color-text-muted)", opacity: pinned.some((p) => p.id === client.id) ? 1 : 0.5 }}
+                >★</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {client.name}
@@ -269,7 +333,7 @@ function ClientsPageInner() {
                 </div>
                 <div>
                   <span
-                    title="Documentation completeness"
+                    title={nextActions[client.id] ? `Next: ${nextActions[client.id]}` : "Documentation completeness"}
                     style={{
                       display: "inline-block", fontSize: "11px", fontWeight: 600,
                       padding: "2px 7px", borderRadius: "10px",

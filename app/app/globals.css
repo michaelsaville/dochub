@@ -444,3 +444,165 @@ h3 { font-size: var(--text-lg); font-weight: 600; line-height: 1.35; }
   color: var(--text) !important;
   background: var(--color-background-tertiary, rgba(61,111,255,0.06)) !important;
 }
+
+/* ─── Context sidebar (2026-11 nav overhaul) ─────────────────────────────── */
+.dh-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 32px; padding: 6px 10px; margin-bottom: 1px;
+  border-radius: 6px; border-left: 2px solid transparent;
+  font-size: 13px; color: var(--muted); text-decoration: none;
+  transition: color .12s, background .12s;
+}
+.dh-nav-item:hover { color: var(--text); background: rgba(61,111,255,0.05); }
+.dh-nav-item.active { color: var(--text); font-weight: 500; background: rgba(61,111,255,0.1); border-left-color: var(--accent); }
+.dh-nav-item.indent { padding-left: 22px; font-size: 12px; min-height: 28px; }
+.dh-nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-nav-count { font-family: var(--mono); font-size: 10px; color: var(--color-text-muted); }
+.dh-nav-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; line-height: 1;
+  padding: 3px 6px; border-radius: 9px; background: var(--danger, #ef4444); color: #fff;
+}
+.dh-nav-heading {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: 10px 10px 4px; font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--color-text-muted); font-family: var(--mono);
+}
+.dh-nav-heading-btn { background: none; border: none; cursor: pointer; text-align: left; }
+.dh-nav-heading-btn:hover { color: var(--text); }
+.dh-nav-search {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px;
+  padding: 7px 10px; border-radius: 6px; cursor: pointer;
+  background: rgba(61,111,255,0.06); border: 0.5px solid var(--color-border-tertiary);
+  color: var(--muted); font-size: 12px; font-family: var(--sans);
+}
+.dh-nav-search:hover { color: var(--text); border-color: var(--color-border-secondary); }
+.dh-nav-back { display: block; padding: 6px 10px 2px; font-size: 11px; color: var(--color-text-muted); text-decoration: none; }
+.dh-nav-back:hover { color: var(--accent); }
+.dh-client-switch {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer; text-align: left;
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary);
+  color: var(--text); font-size: 14px; font-weight: 600; font-family: var(--sans);
+}
+.dh-client-switch:hover { border-color: var(--accent); }
+.dh-client-switch-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-pin-btn {
+  width: 34px; flex-shrink: 0; border-radius: 6px; cursor: pointer; font-size: 15px;
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); color: var(--muted);
+}
+.dh-pin-btn.on { color: #f5b301; }
+.dh-switch-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60;
+  max-height: 60vh; overflow-y: auto; padding: 4px;
+  background: var(--color-background-secondary); border: 0.5px solid var(--color-border-secondary);
+  border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.35);
+}
+.dh-switch-heading { padding: 8px 8px 2px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--color-text-muted); font-family: var(--mono); }
+.dh-switch-item { display: block; padding: 8px; border-radius: 5px; font-size: 13px; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-switch-item:hover { background: rgba(61,111,255,0.1); }
+.dh-nav-more {
+  display: block; width: 100%; text-align: left; padding: 6px 10px; margin-top: 2px;
+  background: none; border: none; cursor: pointer; font-size: 11px; color: var(--color-text-muted);
+}
+.dh-nav-more:hover { color: var(--accent); }
+.dh-foot-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; min-height: 30px;
+  padding: 4px 6px; border-radius: 6px; font-size: 11px; cursor: pointer; text-decoration: none;
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); color: var(--muted);
+}
+.dh-foot-btn:hover, .dh-foot-btn.active { color: var(--text); border-color: var(--color-border-secondary); }
+
+/* Aux-display pill: sits just right of the sidebar on desktop (it used to
+   cover the sidebar's Sign out), above the bottom bar on phones. */
+.dh-aux-pill { left: calc(232px + 14px); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 767px) {
+  .dh-aux-pill { left: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Mobile nav sheet (same Sidebar component, variant="sheet") */
+.dh-sheet-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.5); }
+.dh-sheet-panel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 91; height: min(86vh, 760px);
+  border-radius: 14px 14px 0 0; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--color-background-secondary); border-top: 0.5px solid var(--color-border-secondary);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.dh-sheet-panel .dh-nav-item { min-height: 42px; font-size: 15px; }
+.dh-sheet-panel .dh-nav-item.indent { min-height: 38px; font-size: 14px; }
+.dh-sheet-grab { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+
+/* Mobile-only "current section" button on the client page (the desktop
+   sidebar replaces it). */
+.dh-mobile-section-btn { display: none; }
+@media (max-width: 767px) {
+  .dh-mobile-section-btn {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    min-height: 44px; padding: 10px 14px; margin: 4px 0 12px; border-radius: 8px; cursor: pointer;
+    background: var(--color-background-secondary); border: 0.5px solid var(--color-border-secondary);
+    color: var(--text); font-size: 15px; font-weight: 500; font-family: var(--sans);
+  }
+}
+
+/* Copy buttons on credential rows (SecretCopy) */
+.dh-copy-btn {
+  min-height: 28px; min-width: 52px; padding: 3px 9px; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-family: var(--sans); white-space: nowrap;
+  background: transparent; border: 0.5px solid var(--color-border-secondary); color: var(--color-text-secondary);
+}
+.dh-copy-btn:hover { color: var(--text); border-color: var(--accent); }
+.dh-copy-btn.compact { min-width: 0; padding: 3px 7px; }
+.dh-copy-btn.ok { color: var(--accent2, #00d4aa); border-color: var(--accent2, #00d4aa); }
+.dh-copy-btn.err { color: var(--danger, #ff4d6d); border-color: var(--danger, #ff4d6d); }
+@media (max-width: 767px) { .dh-copy-btn { min-height: 36px; padding: 6px 12px; } }
+
+.dh-card {
+  background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 10px; padding: 16px 18px; min-width: 0;
+}
+.dh-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.dh-card-title { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-secondary); font-family: var(--mono); }
+.dh-card-link { font-size: 12px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.dh-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); min-width: 0; }
+.dh-row:last-child { border-bottom: none; }
+.dh-overview-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .dh-overview-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Credentials — compact rows with an expandable detail body */
+.dh-cred { border-bottom: 0.5px solid var(--color-border-tertiary); transition: background .3s; }
+.dh-cred:first-of-type { border-top: 0.5px solid var(--color-border-tertiary); }
+.dh-cred.open { background: var(--color-background-secondary); border-radius: 8px; border: 0.5px solid var(--color-border-secondary); margin: 6px 0; }
+.dh-cred.flash { background: rgba(61,111,255,0.16); }
+.dh-cred-row { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 4px 8px 4px 4px; }
+.dh-cred-star { width: 30px; height: 30px; flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 15px; }
+.dh-cred-main {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 12px;
+  background: none; border: none; cursor: pointer; text-align: left; padding: 6px 0; color: var(--text); font-family: var(--sans);
+}
+.dh-cred-label { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-cred-user { font-size: 12px; font-family: var(--mono); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-cred-chip { margin-left: 8px; font-size: 9px; font-weight: 600; font-family: var(--mono); padding: 1px 5px; border-radius: 4px; background: rgba(148,163,184,0.16); color: var(--muted); vertical-align: 1px; }
+.dh-cred-chip.warn { background: rgba(255,179,71,0.14); color: var(--warn); }
+.dh-cred-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.dh-cred-chev { width: 30px; height: 30px; border-radius: 6px; background: none; border: 0.5px solid transparent; color: var(--muted); cursor: pointer; }
+.dh-cred-chev:hover { border-color: var(--color-border-secondary); color: var(--text); }
+.dh-cred-body { padding: 4px 14px 14px 42px; }
+@media (max-width: 767px) {
+  .dh-cred-row { flex-wrap: wrap; }
+  .dh-cred-main { grid-template-columns: minmax(0, 1fr); gap: 2px; flex-basis: calc(100% - 40px); }
+  .dh-cred-actions { width: 100%; padding-left: 34px; flex-wrap: wrap; }
+  .dh-cred-body { padding: 4px 10px 12px; }
+}
+
+/* /clients — pinned/recent chips + phone-friendly grid */
+.dh-client-chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 4px 10px; border-radius: 15px;
+  font-size: 12px; text-decoration: none; color: var(--text);
+  background: var(--color-background-secondary); border: 0.5px solid var(--color-border-secondary);
+}
+.dh-clients-grid > :nth-child(1) { display: flex; align-items: center; }
+.dh-client-chip:hover { border-color: var(--accent); }
+@media (max-width: 767px) {
+  .dh-clients-grid { grid-template-columns: 28px minmax(0, 1fr) 56px !important; }
+  .dh-clients-grid > :nth-child(3), .dh-clients-grid > :nth-child(4), .dh-clients-grid > :nth-child(5),
+  .dh-clients-grid > :nth-child(6), .dh-clients-grid > :nth-child(7), .dh-clients-grid > :nth-child(9) { display: none; }
+}

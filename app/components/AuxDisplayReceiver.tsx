@@ -129,10 +129,9 @@ export default function AuxDisplayReceiver() {
 
   return (
     <div
+      className="dh-aux-pill"
       style={{
         position: "fixed",
-        left: "14px",
-        bottom: "calc(14px + env(safe-area-inset-bottom, 0px))",
         zIndex: 35,
         display: "flex",
         alignItems: "center",
