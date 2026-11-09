@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth"
 import { getClientScope, scopeAllows } from "@/lib/client-scope"
-import { getRotationSettings, computeRotation, rotationUrgency } from "@/lib/rotation"
+import { getRotationSettings, computeRotation, rotationUrgency, isRotationActionable } from "@/lib/rotation"
+import { expiryUrgency, type AlertUrgency } from "@/lib/alert-policy"
+import { getExpiryItems } from "@/lib/expiry-feed"
 
 export type AlertCategory = "ssl" | "domain" | "warranty" | "credential" | "license" | "contract" | "vpncert" | "circuit" | "operational"
-export type AlertUrgency = "expired" | "critical" | "warning" | "upcoming" | "info"
+export type { AlertUrgency }
 
 export interface UnifiedAlert {
   id: string
@@ -17,6 +19,8 @@ export interface UnifiedAlert {
   severity?: string        // for operational alarms
   status?: string          // for operational alarms (ACTIVE/DISMISSED/RESOLVED)
   urgency: AlertUrgency
+  stale?: boolean          // informational: expired >90d ago, or a never-rotated rollup
+  count?: number           // rollup items: how many underlying records
   expiresAt: string | null
   clientId: string
   clientName: string
@@ -24,16 +28,6 @@ export interface UnifiedAlert {
   credentialId?: string    // source credential id (rotation items — enables inline Mark-rotated)
   alarmId?: string         // if this is an operational alarm, its DB ID
   createdAt?: string       // for operational alarms
-}
-
-function computeUrgency(expiresAt: Date): AlertUrgency {
-  const now = new Date()
-  const diffMs = expiresAt.getTime() - now.getTime()
-  const days = diffMs / 86_400_000
-  if (days < 0) return "expired"
-  if (days <= 7) return "critical"
-  if (days <= 30) return "warning"
-  return "upcoming"
 }
 
 function alarmSeverityToUrgency(severity: string, status: string): AlertUrgency {
@@ -51,144 +45,37 @@ export async function GET(req: Request) {
   const clientId = url.searchParams.get("clientId") || undefined
   const category = url.searchParams.get("category") || undefined
 
-  // Run all queries in parallel
-  const [sslCerts, domains, warranties, credentials, licenses, vendorContracts, vpnCerts, circuits, alarms] = await Promise.all([
-    category && category !== "ssl" ? Promise.resolve([]) :
-    prisma.website.findMany({
-      where: { sslExpiresAt: { not: null }, ...(clientId ? { clientId } : {}) },
-      select: { id: true, domain: true, sslExpiresAt: true, sslIssuer: true, client: { select: { id: true, name: true } } },
-    }),
-    category && category !== "domain" ? Promise.resolve([]) :
-    prisma.website.findMany({
-      where: { expiresAt: { not: null }, ...(clientId ? { clientId } : {}) },
-      select: { id: true, domain: true, label: true, expiresAt: true, client: { select: { id: true, name: true } } },
-    }),
-    category && category !== "warranty" ? Promise.resolve([]) :
-    prisma.asset.findMany({
-      where: { warrantyExpiry: { not: null }, status: { notIn: ["RETIRED", "DISPOSED"] }, ...(clientId ? { location: { clientId } } : {}) },
-      select: { id: true, name: true, friendlyName: true, warrantyExpiry: true, location: { select: { client: { select: { id: true, name: true } } } } },
-    }),
-    category && category !== "credential" ? Promise.resolve([]) :
-    prisma.credential.findMany({
-      where: { isRetired: false, expiryDate: { not: null }, ...(clientId ? { clientId } : {}) },
-      select: { id: true, label: true, username: true, expiryDate: true, client: { select: { id: true, name: true } } },
-    }),
-    category && category !== "license" ? Promise.resolve([]) :
-    prisma.license.findMany({
-      where: { isActive: true, expiryDate: { not: null }, ...(clientId ? { clientId } : {}) },
-      select: { id: true, name: true, vendor: true, expiryDate: true, client: { select: { id: true, name: true } }, vendorRef: { select: { id: true, name: true } } },
-    }),
-    category && category !== "contract" ? Promise.resolve([]) :
-    prisma.vendorContract.findMany({
-      where: { endDate: { not: null }, ...(clientId ? { clientId } : {}) },
-      select: { id: true, name: true, contractType: true, endDate: true, vendor: { select: { id: true, name: true } }, client: { select: { id: true, name: true } } },
-    }),
-    category && category !== "vpncert" ? Promise.resolve([]) :
-    prisma.vpnAccessor.findMany({
-      where: { isActive: true, certExpiry: { not: null }, ...(clientId ? { gateway: { clientId } } : {}) },
-      select: { id: true, certExpiry: true, thirdPartyName: true, person: { select: { name: true } }, vendor: { select: { name: true } }, staffUser: { select: { name: true } }, gateway: { select: { id: true, name: true, client: { select: { id: true, name: true } } } } },
-    }),
-    category && category !== "circuit" ? Promise.resolve([]) :
-    prisma.internetCircuit.findMany({
-      where: { contractEnd: { not: null }, ...(clientId ? { clientId } : {}) },
-      select: { id: true, label: true, contractEnd: true, client: { select: { id: true, name: true } }, vendor: { select: { name: true } } },
-    }),
+  const includeInfo = url.searchParams.get("includeInfo") === "1"
+  const scope = await getClientScope()
+  if (clientId && !scopeAllows(scope, clientId)) {
+    return NextResponse.json({ error: "Not authorized for this client" }, { status: 403 })
+  }
+
+  const [expiries, alarms] = await Promise.all([
+    getExpiryItems({ clientId, category, scope }),
     category && category !== "operational" ? Promise.resolve([]) :
     prisma.alarm.findMany({
-      where: { ...(clientId ? { clientId } : {}) },
+      where: {
+        ...(clientId ? { clientId } : !scope.all ? { clientId: { in: scope.clientIds } } : {}),
+      },
       orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
       include: { client: { select: { id: true, name: true } } },
     }),
   ])
 
   const items: UnifiedAlert[] = [
-    ...sslCerts.map(w => ({
-      id: `ssl-${w.id}`,
-      category: "ssl" as const,
-      label: w.domain,
-      sublabel: w.sslIssuer ?? undefined,
-      urgency: computeUrgency(w.sslExpiresAt!),
-      expiresAt: w.sslExpiresAt!.toISOString(),
-      clientId: w.client.id,
-      clientName: w.client.name,
-      linkPath: `/clients/${w.client.id}?tab=Domains`,
-    })),
-    ...domains.map(w => ({
-      id: `domain-${w.id}`,
-      category: "domain" as const,
-      label: w.domain,
-      sublabel: w.label ?? undefined,
-      urgency: computeUrgency(w.expiresAt!),
-      expiresAt: w.expiresAt!.toISOString(),
-      clientId: w.client.id,
-      clientName: w.client.name,
-      linkPath: `/clients/${w.client.id}?tab=Domains`,
-    })),
-    ...warranties.map(a => ({
-      id: `warranty-${a.id}`,
-      category: "warranty" as const,
-      label: a.friendlyName ?? a.name,
-      urgency: computeUrgency(a.warrantyExpiry!),
-      expiresAt: a.warrantyExpiry!.toISOString(),
-      clientId: a.location.client.id,
-      clientName: a.location.client.name,
-      linkPath: `/assets/${a.id}`,
-    })),
-    ...credentials.map(c => ({
-      id: `credential-${c.id}`,
-      category: "credential" as const,
-      kind: "expiry" as const,
-      label: c.label,
-      sublabel: c.username ?? undefined,
-      urgency: computeUrgency(c.expiryDate!),
-      expiresAt: c.expiryDate!.toISOString(),
-      clientId: c.client.id,
-      clientName: c.client.name,
-      linkPath: `/clients/${c.client.id}?tab=Credentials`,
-    })),
-    ...licenses.map(l => ({
-      id: `license-${l.id}`,
-      category: "license" as const,
-      label: l.name,
-      sublabel: l.vendorRef?.name ?? l.vendor ?? undefined,
-      urgency: computeUrgency(l.expiryDate!),
-      expiresAt: l.expiryDate!.toISOString(),
-      clientId: l.client.id,
-      clientName: l.client.name,
-      linkPath: `/clients/${l.client.id}?tab=Licenses`,
-    })),
-    ...vendorContracts.map(v => ({
-      id: `contract-${v.id}`,
-      category: "contract" as const,
-      label: v.name,
-      sublabel: [v.vendor.name, v.contractType].filter(Boolean).join(" · "),
-      urgency: computeUrgency(v.endDate!),
-      expiresAt: v.endDate!.toISOString(),
-      clientId: v.client?.id ?? "",
-      clientName: v.client?.name ?? v.vendor.name,
-      linkPath: `/vendors/${v.vendor.id}`,
-    })),
-    ...vpnCerts.map(a => ({
-      id: `vpncert-${a.id}`,
-      category: "vpncert" as const,
-      label: `${a.person?.name ?? a.vendor?.name ?? a.staffUser?.name ?? a.thirdPartyName ?? "VPN access"} cert`,
-      sublabel: a.gateway.name,
-      urgency: computeUrgency(a.certExpiry!),
-      expiresAt: a.certExpiry!.toISOString(),
-      clientId: a.gateway.client.id,
-      clientName: a.gateway.client.name,
-      linkPath: `/clients/${a.gateway.client.id}?tab=Remote Access`,
-    })),
-    ...circuits.map(c => ({
-      id: `circuit-${c.id}`,
-      category: "circuit" as const,
-      label: c.label,
-      sublabel: c.vendor?.name ?? undefined,
-      urgency: computeUrgency(c.contractEnd!),
-      expiresAt: c.contractEnd!.toISOString(),
-      clientId: c.client.id,
-      clientName: c.client.name,
-      linkPath: `/clients/${c.client.id}?tab=Network`,
+    ...expiries.map(e => ({
+      id: e.id,
+      category: e.category,
+      ...(e.category === "credential" ? { kind: "expiry" as const } : {}),
+      label: e.label,
+      sublabel: e.sublabel,
+      urgency: expiryUrgency(e.expiresAt),
+      stale: e.stale || undefined,
+      expiresAt: e.expiresAt.toISOString(),
+      clientId: e.clientId,
+      clientName: e.clientName,
+      linkPath: e.linkPath,
     })),
     ...alarms.map(a => ({
       id: `alarm-${a.id}`,
@@ -209,63 +96,91 @@ export async function GET(req: Request) {
   ]
 
   // ─── Password rotation (compute-on-read, kind:"rotation") ─────────────────
-  // Separate from the expiryDate items above: rotation staleness is a policy
-  // computed from lastRotated (fallback createdAt) for ALL non-retired creds,
-  // not just those carrying a hard expiry date. Gated by rotation:enabled and
-  // scoped so a restricted tech only sees their own clients' creds.
+  // Rule lives in lib/rotation-policy.ts. Creds with a real rotation baseline
+  // that are overdue/due soon → one alert each. Creds that have NEVER been
+  // rotated (status "unknown") → ONE info item per client, not N criticals.
   const rotationSettings = await getRotationSettings()
   if (rotationSettings.enabled && (!category || category === "credential")) {
-    const scope = await getClientScope()
-    if (!clientId || scopeAllows(scope, clientId)) {
-      const rotWhere: {
-        isRetired: boolean; rotationExempt: boolean; clientId?: string | { in: string[] }
-      } = { isRetired: false, rotationExempt: false }
-      if (clientId) rotWhere.clientId = clientId
-      else if (!scope.all) rotWhere.clientId = { in: scope.clientIds }
+    const rotWhere: {
+      isRetired: boolean; rotationExempt: boolean; clientId?: string | { in: string[] }
+    } = { isRetired: false, rotationExempt: false }
+    if (clientId) rotWhere.clientId = clientId
+    else if (!scope.all) rotWhere.clientId = { in: scope.clientIds }
 
-      const rotationCreds = await prisma.credential.findMany({
-        where: rotWhere,
-        select: {
-          id: true, label: true, username: true, lastRotated: true, createdAt: true,
-          rotationIntervalDays: true, rotationSnoozedUntil: true,
-          client: { select: { id: true, name: true } },
-        },
-      })
+    const rotationCreds = await prisma.credential.findMany({
+      where: rotWhere,
+      select: {
+        id: true, label: true, username: true, lastRotated: true, createdAt: true,
+        rotationIntervalDays: true, rotationSnoozedUntil: true,
+        client: { select: { id: true, name: true } },
+      },
+    })
 
-      for (const c of rotationCreds) {
-        const r = computeRotation(c, rotationSettings)
-        if (r.status !== "overdue" && r.status !== "dueSoon") continue
-        items.push({
-          id: `rotation-${c.id}`,
-          category: "credential",
-          kind: "rotation",
-          label: c.label,
-          sublabel: r.status === "overdue"
-            ? `Rotation overdue · ${r.daysOverdue}d`
-            : `Rotation due in ${r.daysUntilDue}d`,
-          urgency: rotationUrgency(r),
-          expiresAt: r.dueDate ? r.dueDate.toISOString() : null,
-          clientId: c.client.id,
-          clientName: c.client.name,
-          credentialId: c.id,
-          linkPath: `/clients/${c.client.id}?tab=Credentials`,
-        })
+    const unknownByClient = new Map<string, { name: string; count: number }>()
+    for (const c of rotationCreds) {
+      const r = computeRotation(c, rotationSettings)
+      if (r.status === "unknown") {
+        const g = unknownByClient.get(c.client.id) ?? { name: c.client.name, count: 0 }
+        g.count++
+        unknownByClient.set(c.client.id, g)
+        continue
       }
+      if (!isRotationActionable(r)) continue
+      items.push({
+        id: `rotation-${c.id}`,
+        category: "credential",
+        kind: "rotation",
+        label: c.label,
+        sublabel: r.status === "overdue"
+          ? `Rotation overdue · ${r.daysOverdue}d`
+          : `Rotation due in ${r.daysUntilDue}d`,
+        urgency: rotationUrgency(r),
+        expiresAt: r.dueDate ? r.dueDate.toISOString() : null,
+        clientId: c.client.id,
+        clientName: c.client.name,
+        credentialId: c.id,
+        linkPath: `/clients/${c.client.id}?tab=Credentials`,
+      })
+    }
+    for (const [cid, g] of unknownByClient) {
+      items.push({
+        id: `rotation-unknown-${cid}`,
+        category: "credential",
+        kind: "rotation",
+        label: `${g.count} credential${g.count === 1 ? " has" : "s have"} no rotation date`,
+        sublabel: "Mark rotated (or exempt) to start tracking",
+        urgency: "info",
+        stale: true,
+        count: g.count,
+        expiresAt: null,
+        clientId: cid,
+        clientName: g.name,
+        linkPath: `/clients/${cid}?tab=Credentials`,
+      })
     }
   }
 
-  // Sort: expired first, then critical, warning, upcoming, info
+  // Sort: expired first, then critical, warning, upcoming, info; nearest date first within a tier
   const urgencyOrder = { expired: 0, critical: 1, warning: 2, upcoming: 3, info: 4 }
-  items.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency])
+  const t = (i: UnifiedAlert) => (i.expiresAt ? Math.abs(new Date(i.expiresAt).getTime() - Date.now()) : Infinity)
+  items.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency] || t(a) - t(b))
 
-  // Stats
+  // Stats. `info` items (long-expired >90d, never-rotated rollups, resolved
+  // alarms) are counted separately and NEVER feed expired/critical, so the
+  // header bell (expired + critical) reflects only actionable items.
+  const loud = items.filter(i => i.urgency !== "info")
   const stats = {
-    total: items.length,
-    expired: items.filter(i => i.urgency === "expired").length,
-    critical: items.filter(i => i.urgency === "critical").length,
-    warning: items.filter(i => i.urgency === "warning").length,
-    upcoming: items.filter(i => i.urgency === "upcoming").length,
+    total: loud.length,
+    expired: loud.filter(i => i.urgency === "expired").length,
+    critical: loud.filter(i => i.urgency === "critical").length,
+    warning: loud.filter(i => i.urgency === "warning").length,
+    upcoming: loud.filter(i => i.urgency === "upcoming").length,
+    info: items.length - loud.length,
+    infoLongExpiredWarranty: items.filter(i => i.category === "warranty" && i.stale).length,
+    infoLongExpiredOther: items.filter(i => i.category !== "warranty" && i.stale && i.kind !== "rotation").length,
+    infoNoRotationDate: items.filter(i => i.id.startsWith("rotation-unknown-")).reduce((s, i) => s + (i.count ?? 0), 0),
   }
 
-  return NextResponse.json({ items, stats })
+  // Default response = actionable only; ?includeInfo=1 adds the info items.
+  return NextResponse.json({ items: includeInfo ? items : loud, stats })
 }

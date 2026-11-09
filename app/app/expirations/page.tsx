@@ -119,15 +119,17 @@ export default function ExpirationsPage() {
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all")
   const [clientFilter, setClientFilter] = useState<string>("all")
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyKey | "all">("all")
+  // Items expired > 90 days ago are informational and hidden unless asked for.
+  const [includeStale, setIncludeStale] = useState(false)
 
   useEffect(() => {
     setLoading(true)
-    fetch("/api/expirations")
+    fetch(`/api/expirations${includeStale ? "?includeStale=1" : ""}`)
       .then(r => r.json())
       .then(setItems)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [includeStale])
 
   const clients = useMemo(() => {
     const map = new Map<string, string>()
@@ -184,6 +186,12 @@ export default function ExpirationsPage() {
               {loading ? "Loading..." : `${items.length} item${items.length !== 1 ? "s" : ""} with expiry data across all clients`}
             </p>
           </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "var(--color-text-secondary)", cursor: "pointer", minHeight: "36px" }}
+            title="Show items that expired more than 90 days ago (informational)">
+            <input type="checkbox" checked={includeStale} onChange={e => setIncludeStale(e.target.checked)} />
+            Include long expired (&gt;90d)
+          </label>
           <select
             value={clientFilter}
             onChange={e => setClientFilter(e.target.value)}
@@ -194,6 +202,7 @@ export default function ExpirationsPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          </div>
         </div>
 
         {/* Stat tiles */}

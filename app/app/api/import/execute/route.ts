@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { normalizeMac, normalizeSerial } from "@/lib/asset-identity"
 import { requireAuth } from "@/lib/auth"
 import { encrypt } from "@/lib/crypto"
 
@@ -119,6 +120,20 @@ export async function POST(req: Request) {
             location = await prisma.location.create({
               data: { clientId: row.clientId, name: "Main Office" },
             })
+          }
+          // Don't create a twin of hardware this client already has (e.g. a
+          // Syncro-synced row) — match on normalised serial, then MAC.
+          const nSerial = normalizeSerial(serial)
+          const nMac = normalizeMac(macAddress)
+          if (nSerial || nMac) {
+            const existing = await prisma.asset.findMany({
+              where: { location: { clientId: row.clientId }, OR: [{ serial: { not: null } }, { macAddress: { not: null } }] },
+              select: { serial: true, macAddress: true },
+            })
+            if (existing.some((e) => (nSerial && normalizeSerial(e.serial) === nSerial) || (nMac && normalizeMac(e.macAddress) === nMac))) {
+              skipped++
+              continue
+            }
           }
           await prisma.asset.create({
             data: {

@@ -1,20 +1,29 @@
 {
   "manifest_version": 3,
   "name": "DocHub",
-  "version": "2.0.0",
-  "description": "PCC2K DocHub — credential search, autofill, TOTP, password generator",
+  "version": "2.1.0",
+  "description": "PCC2K DocHub — credential search, one-click fill (incl. Microsoft 365 / Google split logins), TOTP, password generator",
   "icons": {
-    "16":  "icons/icon-16.png",
-    "48":  "icons/icon-48.png",
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
   "action": {
     "default_popup": "popup.html",
     "default_title": "DocHub",
     "default_icon": {
-      "16":  "icons/icon-16.png",
-      "48":  "icons/icon-48.png",
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+D",
+        "mac": "Alt+Shift+D"
+      },
+      "description": "Open DocHub"
     }
   },
   "permissions": [
@@ -24,7 +33,17 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://dochub.pcc2k.com/*"
+    "https://dochub.pcc2k.com/*",
+    "https://login.microsoftonline.com/*",
+    "https://login.microsoft.com/*",
+    "https://login.live.com/*",
+    "https://login.windows.net/*",
+    "https://account.live.com/*",
+    "https://accounts.google.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
   ],
   "background": {
     "service_worker": "background.js"
