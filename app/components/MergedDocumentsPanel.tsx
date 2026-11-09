@@ -330,7 +330,7 @@ function FolderPickerMenu({
   )
 }
 
-export default function MergedDocumentsPanel({ clientId }: { clientId: string }): JSX.Element {
+export default function MergedDocumentsPanel({ clientId, autoNew = false }: { clientId: string; autoNew?: boolean }): JSX.Element {
   // ---- data ----
   const [folders, setFolders] = useState<Folder[]>([])
   const [docs, setDocs] = useState<Doc[]>([])
@@ -353,6 +353,8 @@ export default function MergedDocumentsPanel({ clientId }: { clientId: string })
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null)
   const [editingDoc, setEditingDoc] = useState<string | null>(null)
   const [showNewDoc, setShowNewDoc] = useState(false)
+  // ?tab=Documents&new=1 (quick-add button, ⌘K "New document in …") opens the form.
+  useEffect(() => { if (autoNew) setShowNewDoc(true) }, [autoNew])
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [contentTab, setContentTab] = useState<Record<string, "write" | "preview">>({})
   const [newForm, setNewForm] = useState({ title: "", content: "", category: "", isPinned: false, folderId: null as string | null })

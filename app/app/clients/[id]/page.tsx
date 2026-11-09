@@ -495,6 +495,7 @@ export default function ClientDetailPage() {
       case "Assets":      setShowAddAsset(true); break
       case "Domains":     setShowAddWebsite(true); break
       case "Network":     setShowAddAsset(true); break  // network gear is documented as an Asset
+      case "SOPs":        router.push(`/runbooks/new?clientId=${id}`); break
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, newParam])
@@ -4079,7 +4080,7 @@ export default function ClientDetailPage() {
 
         {activeTab === "Documents" && (
           <div>
-            <MergedDocumentsPanel clientId={id as string} />
+            <MergedDocumentsPanel clientId={id as string} autoNew={newParam === "1"} />
           </div>
         )}
 
